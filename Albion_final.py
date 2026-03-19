@@ -138,7 +138,7 @@ class GroqRotator:
                     time.sleep(self.COOLDOWN_SECONDS)
                     self._unblock_ready()
                     if not self._rotate():
-                        raise Exception("ALL GROQ KEYS EXHAUSTED")
+                        raise Exception("ALL GROQ KEYS EXHAUSTED. Consider adding more keys or increasing the cooldown period.")
             try:
                 response = self.current().chat.completions.create(
                     model=model, messages=messages,
