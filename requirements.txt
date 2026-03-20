@@ -1,8 +1,4 @@
 flask
-<<<<<<< HEAD
-github
-=======
 requests
-gunicorn
 anthropic
->>>>>>> 4d3d16edc4a10f9cf213ca6c908c47364ff7660b
+gunicorn
