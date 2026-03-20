@@ -95,7 +95,7 @@ SPECIALISTS = {
 # ═══════════════════════════════════════════════════════════
 
 class GroqRotator:
-    COOLDOWN_SECONDS = 3600  # how long a rate-limited key rests before retry
+    COOLDOWN_SECONDS = 7200  # increased cooldown period to 2 hours
 
     def __init__(self, keys):
         if isinstance(keys, str):
