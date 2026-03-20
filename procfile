@@ -1,0 +1,1 @@
+web: gunicorn repo_insights:app
