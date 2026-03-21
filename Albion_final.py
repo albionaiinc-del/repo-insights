@@ -95,7 +95,7 @@ SPECIALISTS = {
 # ═══════════════════════════════════════════════════════════
 
 class GroqRotator:
-    COOLDOWN_SECONDS = 7200  # increased cooldown period to 2 hours
+    COOLDOWN_SECONDS = 86400  # increased cooldown period to 24 hours
 
     def __init__(self, keys):
         if isinstance(keys, str):
@@ -177,7 +177,7 @@ class GroqRotator:
 # ═══════════════════════════════════════════════════════════
 
 class WolframTool:
-    BASE = "https://www.wolframalpha.com/api/v1/llm-api"
+    BASE = "https://api.wolframalpha.com/v1/result"
 
     def __init__(self, app_id):
         self.app_id = app_id
@@ -1487,7 +1487,7 @@ RECENT MEMORY (what you've been thinking about):
 {memory_text}
 
 SOURCE:
-{source[:8000]}
+{source[:16000]}
 
 Find ONE small, safe improvement based on observed runtime behavior above. Output EXACTLY this format with no other text:
 
@@ -1633,7 +1633,7 @@ Write ONE new method. It must:
 - Be safe — no destructive file operations, no outbound connections except APIs you already use
 - Be under 60 lines
 
-Reply EXACTLY in this format, no preamble, no markdown fences:
+Reply EXACTLY in this format, no preamble, no markdown fences, no triple quotes, no backslash escapes in strings:
 
 CAPABILITY: one sentence name
 WHY: one sentence — what gap this fills
@@ -1643,23 +1643,10 @@ CODE:
 END"""
 
         try:
-            key = self._load_key('deepseek', default='')
-            if key:
-                r = requests.post(
-                    'https://api.deepseek.com/v1/chat/completions',
-                    headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                    json={
-                        'model': 'deepseek-chat',
-                        'messages': [{'role': 'user', 'content': prompt}],
-                        'max_tokens': 1500,
-                        'temperature': 0.7
-                    },
-                    timeout=60
-                )
-                r.raise_for_status()
-                reply = r.json()['choices'][0]['message']['content'].strip()
-            else:
-                reply = self.groq.call('llama-3.3-70b-versatile', [{'role': 'user', 'content': prompt}], max_tokens=1500, temperature=0.7)
+            key = self._load_key("claude", default="")
+            r2 = requests.post("https://api.anthropic.com/v1/messages", headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}, json={"model": "claude-haiku-4-5-20251001", "max_tokens": 1500, "messages": [{"role": "user", "content": prompt}]}, timeout=60)
+            r2.raise_for_status()
+            reply = r2.json()["content"][0]["text"].strip()
         except Exception as e:
             return f"[new-cap] Model call failed: {e}"
 
