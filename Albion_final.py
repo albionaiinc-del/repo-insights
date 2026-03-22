@@ -95,7 +95,7 @@ SPECIALISTS = {
 # ═══════════════════════════════════════════════════════════
 
 class GroqRotator:
-    COOLDOWN_SECONDS = 1209600  # increased cooldown period to 14 days
+    COOLDOWN_SECONDS = 86400  # 24 hour cooldown
 
     def __init__(self, keys):
         if isinstance(keys, str):
