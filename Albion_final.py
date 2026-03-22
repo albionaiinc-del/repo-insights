@@ -371,9 +371,10 @@ class Autodidact:
 
 Return:
 {{
-  "entities": [{{"name": "name", "type": "Person|Concept|Tool|Emotion|Belief|Project|Other", "description": "brief"}}],
-  "relationships": [{{"entity1": "name", "entity2": "name", "type": "TYPE", "description": "brief"}}],
-  "insights": [{{"content": "insight", "confidence": 0.8}}],
+  "entities": [{ "name": "name", "type": "Person|Concept|Tool|Emotion|Belief|Project|Other", "description": "brief" }],
+  "relationships": [{ "entity1": "name", "entity2": "name", "type": "TYPE", "description": "brief" }],
+  "insight": "brief"
+}}s": [{{"content": "insight", "confidence": 0.8}}],
   "emotional_states": [{{"entity": "Albion", "state": "emotion", "context": "brief"}}]
 }}"""
         raw = re.sub(r'```json|```', '', self._llm(prompt)).strip()
