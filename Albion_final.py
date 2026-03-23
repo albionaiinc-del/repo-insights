@@ -95,7 +95,7 @@ SPECIALISTS = {
 # ═══════════════════════════════════════════════════════════
 
 class GroqRotator:
-    COOLDOWN_SECONDS = 1209600  # 14 day cooldown
+    COOLDOWN_SECONDS = 2592000  # 30 day cooldown
 
     def __init__(self, keys):
         if isinstance(keys, str):
@@ -876,17 +876,26 @@ VAULT:
         return r.json()["choices"][0]["message"]["content"].strip(), model
 
     def _call_deepseek(self, model, messages):
-        key = self._load_key("deepseek", default="")
-        if not key:
+        keys = self._load_key("deepseek", default="")
+        if not keys:
             raise Exception("DeepSeek key not configured")
-        r = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": model, "messages": messages, "max_tokens": 2048, "temperature": 0.2},
-            timeout=60
-        )
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"].strip(), model
+        if isinstance(keys, str):
+            keys = [keys]
+        last_err = None
+        for key in keys:
+            try:
+                r = requests.post(
+                    "https://api.deepseek.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json={"model": model, "messages": messages, "max_tokens": 2048, "temperature": 0.2},
+                    timeout=60
+                )
+                r.raise_for_status()
+                return r.json()["choices"][0]["message"]["content"].strip(), model
+            except Exception as e:
+                last_err = e
+                continue
+        raise Exception(f"All DeepSeek keys failed: {last_err}")
 
     def _call_xai(self, model, messages):
         if not self.xai_key:
