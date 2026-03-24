@@ -37,7 +37,7 @@ LEGION = [
     {"model": "llama-3.3-70b-versatile",                                      "provider": "groq",        "role": "mid"},
     {"model": "llama-3.1-8b-instant",                                       "provider": "cerebras",    "role": "wildcard"},
     {"model": "gemini-2.5-flash",                                  "provider": "gemini",      "role": "seer"},
-    {"model": "gpt-oss-120b",                                      "provider": "cerebras",    "role": "heavy"},
+    {"model": "qwen-3-235b-a22b-instruct-2507",                    "provider": "cerebras",    "role": "heavy"},
     {"model": "nousresearch/hermes-3-llama-3.1-405b:free",         "provider": "openrouter",  "role": "far-seer"},
     {"model": "deepseek/deepseek-r1-0528:free",                    "provider": "openrouter",  "role": "oracle-deep"},
     {"model": "Qwen/Qwen2.5-Coder-32B-Instruct",                   "provider": "huggingface", "role": "coder"},
@@ -1643,7 +1643,7 @@ Write ONE new method. It must:
 - Be safe — no destructive file operations, no outbound connections except APIs you already use
 - Be under 60 lines
 
-Reply EXACTLY in this format, no preamble, no markdown fences, no triple quotes, no backslash escapes in strings:
+Reply EXACTLY in this format, no preamble, no markdown fences, no triple quotes, no backslash escapes in strings, no f-strings, no multiline strings:
 
 CAPABILITY: one sentence name
 WHY: one sentence — what gap this fills
@@ -1691,6 +1691,17 @@ END"""
             if q in ['"""', "'''"]:
                 if count % 2 != 0:
                     return f"[new-cap] Unbalanced {q} in proposed method — discarded."
+        # strip any line containing an unterminated string literal
+        clean_lines = []
+        for line in new_code.splitlines():
+            try:
+                ast.parse(line.strip() or "pass")
+                clean_lines.append(line)
+            except SyntaxError:
+                pass
+        if not clean_lines:
+            return "[new-cap] No valid lines after sanitization — discarded."
+        new_code = "\n".join(clean_lines)
         # simpler check: try compiling in isolation
         try:
             compile(new_code, '<new-cap>', 'exec')
@@ -1714,7 +1725,8 @@ END"""
         indented_code = '\n'.join(indented_lines)
 
         padded = "\n    # ── AUTO-CAPABILITY: " + capability + " ──\n" + indented_code + "\n\n"
-        new_source = source.replace(marker, padded + marker, 1)
+        insert_pos = source.rfind(marker)
+        new_source = source[:insert_pos] + padded + source[insert_pos:]
 
         try:
             ast.parse(new_source)

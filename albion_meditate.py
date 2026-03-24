@@ -168,7 +168,7 @@ TIER = {
     },
     # ── Groq/Cerebras fallback (used when Gemini is unavailable) ─────────────────
     'cerebras': {
-        'model': 'gpt-oss-120b', 'provider': 'cerebras',
+        'model': 'qwen-3-235b-a22b-instruct-2507', 'provider': 'cerebras',
         'temp': 0.4, 'tokens': 1500,
         'keywords': []
     },
@@ -226,7 +226,7 @@ TIER = {
     },
     # ── CODE CHAIN 5: Cerebras (fast fallback) ────────────────────────────
     'cerebras_coder': {
-        'model': 'gpt-oss-120b', 'provider': 'cerebras',
+        'model': 'qwen-3-235b-a22b-instruct-2507', 'provider': 'cerebras',
         'temp': 0.1, 'tokens': 2000,
         'keywords': []
     },
