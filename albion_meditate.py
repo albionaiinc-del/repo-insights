@@ -1040,7 +1040,7 @@ At least 5 of your 15 questions must be SOLVABLE — questions you could researc
 Each question starts with exactly "Open question:" and ends with "?"
 Generate all 15. Nothing else."""
     try:
-        reply = call_model('deep', [{"role": "user", "content": prompt}], max_tokens_override=2000)
+        reply = call_model('deep', [{"role": "user", "content": prompt}], max_tokens_override=3000)
         if reply:
             alb.autodidact.ingest_open_questions(reply)
             count = len(re.findall(r'Open question:', reply, re.IGNORECASE))
