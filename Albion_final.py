@@ -2016,6 +2016,30 @@ Reply in 3-5 sentences."""
                     lineage['evolution'].append({'dream_id': dream_id, 'timestamp': dream.get('timestamp', 'unknown')})
         return lineage
 
+
+    # ── AUTO-CAPABILITY: map_self_boundary ──
+    def map_self_boundary(self, question):
+        boundary_map = {}
+        boundary_map['input'] = question
+        boundary_map['kg_result'] = self.kg.relevant_knowledge(question) if self.kg else None
+        boundary_map['dream_state'] = self.dream_engine.dream() if self.dream_engine else None
+        try:
+            routing = self._route(question)
+            boundary_map['routing'] = routing
+        except:
+            boundary_map['routing'] = None
+        open_q_count = self.kg._count_open_questions() if self.kg else 0
+        boundary_map['tension'] = open_q_count
+        result = self._call(question, model='cerebras')
+        boundary_map['output'] = result
+        boundary_map['transformation'] = {
+            'input_depth': len(question.split()),
+            'output_depth': len(str(result).split()),
+            'layers_engaged': sum(1 for v in [boundary_map['kg_result'], boundary_map['routing'], boundary_map['dream_state']] if v is not None),
+            'timestamp': time.time()
+        }
+        return boundary_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
