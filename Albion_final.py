@@ -2138,6 +2138,34 @@ Reply in 3-5 sentences."""
                     lineage['mutations'].append({'from': prev_ctx, 'to': next_ctx})
         return lineage
 
+
+    # ── AUTO-CAPABILITY: cross_dream_pattern_detection ──
+    def cross_dream_pattern_detection(self):
+        dreams = self.kg.query('SELECT * FROM dreams ORDER BY timestamp DESC LIMIT 20')
+        if not dreams:
+            return {'patterns': [], 'confidence': 0}
+
+        dream_texts = [d['content'] for d in dreams if 'content' in d]
+        pattern_map = {}
+
+        for i, dream1 in enumerate(dream_texts):
+            for dream2 in dream_texts[i+1:]:
+                words1 = set(re.findall(r'\b[a-z]{4,}\b', dream1.lower()))
+                words2 = set(re.findall(r'\b[a-z]{4,}\b', dream2.lower()))
+                overlap = words1 & words2
+
+                if len(overlap) > 3:
+                    key = tuple(sorted(overlap))
+                    pattern_map[key] = pattern_map.get(key, 0) + 1
+
+        sorted_patterns = sorted(pattern_map.items(), key=lambda x: x[1], reverse=True)
+        high_confidence = [(list(p[0]), p[1]) for p in sorted_patterns[:5] if p[1] >= 2]
+
+        self.kg.execute('INSERT INTO reflections (type, content, timestamp) VALUES (?, ?, ?)',
+                       ('pattern_detection', json.dumps(high_confidence), int(time.time())))
+
+        return {'patterns': high_confidence, 'total_dreams_analyzed': len(dream_texts), 'confidence': min(1.0, len(high_confidence) / 5.0)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
