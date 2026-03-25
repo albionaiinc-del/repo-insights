@@ -1497,7 +1497,7 @@ RECENT MEMORY (what you've been thinking about):
 {memory_text}
 
 SOURCE:
-{source[:16000]}
+{source[:source[:16000].rfind(chr(10))]}
 
 Find ONE small, safe improvement based on observed runtime behavior above. Output EXACTLY this format with no other text:
 

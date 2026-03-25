@@ -1586,6 +1586,9 @@ def self_improve():
         target_path = IMPROVABLE_FILES[target_key]
         with open(target_path, 'r') as f:
             source = f.read()
+        # Truncate at a clean line boundary to avoid mid-string cuts confusing the model
+        _src_cut = source[:16000].rfind('\n')
+        source_snippet = source[:_src_cut] if _src_cut > 0 else source[:16000]
 
         try:
             with open(LOG_FILE, 'r') as f:
@@ -1637,7 +1640,7 @@ LAST JOURNAL ENTRY:
 {journal_text}
 
 SOURCE:
-{source[:16000]}
+{source_snippet}
 
 Find ONE small, safe improvement based on observed runtime behavior above.
 
