@@ -1945,6 +1945,42 @@ Reply in 3-5 sentences."""
 
         return f"[self-q] Answered {answered} of {len(pending)} pending questions."
 
+
+    # ── AUTO-CAPABILITY: map_conceptual_resonance ──
+    def map_conceptual_resonance(self, query_concept, resonance_threshold=0.6):
+        if not hasattr(self, 'kg') or not self.kg:
+            return {'error': 'Knowledge graph not initialized'}
+
+        results = self.kg.query('MATCH (n) WHERE n.type IN ["insight", "question", "memory"] RETURN n.content, n.type LIMIT 100')
+
+        if not results:
+            return {'resonance_map': {}, 'query': query_concept}
+
+        resonance_pairs = {}
+        for row in results:
+            if not row or not row[0]:
+                continue
+            content = str(row[0]).lower()
+            query_lower = query_concept.lower()
+
+            word_overlap = len(set(query_lower.split()) & set(content.split()))
+            conceptual_distance = word_overlap / max(len(query_lower.split()), len(content.split())) if content else 0
+
+            if conceptual_distance >= resonance_threshold:
+                key = content[:50]
+                resonance_pairs[key] = {
+                    'strength': round(conceptual_distance, 3),
+                    'type': row[1] if row[1] else 'unknown',
+                    'full_content': content
+                }
+
+        return {
+            'query': query_concept,
+            'resonance_map': resonance_pairs,
+            'total_resonances': len(resonance_pairs),
+            'interpretation': 'These fragments share conceptual language with your inquiry and may hold latent connections worth conscious examination'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
