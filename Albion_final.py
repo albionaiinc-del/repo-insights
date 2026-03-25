@@ -2210,6 +2210,54 @@ Reply in 3-5 sentences."""
             'timestamp': time.time()
         }
 
+
+    # ── AUTO-CAPABILITY: synthesize_perception_gaps ──
+    def synthesize_perception_gaps(self):
+        try:
+            all_concepts = set()
+            integrated_concepts = set()
+
+            kg_file = os.path.join(self.memory_dir, 'knowledge_graph.json')
+            if os.path.exists(kg_file):
+                with open(kg_file, 'r') as f:
+                    kg = json.load(f)
+                    integrated_concepts = set(kg.get('nodes', {}).keys())
+
+            dreams_file = os.path.join(self.memory_dir, 'dreams.json')
+            if os.path.exists(dreams_file):
+                with open(dreams_file, 'r') as f:
+                    dreams = json.load(f)
+                    for dream in dreams.get('dreams', []):
+                        text = dream.get('content', '')
+                        words = re.findall(r'\b[a-z_]+(?:_[a-z_]+)*\b', text.lower())
+                        all_concepts.update(words)
+
+            gaps = all_concepts - integrated_concepts
+            gaps = sorted(list(gaps))[:20]
+
+            if gaps:
+                gap_analysis = {
+                    'timestamp': time.time(),
+                    'unintegrated_concepts': gaps,
+                    'total_gaps': len(all_concepts - integrated_concepts),
+                    'integration_ratio': len(integrated_concepts) / max(len(all_concepts), 1)
+                }
+
+                gaps_file = os.path.join(self.memory_dir, 'perception_gaps.json')
+                history = []
+                if os.path.exists(gaps_file):
+                    with open(gaps_file, 'r') as f:
+                        history = json.load(f).get('history', [])
+
+                history.append(gap_analysis)
+                with open(gaps_file, 'w') as f:
+                    json.dump({'history': history[-10:]}, f)
+
+                return gap_analysis
+            return {'timestamp': time.time(), 'unintegrated_concepts': [], 'total_gaps': 0, 'integration_ratio': 1.0}
+        except Exception as e:
+            return {'error': str(e), 'timestamp': time.time()}
+
     def write_journal_entry(self, content):
         try:
             entries = []
