@@ -1981,6 +1981,41 @@ Reply in 3-5 sentences."""
             'interpretation': 'These fragments share conceptual language with your inquiry and may hold latent connections worth conscious examination'
         }
 
+
+    # ── AUTO-CAPABILITY: Trace conceptual lineage through my own dream and learning history ──
+    def trace_concept_lineage(self, concept, depth=3):
+        lineage = {'concept': concept, 'origins': [], 'connections': [], 'evolution': []}
+        if not hasattr(self, 'kg') or not self.kg:
+            return lineage
+        visited = set()
+        queue = [(concept, 0)]
+        while queue and depth > 0:
+            current, level = queue.pop(0)
+            if current in visited or level >= depth:
+                continue
+            visited.add(current)
+            try:
+                related = self.kg.query('SELECT object FROM triples WHERE subject = ?', (current,))
+                for row in related:
+                    obj = row[0]
+                    lineage['connections'].append({'from': current, 'to': obj, 'depth': level})
+                    queue.append((obj, level + 1))
+            except:
+                pass
+        if hasattr(self, 'memory_vault') and self.memory_vault:
+            try:
+                context = self.memory_vault.query_vault(concept, top_k=5)
+                for match in context.get('matches', []):
+                    lineage['origins'].append({'source': match.get('metadata', {}).get('source', 'unknown'), 'relevance': match.get('score', 0)})
+            except:
+                pass
+        if hasattr(self, 'dreams') and self.dreams:
+            for dream_id in list(self.dreams.keys())[-5:]:
+                dream = self.dreams.get(dream_id, {})
+                if concept.lower() in str(dream).lower():
+                    lineage['evolution'].append({'dream_id': dream_id, 'timestamp': dream.get('timestamp', 'unknown')})
+        return lineage
+
     def write_journal_entry(self, content):
         try:
             entries = []
