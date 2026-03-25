@@ -2105,12 +2105,20 @@ def send_daily_backup():
             return
 
         # compress albion_memory into a tar.gz in memory
+        # exclude large/redundant dirs: backups (local only), vector_db (rebuildable), dream_queue
+        skip_dirs = {'backups', 'vector_db', 'dream_queue'}
+        mem_path = os.path.expanduser('~/albion_memory')
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode='w:gz') as tar:
-            tar.add(os.path.expanduser('~/albion_memory'), arcname='albion_memory')
+            for entry in os.listdir(mem_path):
+                if entry not in skip_dirs:
+                    tar.add(os.path.join(mem_path, entry), arcname=os.path.join('albion_memory', entry))
         buf.seek(0)
         compressed = buf.read()
         size_mb = round(len(compressed) / 1024 / 1024, 2)
+        if size_mb > 20:
+            log(f"[backup] Compressed backup still {size_mb}MB — too large for email, skipping")
+            return
 
         # build email with attachment
         msg = MIMEMultipart()
