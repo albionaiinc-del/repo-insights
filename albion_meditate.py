@@ -402,7 +402,7 @@ def call_model(tier_name, messages, max_tokens_override=None):
                 json=payload, timeout=30
             )
             r.raise_for_status()
-            return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            return _success(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
         elif t['provider'] == 'claude':
             key = alb._load_key('claude', default='')
             if not key:
