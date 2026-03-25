@@ -863,17 +863,26 @@ VAULT:
         return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip(), model
 
     def _call_openrouter(self, model, messages):
-        key = self._load_key("openrouter", default="")
-        if not key:
+        keys = self._load_key("openrouter", default="")
+        if not keys:
             raise Exception("OpenRouter key not configured")
-        r = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": model, "messages": messages, "max_tokens": 2048},
-            timeout=30
-        )
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"].strip(), model
+        if isinstance(keys, str):
+            keys = [keys]
+        last_err = None
+        for key in keys:
+            try:
+                r = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json={"model": model, "messages": messages, "max_tokens": 2048},
+                    timeout=30
+                )
+                r.raise_for_status()
+                return r.json()["choices"][0]["message"]["content"].strip(), model
+            except Exception as e:
+                last_err = e
+                continue
+        raise Exception(f"All OpenRouter keys failed: {last_err}")
 
     def _call_deepseek(self, model, messages):
         keys = self._load_key("deepseek", default="")
