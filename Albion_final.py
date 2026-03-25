@@ -1685,28 +1685,11 @@ END"""
         except SyntaxError as e:
             return f"[new-cap] Syntax error in proposed method — discarded. ({e})"
 
-        # check for balanced quotes — catches unterminated strings before full-file inject
-        for q in ['"""', "'''", '"', "'"]:
-            count = new_code.count(q)
-            if q in ['"""', "'''"]:
-                if count % 2 != 0:
-                    return f"[new-cap] Unbalanced {q} in proposed method — discarded."
-        # strip any line containing an unterminated string literal
-        clean_lines = []
-        for line in new_code.splitlines():
-            try:
-                ast.parse(line.strip() or "pass")
-                clean_lines.append(line)
-            except SyntaxError:
-                pass
-        if not clean_lines:
-            return "[new-cap] No valid lines after sanitization — discarded."
-        new_code = "\n".join(clean_lines)
-        # simpler check: try compiling in isolation
-        try:
-            compile(new_code, '<new-cap>', 'exec')
-        except SyntaxError as e:
-            return f"[new-cap] Compile check failed — discarded. ({e})"
+        # reject f-strings and multiline strings (cause injection issues)
+        if 'f"' in new_code or "f'" in new_code:
+            return "[new-cap] f-strings not allowed — discarded."
+        if '"""' in new_code or "'''" in new_code:
+            return "[new-cap] multiline strings not allowed — discarded."
 
         # inject before write_journal_entry as a clean insertion point
         marker = "    def write_journal_entry(self, content):"
