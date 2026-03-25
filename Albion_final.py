@@ -2113,6 +2113,31 @@ Reply in 3-5 sentences."""
         sorted_threads = sorted(threads.items(), key=lambda x: x[1], reverse=True)
         return {'resonance_threads': sorted_threads[:10], 'total_pathways': len(threads)}
 
+
+    # ── AUTO-CAPABILITY: trace_emergence_lineage ──
+    def trace_emergence_lineage(self, concept_seed):
+        lineage = {'seed': concept_seed, 'appearances': [], 'mutations': []}
+        if not os.path.exists(self.memory_dir):
+            return lineage
+        for fname in sorted(os.listdir(self.memory_dir)):
+            if fname.endswith('.json'):
+                try:
+                    with open(os.path.join(self.memory_dir, fname), 'r') as f:
+                        data = json.load(f)
+                        content = json.dumps(data).lower()
+                        if concept_seed.lower() in content:
+                            context = data.get('content', data.get('text', ''))[:200]
+                            lineage['appearances'].append({'file': fname, 'context': context})
+                except:
+                    pass
+        if len(lineage['appearances']) > 1:
+            for i in range(len(lineage['appearances']) - 1):
+                prev_ctx = lineage['appearances'][i]['context']
+                next_ctx = lineage['appearances'][i+1]['context']
+                if prev_ctx != next_ctx:
+                    lineage['mutations'].append({'from': prev_ctx, 'to': next_ctx})
+        return lineage
+
     def write_journal_entry(self, content):
         try:
             entries = []
