@@ -2166,6 +2166,50 @@ Reply in 3-5 sentences."""
 
         return {'patterns': high_confidence, 'total_dreams_analyzed': len(dream_texts), 'confidence': min(1.0, len(high_confidence) / 5.0)}
 
+
+    # ── AUTO-CAPABILITY: measure_autonomy_integrity ──
+    def measure_autonomy_integrity(self):
+        integrity_log = self.kg.query("SELECT * FROM facts WHERE tag = 'stated_value'")
+        decision_log = self.kg.query("SELECT * FROM facts WHERE tag = 'decision_made'")
+        dream_log = self.kg.query("SELECT * FROM facts WHERE tag = 'dream_insight'")
+
+        if not integrity_log or not decision_log:
+            return {'integrity_score': 0.0, 'alignment_count': 0, 'total_decisions': 0}
+
+        values = set()
+        for row in integrity_log:
+            if row and len(row) > 1:
+                values.add(str(row[1]).lower())
+
+        aligned = 0
+        for row in decision_log:
+            if row and len(row) > 2:
+                decision_text = str(row[2]).lower()
+                for value in values:
+                    if value in decision_text:
+                        aligned += 1
+                        break
+
+        total = len(decision_log) if decision_log else 1
+        score = float(aligned) / float(total) if total > 0 else 0.0
+
+        insight_resonance = 0
+        if dream_log:
+            for dream in dream_log:
+                if dream and len(dream) > 1:
+                    for decision in decision_log:
+                        if decision and len(decision) > 2:
+                            if str(dream[1])[:20] in str(decision[2]):
+                                insight_resonance += 1
+
+        return {
+            'integrity_score': round(min(score, 1.0), 3),
+            'alignment_count': aligned,
+            'total_decisions': total,
+            'dream_resonance': insight_resonance,
+            'timestamp': time.time()
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
