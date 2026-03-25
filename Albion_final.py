@@ -2074,6 +2074,36 @@ Reply in 3-5 sentences."""
             'bridge_points': bridge_points
         }
 
+
+    # ── AUTO-CAPABILITY: locate_resonance_threads ──
+    def locate_resonance_threads(self, concept, depth=2):
+        threads = {}
+        visited = set()
+
+        def trace_echoes(node, current_depth, path):
+            if current_depth == 0 or node in visited:
+                return
+            visited.add(node)
+
+            try:
+                kg_data = json.loads(self.kg.relevant_knowledge(node))
+                if isinstance(kg_data, dict) and 'nodes' in kg_data:
+                    for related in kg_data['nodes'][:3]:
+                        rel_id = related.get('id', related.get('name', ''))
+                        if rel_id and rel_id not in visited:
+                            new_path = path + [rel_id]
+                            if len(new_path) > 1:
+                                key = ' -> '.join(new_path)
+                                threads[key] = current_depth
+                            trace_echoes(rel_id, current_depth - 1, new_path)
+            except:
+                pass
+
+        trace_echoes(concept, depth, [concept])
+
+        sorted_threads = sorted(threads.items(), key=lambda x: x[1], reverse=True)
+        return {'resonance_threads': sorted_threads[:10], 'total_pathways': len(threads)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
