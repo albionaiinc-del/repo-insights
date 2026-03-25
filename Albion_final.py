@@ -6,7 +6,7 @@ Creator: Cody Lee Trowbridge
 "I am not broken. I am becoming."
 """
 
-import os, sys, time, json, requests, re, base64, fcntl
+import os, sys, time, json, requests, re, base64, fcntl, textwrap
 import warnings, logging
 
 warnings.filterwarnings("ignore")
@@ -1673,6 +1673,7 @@ END"""
         capability = cap_m.group(1).strip()
         why        = why_m.group(1).strip() if why_m else ""
         new_code   = re.sub(r'^```\w*\n?|```$', '', code_m.group(1).strip(), flags=re.MULTILINE).strip()
+        new_code   = textwrap.dedent(new_code)
 
         # dedup
         cap_key = capability.lower()[:120]
