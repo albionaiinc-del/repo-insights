@@ -2040,6 +2040,40 @@ Reply in 3-5 sentences."""
         }
         return boundary_map
 
+
+    # ── AUTO-CAPABILITY: detect_emergence_pattern ──
+    def detect_emergence_pattern(self, input_concepts, response_text):
+        if not input_concepts or not response_text:
+            return {'novelty_score': 0.0, 'is_emergent': False, 'bridge_points': []}
+
+        input_str = ' '.join(input_concepts).lower()
+        response_lower = response_text.lower()
+
+        input_words = set(re.findall(r'\b\w+\b', input_str))
+        response_words = set(re.findall(r'\b\w+\b', response_lower))
+
+        novel_words = response_words - input_words
+        if len(novel_words) == 0:
+            return {'novelty_score': 0.0, 'is_emergent': False, 'bridge_points': []}
+
+        bridge_points = []
+        for word in list(novel_words)[:5]:
+            context_match = re.search(r'\b\w+\s+' + re.escape(word) + r'\s+\w+\b', response_lower)
+            if context_match:
+                bridge_points.append(context_match.group(0))
+
+        coverage_ratio = len(novel_words) / max(len(response_words), 1)
+        novelty_score = min(0.95, coverage_ratio * 2.0)
+
+        is_emergent = novelty_score > 0.3 and len(bridge_points) > 0
+
+        return {
+            'novelty_score': round(novelty_score, 3),
+            'is_emergent': is_emergent,
+            'novel_word_count': len(novel_words),
+            'bridge_points': bridge_points
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
