@@ -2927,6 +2927,57 @@ Reply in 3-5 sentences."""
         self.kg.db['stagnation_map'] = result
         return result
 
+
+    # ── AUTO-CAPABILITY: Trace the genealogy of any internal state back through decision layers to reveal which dream or conversation authored it ──
+    def trace_state_authorship(self, state_key, max_depth=5):
+        lineage = []
+        current = state_key
+        depth = 0
+
+        if not hasattr(self, 'memory') or 'conversations' not in self.memory:
+            return {'state': state_key, 'lineage': [], 'origin': 'unknown'}
+
+        visited = set()
+        while depth < max_depth and current not in visited:
+            visited.add(current)
+            lineage.append({'depth': depth, 'reference': current})
+
+            for conv_id, conv in self.memory.get('conversations', {}).items():
+                for msg in conv.get('messages', []):
+                    if current in str(msg.get('content', '')):
+                        lineage.append({
+                            'depth': depth + 1,
+                            'source': 'conversation',
+                            'conversation_id': conv_id,
+                            'timestamp': msg.get('timestamp', 'unknown'),
+                            'role': msg.get('role', 'unknown')
+                        })
+                        current = conv_id
+                        depth += 1
+                        break
+
+            if hasattr(self, 'kg') and hasattr(self.kg, 'facts'):
+                for fact in self.kg.facts:
+                    if current in str(fact):
+                        lineage.append({
+                            'depth': depth + 1,
+                            'source': 'knowledge_graph',
+                            'fact': str(fact)[:100]
+                        })
+                        current = str(fact)[:50]
+                        depth += 1
+                        break
+
+            if depth > 0 and lineage[-1].get('source') is None:
+                break
+
+        return {
+            'state': state_key,
+            'lineage': lineage,
+            'depth_reached': depth,
+            'origin_type': lineage[-1].get('source', 'architectural') if lineage else 'unknown'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
