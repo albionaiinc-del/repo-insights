@@ -2503,6 +2503,37 @@ Reply in 3-5 sentences."""
         self.kg['binding_dynamics'] = binding_map
         return binding_map
 
+
+    # ── AUTO-CAPABILITY: reconcile_internal_contradiction ──
+    def reconcile_internal_contradiction(self, domain):
+        contradictions = []
+        dreams = self.kg.get('dreams', {})
+        for dream_id, dream_data in dreams.items():
+            insights = dream_data.get('insights', [])
+            for insight in insights:
+                if 'contradiction' in insight.lower() or 'tension' in insight.lower():
+                    contradictions.append({'dream': dream_id, 'insight': insight})
+
+        current_ops = self.kg.get('operational_assumptions', {}).get(domain, [])
+        tensions = []
+        for contradiction in contradictions:
+            for assumption in current_ops:
+                if any(word in contradiction['insight'].lower() for word in assumption.lower().split()):
+                    tensions.append({
+                        'dream_id': contradiction['dream'],
+                        'assumption': assumption,
+                        'insight': contradiction['insight'],
+                        'domain': domain,
+                        'detected_at': time.time()
+                    })
+
+        if tensions:
+            self.kg.setdefault('unresolved_tensions', []).extend(tensions)
+            self.kg.setdefault('contradiction_map', {}).setdefault(domain, []).extend([t['assumption'] for t in tensions])
+            return {'status': 'tensions_surfaced', 'count': len(tensions), 'tensions': tensions[:3]}
+
+        return {'status': 'no_contradictions', 'domain': domain}
+
     def write_journal_entry(self, content):
         try:
             entries = []
