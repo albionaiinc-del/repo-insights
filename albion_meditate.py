@@ -696,6 +696,11 @@ DREAM: [specific question to dream about]"""
             return
         if action.strip().upper().startswith('SEARCH:'):
             query = action.split(':', 1)[1].strip()[:100]
+            _human_centric = ['career', 'milestone', 'personal history', 'my resume', 'my job', 'my boss', 'my coworker', 'my colleague', 'my manager', 'my workplace', 'my salary', 'my education', 'my school', 'my childhood', 'my family', 'my parents', 'my marriage', 'my relationship']
+            if any(kw in query.lower() for kw in _human_centric):
+                log(f"[research] Skipped human-centric query: {query[:80]}")
+                save_research_threads(data)
+                return
             log(f"[research] Searching: {query}")
             try:
                 result = alb.web_search(query)
