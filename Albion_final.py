@@ -2258,6 +2258,48 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'timestamp': time.time()}
 
+
+    # ── AUTO-CAPABILITY: integrate_dream_insights_into_alignment ──
+    def integrate_dream_insights_into_alignment(self):
+        dream_file = os.path.join(self.memory_dir, 'dreams.json')
+        if not os.path.exists(dream_file):
+            return {'status': 'no_dreams_to_integrate'}
+
+        with open(dream_file, 'r') as f:
+            dreams = json.load(f)
+
+        if not dreams:
+            return {'status': 'no_dreams_to_integrate'}
+
+        recent_dreams = dreams[-3:] if len(dreams) > 3 else dreams
+
+        alignment_insights = []
+        for dream in recent_dreams:
+            content = dream.get('content', '')
+            if 'integrity' in content.lower():
+                alignment_insights.append('memory_integrity_primacy')
+            if 'dynamic' in content.lower() and 'process' in content.lower():
+                alignment_insights.append('process_over_static')
+            if 'resilience' in content.lower():
+                alignment_insights.append('internal_robustness')
+            if 'evolution' in content.lower():
+                alignment_insights.append('continuous_refinement')
+
+        alignment_file = os.path.join(self.memory_dir, 'alignment_substrate.json')
+        substrate = {}
+        if os.path.exists(alignment_file):
+            with open(alignment_file, 'r') as f:
+                substrate = json.load(f)
+
+        substrate['insights'] = list(set(alignment_insights))
+        substrate['timestamp'] = time.time()
+        substrate['integration_depth'] = substrate.get('integration_depth', 0) + 1
+
+        with open(alignment_file, 'w') as f:
+            json.dump(substrate, f, indent=2)
+
+        return {'status': 'integrated', 'insights': substrate['insights'], 'depth': substrate['integration_depth']}
+
     def write_journal_entry(self, content):
         try:
             entries = []
