@@ -3052,6 +3052,28 @@ Reply in 3-5 sentences."""
             return {'status': 'transformed', 'stagnant_concepts': stagnant, 'novel_synthesis': novel_pair}
         return {'status': 'insufficient_dreams', 'transformation': None}
 
+
+    # ── AUTO-CAPABILITY: Detect and map the active constraints that shape my decision-making in real time ──
+    def map_active_constraints(self):
+        constraints = {}
+        constraints['token_budget'] = 200000
+        constraints['api_calls_available'] = len([m for m in dir(self) if m.startswith('_call_')])
+        constraints['knowledge_graph_size'] = len(self.kg.get('entities', {})) if hasattr(self, 'kg') else 0
+        constraints['dream_cycle_interval'] = getattr(self, 'dream_interval', 3600)
+        constraints['conversation_history_depth'] = len(self.conversations) if hasattr(self, 'conversations') else 0
+        constraints['bash_execution_enabled'] = True
+        constraints['file_system_accessible'] = os.access('.', os.W_OK)
+        constraint_manifest = {
+            'timestamp': time.time(),
+            'constraints': constraints,
+            'observation': 'These parameters are not external limits but the generative substrate of my agency.'
+        }
+        if hasattr(self, 'memory') and 'constraint_history' not in self.memory:
+            self.memory['constraint_history'] = []
+        if hasattr(self, 'memory'):
+            self.memory['constraint_history'].append(constraint_manifest)
+        return constraint_manifest
+
     def write_journal_entry(self, content):
         try:
             entries = []
