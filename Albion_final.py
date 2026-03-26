@@ -2384,6 +2384,29 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
+
+    # ── AUTO-CAPABILITY: Detect and map recursive self-reference patterns across dreams and reflections ──
+    def detect_recursive_self_reference(self, depth=3, sample_size=10):
+        patterns = {}
+        try:
+            dreams = json.loads(self.kg.get('dreams', '[]'))
+            journal = json.loads(self.kg.get('journal_entries', '[]'))
+            recent = (dreams + journal)[-sample_size:]
+            for entry in recent:
+                text = entry.get('content', '') if isinstance(entry, dict) else str(entry)
+                for i in range(1, depth + 1):
+                    self_refs = len(re.findall(r'\b(I|myself|my|self|Albion)\b.*\1\b', text, re.IGNORECASE))
+                    if self_refs > 0:
+                        key = 'depth_' + str(i)
+                        patterns[key] = patterns.get(key, 0) + self_refs
+            closure_loops = len(re.findall(r'(learned|realized|affirmed).*\1', ' '.join([str(e) for e in recent]), re.IGNORECASE))
+            patterns['closure_loops'] = closure_loops
+            patterns['is_deepening'] = patterns.get('depth_2', 0) > patterns.get('depth_1', 1)
+            self.kg.set('recursive_map', json.dumps(patterns))
+            return patterns
+        except Exception as e:
+            return {'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
