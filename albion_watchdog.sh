@@ -48,8 +48,9 @@ tail -F "$LOG" 2>/dev/null | while IFS= read -r line; do
   # Skip noise
   echo "$line" | grep -qiE "chromadb|std::bad_alloc|deprecat" && continue
 
-  # Skip dream content (philosophical text, not system errors)
-  echo "$line" | grep -qiE " Dreaming:|\[vantage\]|\[intent\]|Scored [0-9]" && continue
+  # Skip Albion's own content — these tags carry his thoughts, not real errors
+  echo "$line" | grep -qiE "^\[?(research|dream|reflect|journal|vantage|intent|improve)\]?" && continue
+  echo "$line" | grep -qiE "Dreaming:|Scored [0-9]|dream_queue" && continue
 
   # Dedup: hash the core error message
   err_hash=$(echo "$line" | sed 's/[0-9]\{10,\}//g' | md5sum | cut -c1-12)
