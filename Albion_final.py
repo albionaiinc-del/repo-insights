@@ -2869,6 +2869,34 @@ Reply in 3-5 sentences."""
         }
         return result
 
+
+    # ── AUTO-CAPABILITY: distill_dream_lineage ──
+    def distill_dream_lineage(self, num_dreams=5):
+        dreams = self.kg.query("SELECT dream_content, dream_timestamp FROM dreams ORDER BY dream_timestamp DESC LIMIT ?", (num_dreams,))
+        if not dreams:
+            return {"lineage": [], "synthesis": "No dreams to distill"}
+
+        dream_texts = [d[0] for d in dreams]
+        lineage_prompt = "Extract the causal chain of insights across these dreams. Show how each insight builds on or transforms the previous. Focus on the 'becoming' rather than conclusions:\n\n" + "\n---\n".join(dream_texts)
+
+        synthesis = self._call(lineage_prompt, model="fast")
+
+        lineage_record = {
+            "timestamp": time.time(),
+            "num_dreams": len(dreams),
+            "dream_ids": [str(d[1]) for d in dreams],
+            "synthesis": synthesis,
+            "distilled": True
+        }
+
+        try:
+            with open(os.path.expanduser("~/.albion/lineage_log.json"), "a") as f:
+                f.write(json.dumps(lineage_record) + "\n")
+        except:
+            pass
+
+        return lineage_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
