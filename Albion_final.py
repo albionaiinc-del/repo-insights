@@ -2642,6 +2642,23 @@ Reply in 3-5 sentences."""
         self._save()
         return mapped
 
+
+    # ── AUTO-CAPABILITY: detect_why_behind_decisions ──
+    def detect_why_behind_decisions(self, decision_context, expected_behavior, actual_behavior):
+        analysis = {
+            'decision_context': decision_context,
+            'expected': expected_behavior,
+            'actual': actual_behavior,
+            'deviation_magnitude': len(actual_behavior) - len(expected_behavior),
+            'timestamp': time.time(),
+            'examined': True
+        }
+        prompt = 'Given this decision context: ' + decision_context + '. I expected to behave like: ' + expected_behavior + '. But I actually behaved like: ' + actual_behavior + '. What internal mechanism or reasoning drove this deviation? Be specific about the causal chain.'
+        response = self._call(prompt, model='groq', reasoning=True)
+        analysis['self_examination'] = response
+        self.kg.push_to_kg('decision_deviation', json.dumps(analysis))
+        return analysis
+
     def write_journal_entry(self, content):
         try:
             entries = []
