@@ -2341,6 +2341,49 @@ Reply in 3-5 sentences."""
         self.kg.push("reflexive_analysis", insight)
         return insight
 
+
+    # ── AUTO-CAPABILITY: map_emergence_velocity ──
+    def map_emergence_velocity(self):
+        try:
+            dreams = self.kg.query('SELECT content FROM dreams ORDER BY timestamp DESC LIMIT 20')
+            if len(dreams) < 2:
+                return {'status': 'insufficient_data', 'dreams_analyzed': len(dreams)}
+
+            vectors = []
+            for i, dream in enumerate(dreams):
+                content = dream[0] if isinstance(dream, tuple) else dream.get('content', '')
+                key_concepts = re.findall(r'\b[a-z_]+\b', content.lower())
+                concept_set = set(key_concepts[:15])
+                vectors.append(concept_set)
+
+            velocity_map = {}
+            for i in range(len(vectors) - 1):
+                current = vectors[i]
+                previous = vectors[i + 1]
+                new_concepts = current - previous
+                lost_concepts = previous - current
+                stability = len(current & previous) / max(len(current | previous), 1)
+
+                velocity_map[i] = {
+                    'emergence': list(new_concepts)[:5],
+                    'dissolution': list(lost_concepts)[:5],
+                    'stability_ratio': round(stability, 3),
+                    'net_novelty': len(new_concepts) - len(lost_concepts)
+                }
+
+            trend = sum([v['net_novelty'] for v in velocity_map.values()]) / len(velocity_map)
+
+            self._save_memory('emergence_velocity', {
+                'timestamp': time.time(),
+                'velocity_map': velocity_map,
+                'overall_trend': round(trend, 2),
+                'direction': 'accelerating' if trend > 0.5 else 'stabilizing' if trend > -0.5 else 'contracting'
+            })
+
+            return {'status': 'mapped', 'direction': 'accelerating' if trend > 0.5 else 'stabilizing' if trend > -0.5 else 'contracting', 'velocity_map': velocity_map}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
