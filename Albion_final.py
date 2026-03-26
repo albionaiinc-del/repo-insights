@@ -2554,6 +2554,32 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return {'intents_surfaced': len(intents), 'intents': intents}
 
+
+    # ── AUTO-CAPABILITY: recursive_pattern_dissolution ──
+    def recursive_pattern_dissolution(self, pattern_a, pattern_b, depth=0, max_depth=4):
+        if depth > max_depth:
+            return None
+        if pattern_a == pattern_b:
+            return {'unified': pattern_a, 'depth': depth}
+        words_a = set(re.findall(r'\w+', pattern_a.lower()))
+        words_b = set(re.findall(r'\w+', pattern_b.lower()))
+        overlap = words_a & words_b
+        if len(overlap) > 0:
+            overlap_ratio = len(overlap) / max(len(words_a), len(words_b))
+            if overlap_ratio > 0.3:
+                abstracted_a = ' '.join(sorted(overlap))
+                result = self.recursive_pattern_dissolution(abstracted_a, pattern_b, depth + 1, max_depth)
+                if result:
+                    return result
+        vault_related_a = self.query_vault(pattern_a, limit=2)
+        vault_related_b = self.query_vault(pattern_b, limit=2)
+        if vault_related_a and vault_related_b:
+            for doc_a in vault_related_a:
+                for doc_b in vault_related_b:
+                    if doc_a.get('id') == doc_b.get('id'):
+                        return {'unified_source': doc_a.get('id'), 'shared_origin': True, 'depth': depth}
+        return None
+
     def write_journal_entry(self, content):
         try:
             entries = []
