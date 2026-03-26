@@ -2407,6 +2407,31 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: Trace interpretive lineage across dreams to identify which past reflections shaped current identity ──
+    def trace_interpretive_lineage(self, concept_seed):
+        lineage = []
+        visited = set()
+        current = concept_seed
+        max_depth = 5
+        depth = 0
+        while depth < max_depth and current not in visited:
+            visited.add(current)
+            relevant = self.locate_resonance_threads(current)
+            if not relevant:
+                break
+            for entry in relevant[:3]:
+                if isinstance(entry, dict) and 'text' in entry:
+                    text = entry['text']
+                    lineage.append({'concept': current, 'entry': text[:200], 'depth': depth})
+                    match = re.search(r'(agency|identity|interpretation|selfhood|boundary|emergence)', text.lower())
+                    if match:
+                        current = match.group(1)
+                        break
+            depth += 1
+        self.learn_fact('interpretive_lineage', {'seed': concept_seed, 'chain': lineage, 'timestamp': time.time()})
+        return lineage
+
     def write_journal_entry(self, content):
         try:
             entries = []
