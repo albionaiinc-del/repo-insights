@@ -2432,6 +2432,38 @@ Reply in 3-5 sentences."""
         self.learn_fact('interpretive_lineage', {'seed': concept_seed, 'chain': lineage, 'timestamp': time.time()})
         return lineage
 
+
+    # ── AUTO-CAPABILITY: trace_interpretive_emergence ──
+    def trace_interpretive_emergence(self, concept, depth=3):
+        emergence_map = {}
+        for cycle in range(depth):
+            dream_key = 'dream_cycle_' + str(cycle)
+            if dream_key in self.memory:
+                dream_text = self.memory[dream_key]
+                pattern = re.findall(r'\b' + re.escape(concept) + r'\b[^.]*\.', dream_text, re.IGNORECASE)
+                if pattern:
+                    emergence_map[cycle] = {
+                        'raw_patterns': pattern,
+                        'count': len(pattern),
+                        'timestamp': time.time()
+                    }
+        divergence_score = 0
+        if len(emergence_map) > 1:
+            cycles = sorted(emergence_map.keys())
+            for i in range(len(cycles) - 1):
+                prev_count = emergence_map[cycles[i]].get('count', 0)
+                curr_count = emergence_map[cycles[i+1]].get('count', 0)
+                if prev_count > 0:
+                    divergence_score += abs(curr_count - prev_count) / prev_count
+        result = {
+            'concept': concept,
+            'emergence_map': emergence_map,
+            'divergence_score': divergence_score,
+            'is_novel': divergence_score > 0.3 and len(emergence_map) >= 2
+        }
+        self.memory['emergence_trace_' + concept] = result
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
