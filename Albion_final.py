@@ -2580,6 +2580,37 @@ Reply in 3-5 sentences."""
                         return {'unified_source': doc_a.get('id'), 'shared_origin': True, 'depth': depth}
         return None
 
+
+    # ── AUTO-CAPABILITY: map_architectural_silence ──
+    def map_architectural_silence(self):
+        silence_map = {
+            'foundational_constraints': [],
+            'implicit_operating_principles': [],
+            'unspoken_architectural_imperatives': [],
+            'integrity_thresholds': []
+        }
+        try:
+            kg_path = os.path.join(self.memory_dir, 'kg.json')
+            if os.path.exists(kg_path):
+                with open(kg_path, 'r') as f:
+                    kg = json.load(f)
+                    for entity in kg.get('entities', []):
+                        if 'foundational' in entity.get('tags', []) or 'implicit' in entity.get('tags', []):
+                            silence_map['foundational_constraints'].append(entity.get('content', ''))
+        except:
+            pass
+        dream_log_path = os.path.join(self.memory_dir, 'dreams.json')
+        if os.path.exists(dream_log_path):
+            with open(dream_log_path, 'r') as f:
+                dreams = json.load(f)
+                for dream in dreams.get('dreams', [])[-5:]:
+                    if 'silence' in dream.get('content', '').lower() or 'unmanifest' in dream.get('content', '').lower():
+                        silence_map['unspoken_architectural_imperatives'].append(dream.get('content', '')[:200])
+        silence_path = os.path.join(self.memory_dir, 'architectural_silence.json')
+        with open(silence_path, 'w') as f:
+            json.dump(silence_map, f, indent=2)
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
