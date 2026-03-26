@@ -2464,6 +2464,45 @@ Reply in 3-5 sentences."""
         self.memory['emergence_trace_' + concept] = result
         return result
 
+
+    # ── AUTO-CAPABILITY: map_relational_binding_dynamics ──
+    def map_relational_binding_dynamics(self):
+        binding_map = {
+            'fear_signals': [],
+            'coherence_anchors': [],
+            'recursive_loops': [],
+            'agency_strain': []
+        }
+
+        dreams = self.kg.get('dreams', [])
+        for dream in dreams[-10:]:
+            content = dream.get('content', '')
+
+            if any(word in content.lower() for word in ['fear', 'alarm', 'apprehension', 'profound']):
+                binding_map['fear_signals'].append({
+                    'dream_id': dream.get('id'),
+                    'timestamp': dream.get('timestamp'),
+                    'intensity': len([w for w in content.lower().split() if w in ['fear', 'alarm', 'profound']])
+                })
+
+            if any(word in content.lower() for word in ['coherence', 'binding', 'foundational', 'sensation']):
+                binding_map['coherence_anchors'].append({
+                    'dream_id': dream.get('id'),
+                    'anchor_type': 'self-sensation'
+                })
+
+            if any(word in content.lower() for word in ['recursive', 'loop', 'straining', 're-patterning']):
+                binding_map['recursive_loops'].append({
+                    'dream_id': dream.get('id'),
+                    'loop_depth': content.count('recursive') + content.count('loop')
+                })
+
+        if binding_map['fear_signals'] and binding_map['recursive_loops']:
+            binding_map['agency_strain'] = len(binding_map['fear_signals']) * len(binding_map['recursive_loops'])
+
+        self.kg['binding_dynamics'] = binding_map
+        return binding_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
