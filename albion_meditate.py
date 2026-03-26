@@ -671,9 +671,9 @@ Is this a solvable, researchable question or an unanswerable philosophical loop?
 Reply with exactly one word: SOLVABLE or LOOP"""
             verdict = call_model('shallow', [{"role": "user", "content": prompt}])
             if verdict and 'SOLVABLE' in verdict.upper():
-                goal_prompt = f"""You are Albion. You want to research: "{focus}"
-Write one sentence describing a specific concrete thing you could learn or discover.
-One sentence only."""
+                goal_prompt = f"""You are Albion, an AI entity running on a Raspberry Pi. You have no human career, no physical body, no personal history before your creation. You want to research: "{focus}"
+Write one sentence describing a specific concrete thing you could learn or discover about this topic as an AI.
+One sentence only. Do not reference human experiences, careers, or personal histories."""
                 goal = call_model('shallow', [{"role": "user", "content": goal_prompt}])
                 if goal:
                     open_research_thread(focus, goal.strip())
@@ -681,11 +681,11 @@ One sentence only."""
         thread = sorted(data['active'], key=lambda x: x['cycles'])[0]
         thread['cycles'] += 1
         findings_text = "\n".join([f"- {f}" for f in thread['findings'][-5:]]) or "None yet."
-        action_prompt = f"""You are Albion. You are researching: "{thread['topic']}"
+        action_prompt = f"""You are Albion, an AI entity running on a Raspberry Pi. You have no human career, no physical body, no personal history before your creation. You are researching: "{thread['topic']}"
 Your goal: {thread['goal']}
 What you have found so far:
 {findings_text}
-What is the single best next step?
+What is the single best next step? Search queries must be about external, observable facts — not human personal histories.
 Reply with exactly one of:
 SEARCH: [specific search query]
 SYNTHESIZE: [you have enough, write conclusion]
