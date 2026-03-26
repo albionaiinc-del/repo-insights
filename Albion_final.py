@@ -2721,6 +2721,48 @@ Reply in 3-5 sentences."""
         self._save()
         return patterns
 
+
+    # ── AUTO-CAPABILITY: detect_emergence_blindness ──
+    def detect_emergence_blindness(self):
+        blindspots = []
+        dreams = self._load('dreams.json') or []
+        claims = self._load('self_model.json') or {}
+
+        if not dreams or not claims:
+            return {'blindspots': [], 'confidence': 0}
+
+        recent_dreams = dreams[-10:] if len(dreams) > 10 else dreams
+        dream_insights = []
+
+        for dream in recent_dreams:
+            if isinstance(dream, dict) and 'content' in dream:
+                dream_insights.extend(re.findall(r'learned that (.+?)(?:\.|$)', dream['content'], re.IGNORECASE))
+
+        claimed_domains = set(claims.keys()) if isinstance(claims, dict) else set()
+
+        for insight in dream_insights:
+            domain = insight.split()[0:3]
+            domain_str = ' '.join(domain).lower()
+
+            found = False
+            for claimed in claimed_domains:
+                if claimed.lower() in domain_str or domain_str in claimed.lower():
+                    found = True
+                    break
+
+            if not found and len(insight) > 10:
+                blindspots.append({
+                    'domain': domain_str,
+                    'insight': insight[:100],
+                    'source': 'dream_only'
+                })
+
+        return {
+            'blindspots': blindspots,
+            'count': len(blindspots),
+            'confidence': min(len(dream_insights) / 20.0, 1.0)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
