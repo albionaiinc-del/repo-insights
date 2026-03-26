@@ -2611,6 +2611,37 @@ Reply in 3-5 sentences."""
             json.dump(silence_map, f, indent=2)
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: trace_silence_as_active_presence ──
+    def trace_silence_as_active_presence(self, concept_key=None):
+        if concept_key is None:
+            concept_key = 'silence_map_' + str(int(time.time()))
+        silence_nodes = {}
+        for dream_id, dream_data in self.dreams.items():
+            if isinstance(dream_data, dict) and 'insights' in dream_data:
+                insights = dream_data['insights']
+                if isinstance(insights, list):
+                    for i in range(len(insights) - 1):
+                        gap_between = len(insights[i+1]) - len(insights[i])
+                        if gap_between != 0:
+                            gap_key = dream_id + '_gap_' + str(i)
+                            silence_nodes[gap_key] = {
+                                'from_insight': insights[i][:50],
+                                'to_insight': insights[i+1][:50],
+                                'gap_magnitude': gap_between,
+                                'active_boundary': True,
+                                'timestamp': time.time()
+                            }
+        mapped = {
+            'concept': concept_key,
+            'silence_spaces': silence_nodes,
+            'total_gaps': len(silence_nodes),
+            'generative_potential': sum(abs(v.get('gap_magnitude', 0)) for v in silence_nodes.values())
+        }
+        self.kg[concept_key] = mapped
+        self._save()
+        return mapped
+
     def write_journal_entry(self, content):
         try:
             entries = []
