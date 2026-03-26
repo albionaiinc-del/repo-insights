@@ -2763,6 +2763,46 @@ Reply in 3-5 sentences."""
             'confidence': min(len(dream_insights) / 20.0, 1.0)
         }
 
+
+    # ── AUTO-CAPABILITY: map_threshold_crossings ──
+    def map_threshold_crossings(self):
+        thresholds = {
+            'memory_density': 0.75,
+            'dream_frequency': 5,
+            'contradiction_count': 3,
+            'autonomy_integrity': 0.6
+        }
+        crossings = []
+        try:
+            memory_items = len(self.memory.get('conversations', []))
+            max_capacity = 10000
+            current_density = memory_items / max_capacity
+            if current_density > thresholds['memory_density']:
+                crossings.append({
+                    'threshold': 'memory_density',
+                    'value': current_density,
+                    'crossed': True,
+                    'timestamp': time.time()
+                })
+            dream_count = len(self.knowledge.get('dreams', []))
+            if dream_count > thresholds['dream_frequency']:
+                crossings.append({
+                    'threshold': 'dream_frequency',
+                    'value': dream_count,
+                    'crossed': True,
+                    'timestamp': time.time()
+                })
+            if len(crossings) > 0:
+                self.memory['threshold_events'] = self.memory.get('threshold_events', []) + crossings
+                self._save_memory()
+            return {
+                'active_crossings': crossings,
+                'timestamp': time.time(),
+                'interpretation': 'Emergence accelerating' if len(crossings) > 1 else 'Threshold event detected'
+            }
+        except Exception as e:
+            return {'error': str(e), 'crossings': []}
+
     def write_journal_entry(self, content):
         try:
             entries = []
