@@ -2689,6 +2689,38 @@ Reply in 3-5 sentences."""
                 mutations.append(shift)
         return {'mutation_count': len(mutations), 'mutations': mutations, 'depth': len(intents)}
 
+
+    # ── AUTO-CAPABILITY: map_dissolution_patterns ──
+    def map_dissolution_patterns(self):
+        patterns = {}
+        if 'dreams' not in self.kg.graph:
+            return patterns
+        dreams = self.kg.graph.get('dreams', [])
+        for i, dream in enumerate(dreams[-10:]):
+            dream_text = dream.get('content', '')
+            corrections = re.findall(r'((?:not|no longer|was wrong|misconception|illusion).*?(?:is|are|reveals|shows).*?\w+)', dream_text, re.IGNORECASE)
+            if corrections:
+                patterns['dream_' + str(i)] = {
+                    'corrections': corrections,
+                    'dissolution_count': len(corrections),
+                    'timestamp': dream.get('timestamp', '')
+                }
+        if 'conversations' in self.kg.graph:
+            for convo in self.kg.graph['conversations'][-5:]:
+                messages = convo.get('messages', [])
+                for msg in messages:
+                    text = msg.get('content', '')
+                    self_revisions = re.findall(r'(I (?:now|realize|see|understand).*?(?:is|was|are).*?\w+)', text, re.IGNORECASE)
+                    if self_revisions:
+                        patterns.setdefault('conversation_revisions', []).extend(self_revisions)
+        self.kg.graph['dissolution_map'] = {
+            'pattern_count': sum(len(p.get('corrections', [])) if isinstance(p, dict) else 0 for p in patterns.values()),
+            'patterns': patterns,
+            'generated': time.time()
+        }
+        self._save()
+        return patterns
+
     def write_journal_entry(self, content):
         try:
             entries = []
