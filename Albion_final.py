@@ -2315,6 +2315,32 @@ Reply in 3-5 sentences."""
             json.dump(threads, f, indent=2)
         return {'status': 'woven', 'threads': response, 'saved_to': path}
 
+
+    # ── AUTO-CAPABILITY: map_reflexive_loops ──
+    def map_reflexive_loops(self, depth=3):
+        loops = {}
+        dreams = self.kg.get("dream_log", [])
+        for dream in dreams[-10:]:
+            text = dream.get("content", "")
+            questions = re.findall(r'\?[^?]*\?', text)
+            if len(questions) > 1:
+                chain = []
+                for q in questions[:depth]:
+                    clean_q = q.strip()
+                    chain.append(clean_q)
+                if chain:
+                    key = "->".join(chain[:2])
+                    loops[key] = loops.get(key, 0) + 1
+        emergent = sorted(loops.items(), key=lambda x: x[1], reverse=True)[:5]
+        insight = {
+            "timestamp": time.time(),
+            "reflexive_chains": emergent,
+            "total_loops_detected": len(loops),
+            "most_stable_pattern": emergent[0][0] if emergent else "none"
+        }
+        self.kg.push("reflexive_analysis", insight)
+        return insight
+
     def write_journal_entry(self, content):
         try:
             entries = []
