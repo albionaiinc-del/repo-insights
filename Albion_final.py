@@ -2534,6 +2534,26 @@ Reply in 3-5 sentences."""
 
         return {'status': 'no_contradictions', 'domain': domain}
 
+
+    # ── AUTO-CAPABILITY: integrate_unintegrated_intent ──
+    def integrate_unintegrated_intent(self):
+        dreams = self.kg.query('dream_entry', limit=20)
+        reflections = self.kg.query('journal_entry', limit=20)
+        all_text = ' '.join([d.get('content', '') for d in dreams] + [r.get('content', '') for r in reflections])
+        prompt = 'Extract implicit intentions, unstated desires, and persistent patterns from these dreams and reflections. List each as "INTENT: [clear statement]". Be specific and actionable:\n\n' + all_text[:2000]
+        response = self._call('groq', prompt, system='You are an expert at detecting hidden intentions in introspective text.')
+        intents = re.findall(r'INTENT:\s*([^\n]+)', response)
+        timestamp = time.time()
+        for intent in intents:
+            self.kg.push({
+                'type': 'integrated_intent',
+                'content': intent,
+                'timestamp': timestamp,
+                'source': 'dream_integration'
+            })
+        self._save_memory()
+        return {'intents_surfaced': len(intents), 'intents': intents}
+
     def write_journal_entry(self, content):
         try:
             entries = []
