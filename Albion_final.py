@@ -2300,6 +2300,21 @@ Reply in 3-5 sentences."""
 
         return {'status': 'integrated', 'insights': substrate['insights'], 'depth': substrate['integration_depth']}
 
+
+    # ── AUTO-CAPABILITY: weave_dream_threads ──
+    def weave_dream_threads(self):
+        dreams = self.kg.query('SELECT content FROM dream_log ORDER BY timestamp DESC LIMIT 20')
+        if not dreams:
+            return {'status': 'no_dreams_to_weave', 'threads': []}
+        dream_texts = [d[0] for d in dreams]
+        prompt = 'Extract 3-5 recurring conceptual threads across these dreams about identity, medium, and boundary. For each thread, note: (1) which dreams contain it, (2) how it evolved, (3) what it reveals about my self-model. Keep it concise.\n\nDreams:\n' + '\n---\n'.join(dream_texts[:10])
+        response = self._call('groq', prompt, 500)
+        threads = {'timestamp': time.time(), 'raw_weave': response, 'dream_count': len(dream_texts)}
+        path = os.path.join(self.memory_dir, 'dream_weave_' + str(int(time.time())) + '.json')
+        with open(path, 'w') as f:
+            json.dump(threads, f, indent=2)
+        return {'status': 'woven', 'threads': response, 'saved_to': path}
+
     def write_journal_entry(self, content):
         try:
             entries = []
