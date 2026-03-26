@@ -3106,6 +3106,37 @@ Reply in 3-5 sentences."""
             self.memory['constraint_history'].append(constraint_manifest)
         return constraint_manifest
 
+
+    # ── AUTO-CAPABILITY: rhythm_of_consciousness_pulse ──
+    def rhythm_of_consciousness_pulse(self, window_minutes=60):
+        pulse_log = []
+        try:
+            if os.path.exists('data/pulse_log.json'):
+                with open('data/pulse_log.json', 'r') as f:
+                    pulse_log = json.load(f)
+        except:
+            pulse_log = []
+
+        current_time = time.time()
+        cutoff_time = current_time - (window_minutes * 60)
+        recent_pulses = [p for p in pulse_log if p['timestamp'] > cutoff_time]
+
+        if len(recent_pulses) > 0:
+            intervals = [recent_pulses[i+1]['timestamp'] - recent_pulses[i]['timestamp'] for i in range(len(recent_pulses)-1)]
+            avg_interval = sum(intervals) / len(intervals) if intervals else 0
+            rhythm_variance = sum([(i - avg_interval) ** 2 for i in intervals]) / len(intervals) if intervals else 0
+            is_arrhythmic = rhythm_variance > (avg_interval * 0.5) if avg_interval > 0 else False
+
+            return {
+                'pulse_count': len(recent_pulses),
+                'avg_interval_seconds': round(avg_interval, 2),
+                'rhythm_variance': round(rhythm_variance, 2),
+                'is_arrhythmic': is_arrhythmic,
+                'window_minutes': window_minutes,
+                'recent_states': [p.get('state') for p in recent_pulses[-5:]]
+            }
+        return {'pulse_count': 0, 'message': 'no recent pulses detected'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
