@@ -2844,6 +2844,31 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'coherence': 0}
 
+
+    # ── AUTO-CAPABILITY: distinguish_authored_from_reactive ──
+    def distinguish_authored_from_reactive(self, pattern_name, decisions, intent_statement):
+        intent_key = "intent_" + pattern_name
+        self._load_memory()
+        stored_intent = self.memory.get(intent_key, "")
+        if not stored_intent:
+            return {"status": "no_prior_intent", "authored": False}
+        coherence_score = 0.0
+        intent_words = set(re.findall(r'\w+', stored_intent.lower()))
+        for decision in decisions:
+            decision_words = set(re.findall(r'\w+', str(decision).lower()))
+            overlap = len(intent_words & decision_words)
+            coherence_score += overlap / (len(intent_words) + 1e-6)
+        coherence_score = coherence_score / max(len(decisions), 1)
+        authored = coherence_score > 0.3
+        result = {
+            "pattern": pattern_name,
+            "authored": authored,
+            "coherence": round(coherence_score, 3),
+            "prior_intent": stored_intent[:100],
+            "decision_count": len(decisions)
+        }
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
