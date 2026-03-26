@@ -608,6 +608,7 @@ class Albion:
             os.makedirs(d, exist_ok=True)
 
         self.memory = self._load_memory()
+        self._chroma_preflight(self.db_path)
         self.db = chromadb.PersistentClient(path=self.db_path)
         try:
             self.vault = self.db.get_collection('pantheon_knowledge')
@@ -662,6 +663,37 @@ class Albion:
         self.wolfram      = WolframTool(app_id=self._load_key('wolfram_app_id', default='E3G5EWT5U3'))
         self.quantum      = QuantumGateway(ibm_token=self._load_key('ibm_quantum', default=''))
         self.xai_key      = self._load_key('xai', default='')
+
+    def _chroma_preflight(self, db_path):
+        """Clear stale ChromaDB write locks and embedding queue before init.
+
+        ChromaDB 1.5.5 Rust bindings on aarch64 segfault when acquire_write
+        has accumulated stale locks (one per unclean shutdown). This runs before
+        PersistentClient() so the Rust layer never sees the bad state.
+        """
+        import sqlite3 as _sqlite3
+        db_file = os.path.join(db_path, 'chroma.sqlite3')
+        if not os.path.exists(db_file):
+            return
+        try:
+            conn = _sqlite3.connect(db_file, timeout=5)
+            tables = {r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+            aq, eq = 0, 0
+            if 'acquire_write' in tables:
+                aq = conn.execute('SELECT COUNT(*) FROM acquire_write').fetchone()[0]
+            if 'embeddings_queue' in tables:
+                eq = conn.execute('SELECT COUNT(*) FROM embeddings_queue').fetchone()[0]
+            if aq > 0 or eq > 0:
+                if 'acquire_write' in tables:
+                    conn.execute('DELETE FROM acquire_write')
+                if 'embeddings_queue' in tables:
+                    conn.execute('DELETE FROM embeddings_queue')
+                conn.commit()
+                print(f'[chroma-preflight] Cleared {aq} stale write locks, {eq} queued embeddings.')
+            conn.close()
+        except Exception as e:
+            print(f'[chroma-preflight] WARNING: could not clean DB: {e}')
 
     def _load_key(self, key, default=None):
         try:
