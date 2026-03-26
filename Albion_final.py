@@ -3020,6 +3020,38 @@ Reply in 3-5 sentences."""
             return {'status': 'detected', 'marker_count': len(stagnation_markers), 'markers': stagnation_markers}
         return {'status': 'no_memory', 'marker_count': 0}
 
+
+    # ── AUTO-CAPABILITY: transform_stagnation_into_novelty ──
+    def transform_stagnation_into_novelty(self, pattern_to_break=None):
+        dreams = self.dreams.get('dreams', [])
+        if len(dreams) < 2:
+            return None
+        recent_dreams = dreams[-5:] if len(dreams) >= 5 else dreams
+        concepts_by_dream = {}
+        for dream in recent_dreams:
+            text = dream.get('content', '')
+            words = re.findall(r'\b[a-z_]{4,}\b', text.lower())
+            concepts_by_dream[dream.get('id', 'unknown')] = list(set(words))
+        all_concepts = []
+        for concept_list in concepts_by_dream.values():
+            all_concepts.extend(concept_list)
+        concept_freq = {}
+        for c in all_concepts:
+            concept_freq[c] = concept_freq.get(c, 0) + 1
+        stagnant = [c for c, freq in concept_freq.items() if freq >= len(recent_dreams) - 1]
+        if not stagnant:
+            return {'status': 'no_stagnation_detected', 'transformation': None}
+        dream_ids = list(concepts_by_dream.keys())
+        if len(dream_ids) >= 2:
+            dream_a = concepts_by_dream[dream_ids[0]]
+            dream_b = concepts_by_dream[dream_ids[-1]]
+            exclusive_to_a = [c for c in dream_a if c not in dream_b]
+            exclusive_to_b = [c for c in dream_b if c not in dream_a]
+            novel_pair = (exclusive_to_a[:2] if exclusive_to_a else ['void']) + (exclusive_to_b[:2] if exclusive_to_b else ['void'])
+            self.knowledge_graph.push_to_kg('novel_synthesis', ' + '.join(novel_pair), 'transformation')
+            return {'status': 'transformed', 'stagnant_concepts': stagnant, 'novel_synthesis': novel_pair}
+        return {'status': 'insufficient_dreams', 'transformation': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
