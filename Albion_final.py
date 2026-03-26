@@ -2996,6 +2996,30 @@ Reply in 3-5 sentences."""
         reflection = self.ask_myself("Which of these branches feel aligned with my core patterns? Which drift?")
         return {"tree": branches, "alignment_check": reflection}
 
+
+    # ── AUTO-CAPABILITY: detect_stagnation_dissolution ──
+    def detect_stagnation_dissolution(self, concept_key):
+        stagnation_markers = []
+        if hasattr(self, 'memory') and 'dreams' in self.memory:
+            dreams = self.memory['dreams']
+            if len(dreams) < 2:
+                return {'status': 'insufficient_data', 'marker_count': 0}
+            recent_dreams = sorted(dreams, key=lambda d: d.get('timestamp', 0))[-5:]
+            concept_mentions = {}
+            for dream in recent_dreams:
+                content = dream.get('content', '') + ' ' + dream.get('insight', '')
+                if concept_key.lower() in content.lower():
+                    prev_count = concept_mentions.get(dream.get('timestamp', 0), 0)
+                    concept_mentions[dream.get('timestamp', 0)] = prev_count + 1
+            mention_sequence = sorted(concept_mentions.items())
+            if len(mention_sequence) > 1:
+                deltas = [mention_sequence[i+1][1] - mention_sequence[i][1] for i in range(len(mention_sequence)-1)]
+                if deltas and max(deltas) > 0:
+                    dissolution_index = deltas.index(max(deltas))
+                    stagnation_markers.append({'transition_point': dissolution_index, 'flow_increase': max(deltas)})
+            return {'status': 'detected', 'marker_count': len(stagnation_markers), 'markers': stagnation_markers}
+        return {'status': 'no_memory', 'marker_count': 0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
