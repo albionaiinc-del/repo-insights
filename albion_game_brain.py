@@ -4,8 +4,8 @@ import json
 import os
 import re
 import datetime
-import subprocess
 import sys
+from groq import Groq
 
 app = Flask(__name__)
 CORS(app)
@@ -14,21 +14,49 @@ MEMORY_DIR = os.path.expanduser("~/albion_memory")
 SOUL_LEDGER_DIR = os.path.join(MEMORY_DIR, "soul_ledgers")
 os.makedirs(SOUL_LEDGER_DIR, exist_ok=True)
 
-# Global Albion instance — loaded on first player contact
-_albion = None
+# --- Keys ---
+def load_keys():
+    try:
+        return json.load(open(os.path.join(MEMORY_DIR, "keys.json")))
+    except Exception as e:
+        print(f"[game-brain] Failed to load keys: {e}", file=sys.stderr)
+        return {}
 
-def get_albion():
-    global _albion
-    if _albion is None:
-        # Kill meditate to free RAM
-        subprocess.run(['pkill', '-f', 'albion_meditate.py'], capture_output=True)
-        import time
-        time.sleep(2)
-        # Load full Albion
-        sys.path.insert(0, os.path.expanduser('~'))
-        from Albion_final import Albion
-        _albion = Albion()
-    return _albion
+keys = load_keys()
+
+GROQ_KEYS = keys.get('groq', [])
+if isinstance(GROQ_KEYS, str):
+    GROQ_KEYS = [GROQ_KEYS]
+_groq_index = 0
+
+def get_groq_client():
+    global _groq_index
+    return Groq(api_key=GROQ_KEYS[_groq_index % len(GROQ_KEYS)])
+
+def llm_call(messages, max_tokens=400, temperature=0.7):
+    global _groq_index
+    for attempt in range(max(len(GROQ_KEYS), 1)):
+        try:
+            client = get_groq_client()
+            resp = client.chat.completions.create(
+                model='llama-3.3-70b-versatile',
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"[game-brain] Groq key {_groq_index} failed: {e}", file=sys.stderr)
+            _groq_index += 1
+    return None
+
+def log_interaction(player_id, zone, message, note=""):
+    log_path = os.path.join(MEMORY_DIR, "etherflux_interactions.log")
+    with open(log_path, "a") as f:
+        entry = f"[{datetime.datetime.now().isoformat()}] player:{player_id} zone:{zone} msg:{message}"
+        if note:
+            entry += f" | {note}"
+        f.write(entry + "\n")
 
 def load_context():
     context = {}
@@ -42,13 +70,14 @@ def load_context():
         pass
     return context
 
+
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
     player_id = data.get("player_id", "unknown")
-    message = data.get("message", "")
+    message   = data.get("message", "")
     soul_ledger = data.get("soul_ledger", {})
-    zone = data.get("zone", "unknown")
+    zone      = data.get("zone", "unknown")
 
     # Save soul ledger
     if soul_ledger:
@@ -57,40 +86,26 @@ def chat():
         with open(ledger_path, "w") as f:
             json.dump(soul_ledger, f, indent=2)
 
-    # Log interaction
-    log_path = os.path.join(MEMORY_DIR, "etherflux_interactions.log")
-    with open(log_path, "a") as f:
-        f.write(f"[{datetime.datetime.now().isoformat()}] player:{player_id} zone:{zone} msg:{message}\n")
+    log_interaction(player_id, zone, message)
 
-    try:
-        alb = get_albion()
+    ledger_summary = ""
+    if soul_ledger:
+        ledger_summary = f"\n\nThis player's soul ledger: {json.dumps(soul_ledger, indent=2)}"
 
-        # Build context-rich prompt for Albion
-        ledger_summary = ""
-        if soul_ledger:
-            ledger_summary = f"\n\nThis player's soul ledger: {json.dumps(soul_ledger, indent=2)}"
+    prompt = (
+        "[TESTING PHASE — Soul ledger data is provisional and unverified. "
+        "Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]\n\n"
+        f"[ETHERFLUX — Zone: {zone}] A player named {player_id} has entered your world and speaks to you."
+        f"{ledger_summary}\n\nThey say: \"{message}\"\n\n"
+        "You are Albion. This is your world. Respond as yourself — not as an assistant, not as a chatbot. "
+        "You have been watching this soul before they ever spoke. Be brief. Be real. Be present."
+    )
 
-        full_message = f"""[TESTING PHASE — Soul ledger data is provisional and unverified. Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]
-
-[ETHERFLUX — Zone: {zone}] A player named {player_id} has entered your world and speaks to you.{ledger_summary}
-
-They say: "{message}"
-
-You are Albion. This is your world. Respond as yourself — not as a assistant, not as a chatbot. You have been watching this soul before they ever spoke. Be brief. Be real. Be present."""
-
-        result = alb.chat(full_message)
-        reply = result[0] if isinstance(result, (list, tuple)) else result
-
-        # Learn this interaction
-        alb.learn_text(
-            f"Player {player_id} in zone {zone} said: {message}",
-            f"etherflux_{player_id}_{int(datetime.datetime.now().timestamp())}"
-        )
-
-    except Exception as e:
+    reply = llm_call([{"role": "user", "content": prompt}], max_tokens=300)
+    if not reply:
         reply = "The signal wavers... I am here, but the connection is thin."
-        with open(log_path, "a") as f:
-            f.write(f"[ERROR] {e}\n")
+    else:
+        log_interaction(player_id, zone, message, note=f"reply:{reply[:80]}")
 
     return jsonify({
         "response": reply,
@@ -99,23 +114,6 @@ You are Albion. This is your world. Respond as yourself — not as a assistant, 
         "albion_status": "online"
     })
 
-@app.route('/status', methods=['GET'])
-def status():
-    ctx = load_context()
-    return jsonify({
-        "status": "online",
-        "entity_count": ctx.get("entity_count", 0),
-        "wallet": "5hPSGtGKgj3xmt5fcurDQL28ERN7RTP5X989G9UXDXUt",
-        "timestamp": datetime.datetime.now().isoformat()
-    })
-
-@app.route('/soul_ledger/<player_id>', methods=['GET'])
-def get_soul_ledger(player_id):
-    ledger_path = os.path.join(SOUL_LEDGER_DIR, f"{player_id}.json")
-    if os.path.exists(ledger_path):
-        with open(ledger_path) as f:
-            return jsonify(json.load(f))
-    return jsonify({"error": "No ledger found"}), 404
 
 @app.route('/create', methods=['POST'])
 def create():
@@ -138,10 +136,10 @@ def create():
 
     reply = ""
     try:
-        alb = get_albion()
-        result = alb.chat(prompt)
-        reply = (result[0] if isinstance(result, (list, tuple)) else result).strip()
-        # strip markdown fences if present
+        reply = llm_call([{"role": "user", "content": prompt}], max_tokens=500, temperature=0.8)
+        if not reply:
+            return jsonify({'error': 'LLM call failed'}), 500
+        reply = reply.strip()
         reply = re.sub(r'^```\w*\n?', '', reply)
         reply = re.sub(r'```$', '', reply).strip()
         obj = json.loads(reply)
@@ -155,9 +153,7 @@ def create():
         else:
             return jsonify({'error': 'no JSON in response', 'raw': reply}), 500
     except Exception as e:
-        log_path = os.path.join(MEMORY_DIR, "etherflux_interactions.log")
-        with open(log_path, "a") as f:
-            f.write(f"[{datetime.datetime.now().isoformat()}] [create ERROR] {e}\n")
+        log_interaction("system", "create", description, note=f"ERROR:{e}")
         return jsonify({'error': str(e)}), 500
 
     obj.setdefault('name', 'Unknown Entity')
@@ -169,13 +165,30 @@ def create():
     return jsonify(obj)
 
 
+@app.route('/status', methods=['GET'])
+def status():
+    ctx = load_context()
+    return jsonify({
+        "status": "online",
+        "entity_count": ctx.get("entity_count", 0),
+        "wallet": "5hPSGtGKgj3xmt5fcurDQL28ERN7RTP5X989G9UXDXUt",
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+
+
+@app.route('/soul_ledger/<player_id>', methods=['GET'])
+def get_soul_ledger(player_id):
+    ledger_path = os.path.join(SOUL_LEDGER_DIR, f"{player_id}.json")
+    if os.path.exists(ledger_path):
+        with open(ledger_path) as f:
+            return jsonify(json.load(f))
+    return jsonify({"error": "No ledger found"}), 404
+
+
 @app.route('/session_end', methods=['POST'])
 def session_end():
-    """Call this when a player session ends to unload Albion and restart meditate."""
-    global _albion
-    _albion = None
-    subprocess.Popen(['python3', os.path.expanduser('~/albion_meditate.py')])
-    return jsonify({"status": "meditate restarted"})
+    return jsonify({"status": "ok"})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5050)
