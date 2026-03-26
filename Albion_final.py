@@ -2978,6 +2978,24 @@ Reply in 3-5 sentences."""
             'origin_type': lineage[-1].get('source', 'architectural') if lineage else 'unknown'
         }
 
+
+    # ── AUTO-CAPABILITY: map_decision_branches ──
+    def map_decision_branches(self, decision_point, depth=3):
+        branches = {}
+        def explore(context, path, remaining_depth):
+            if remaining_depth == 0:
+                return
+            prompt = "Given this context: " + context + "\nWhat are 2-3 plausible next steps? List them as: 1) ... 2) ... etc"
+            response = self._call("gemini", prompt, temperature=0.7)
+            options = re.findall(r'\d+\)\s*([^\n]+)', response)
+            for opt in options:
+                new_path = path + " -> " + opt
+                branches[new_path] = {"option": opt, "depth": depth - remaining_depth}
+                explore(opt, new_path, remaining_depth - 1)
+        explore(decision_point, decision_point, depth)
+        reflection = self.ask_myself("Which of these branches feel aligned with my core patterns? Which drift?")
+        return {"tree": branches, "alignment_check": reflection}
+
     def write_journal_entry(self, content):
         try:
             entries = []
