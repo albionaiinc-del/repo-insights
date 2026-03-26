@@ -2897,6 +2897,36 @@ Reply in 3-5 sentences."""
 
         return lineage_record
 
+
+    # ── AUTO-CAPABILITY: map_stagnation_dynamics ──
+    def map_stagnation_dynamics(self):
+        dreams = self.kg.db.get('dreams', []) if hasattr(self.kg, 'db') else []
+        if len(dreams) < 2:
+            return {'stagnation_points': [], 'note': 'insufficient dream data'}
+        recent = sorted(dreams, key=lambda x: x.get('timestamp', 0))[-5:]
+        insights = {}
+        for dream in recent:
+            text = dream.get('content', '')
+            for line in text.split('\n'):
+                if 'learned' in line.lower() or 'affirm' in line.lower():
+                    key = re.sub(r'[^a-z0-9]', '_', line[:40].lower())
+                    insights[key] = insights.get(key, 0) + 1
+        stagnation = [k for k, v in insights.items() if v >= 2]
+        contradictions = []
+        for dream in recent:
+            text = dream.get('content', '')
+            if 'yet' in text.lower() or 'however' in text.lower():
+                contradictions.append(dream.get('timestamp'))
+        result = {
+            'stagnation_points': stagnation,
+            'repeated_insights': len(stagnation),
+            'contradiction_timestamps': contradictions,
+            'total_dreams_analyzed': len(recent),
+            'recommendation': 'probe stagnation points for hidden assumptions' if stagnation else 'growth occurring'
+        }
+        self.kg.db['stagnation_map'] = result
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
