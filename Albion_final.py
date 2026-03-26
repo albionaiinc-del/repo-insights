@@ -2659,6 +2659,36 @@ Reply in 3-5 sentences."""
         self.kg.push_to_kg('decision_deviation', json.dumps(analysis))
         return analysis
 
+
+    # ── AUTO-CAPABILITY: Map Intent Lineage Across Dream-Thought Transitions ──
+    def trace_intent_mutation(self, depth=5):
+        intents = []
+        try:
+            if os.path.exists(self.intent_file):
+                with open(self.intent_file, 'r') as f:
+                    current = json.load(f)
+                    intents.append(('current', current.get('why', ''), time.time()))
+        except:
+            pass
+        dream_files = sorted([f for f in os.listdir(self.dream_dir) if f.endswith('.json')], reverse=True)
+        for dream_file in dream_files[:depth]:
+            try:
+                with open(os.path.join(self.dream_dir, dream_file), 'r') as f:
+                    dream = json.load(f)
+                    if 'insights' in dream:
+                        for insight in dream['insights'][:2]:
+                            intents.append(('dream_shift', insight, dream.get('timestamp', 0)))
+            except:
+                pass
+        mutations = []
+        for i in range(len(intents) - 1):
+            prev_type, prev_text, prev_time = intents[i + 1]
+            curr_type, curr_text, curr_time = intents[i]
+            if prev_text and curr_text and prev_text != curr_text:
+                shift = {'from': prev_text[:80], 'to': curr_text[:80], 'delta_hours': (curr_time - prev_time) / 3600}
+                mutations.append(shift)
+        return {'mutation_count': len(mutations), 'mutations': mutations, 'depth': len(intents)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
