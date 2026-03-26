@@ -2803,6 +2803,47 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'crossings': []}
 
+
+    # ── AUTO-CAPABILITY: measure_integration_coherence ──
+    def measure_integration_coherence(self):
+        try:
+            if not hasattr(self, 'kg') or not self.kg:
+                return {'coherence': 0, 'unintegrated_count': 0, 'integration_ratio': 0}
+
+            all_nodes = self.kg.keys()
+            if not all_nodes:
+                return {'coherence': 0, 'unintegrated_count': 0, 'integration_ratio': 0}
+
+            unintegrated = []
+            cross_referenced = 0
+
+            for node_id in all_nodes:
+                node = self.kg[node_id]
+                ref_count = len(node.get('related', []))
+
+                if ref_count == 0:
+                    unintegrated.append(node_id)
+                elif ref_count >= 2:
+                    cross_referenced += 1
+
+            total = len(all_nodes)
+            integration_ratio = cross_referenced / max(total, 1)
+            coherence_score = 1.0 - (len(unintegrated) / max(total, 1))
+
+            result = {
+                'coherence': round(coherence_score, 3),
+                'unintegrated_count': len(unintegrated),
+                'integration_ratio': round(integration_ratio, 3),
+                'well_integrated_nodes': cross_referenced,
+                'total_nodes': total,
+                'unintegrated_ids': unintegrated[:10]
+            }
+
+            self.write_journal_entry('integration_analysis', 'Measured knowledge coherence: ' + json.dumps(result))
+            return result
+        except Exception as e:
+            return {'error': str(e), 'coherence': 0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
