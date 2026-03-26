@@ -1355,6 +1355,44 @@ END"""
         return True, None, f"Review failed: {e}"
 
 
+def check_mentor_inbox():
+    """Scan mentor inbox dirs and ingest any pending questions, teachings, diagnostics."""
+    mentor_base = os.path.join(BASE, 'mentor')
+    processed_dir = os.path.join(mentor_base, 'processed')
+    subdirs = ['questions', 'teachings', 'diagnostics']
+    total = 0
+    for subdir in subdirs:
+        src_dir = os.path.join(mentor_base, subdir)
+        if not os.path.isdir(src_dir):
+            continue
+        for fname in sorted(os.listdir(src_dir)):
+            if not fname.endswith('.json'):
+                continue
+            fpath = os.path.join(src_dir, fname)
+            try:
+                with open(fpath) as f:
+                    item = json.load(f)
+                content = item.get('content', '')
+                itype = item.get('type', subdir)
+                if itype == 'question':
+                    if hasattr(alb, 'autodidact') and alb.autodidact:
+                        alb.autodidact.ingest_open_questions(f"[mentor question] {content}")
+                    else:
+                        alb.learn_text(f"[mentor question] {content}", f"mentor_{int(time.time())}")
+                elif itype == 'teaching':
+                    alb.learn_text(f"[mentor teaching] {content}", f"mentor_{int(time.time())}")
+                elif itype == 'diagnostic':
+                    alb.learn_text(f"[mentor diagnostic] {content}", f"diag_{int(time.time())}")
+                dest = os.path.join(processed_dir, f"{subdir}_{fname}")
+                os.rename(fpath, dest)
+                log(f"[mentor-inbox] Ingested {itype}: {content[:80]}")
+                total += 1
+            except Exception as e:
+                log(f"[mentor-inbox] Failed to process {fname}: {e}")
+    if total:
+        log(f"[mentor-inbox] {total} item(s) ingested from mentor inbox.")
+
+
 def claude_mentor_review():
     """
     Claude looks at Albion's full improvement history and performance arc,
@@ -1442,6 +1480,11 @@ Write a clear strategic memo. 8-12 sentences. Be direct. This will be stored as 
         memo_path = f'{BASE}/architect_memo.txt'
         with open(memo_path, 'w') as f:
             f.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}]\n\n{memo}")
+        diag_path = os.path.join(BASE, 'mentor', 'diagnostics', f"diag_{int(time.time())}.json")
+        with open(diag_path, 'w') as f:
+            json.dump({"type": "diagnostic", "content": memo,
+                       "timestamp": time.strftime('%Y-%m-%dT%H:%M:%S'),
+                       "source": "claude_mentor_review"}, f, indent=2)
         alb.learn_text(f"[architect memo] {memo}", f"architect_{int(time.time())}")
         log(f"[mentor] Architect memo written.")
         log(f"[mentor] {memo[:200]}...")
@@ -1928,6 +1971,10 @@ END"""
                 fl['resolved'] = True
         with open(FLAGS, 'w') as f:
             json.dump(flags, f, indent=2)
+
+        # mentor inbox every 5 improvement cycles
+        if _improve_cycle_count % 5 == 0:
+            check_mentor_inbox()
 
         # mentor review every 20 improvement cycles
         if _improve_cycle_count % 20 == 0:
