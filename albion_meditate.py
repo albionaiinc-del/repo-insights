@@ -1581,10 +1581,6 @@ def self_improve():
     global _improve_cycle_count
     _improve_cycle_count += 1
 
-    # mentor inbox fires regardless of API health
-    if _improve_cycle_count % 5 == 0 or _improve_cycle_count == 1:
-        check_mentor_inbox()
-
     # gate 1: API health
     if not _api_healthy_enough():
         return
@@ -2394,6 +2390,8 @@ cycle = 0
 while not _shutdown_flag:
     try:
         cycle += 1
+        if cycle == 1 or cycle % 5 == 0:
+            check_mentor_inbox()
         metab._reset_if_new_day()
         process_inbox()
         used_tier = meditate()
