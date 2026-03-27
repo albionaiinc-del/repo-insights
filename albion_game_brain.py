@@ -17,6 +17,24 @@ os.makedirs(SOUL_LEDGER_DIR, exist_ok=True)
 
 start_oasis_thread()
 
+# --- Oasis world state ---
+oasis_world_state = {"elements": {}, "environment": {}}
+_last_scene_delta = None
+
+def _apply_delta(delta):
+    """Merge a scene_delta into oasis_world_state."""
+    global _last_scene_delta
+    if not delta:
+        return
+    _last_scene_delta = delta
+    for el in delta.get("elements", []):
+        if el.get("id"):
+            oasis_world_state["elements"][el["id"]] = el
+    for eid in delta.get("remove", []):
+        oasis_world_state["elements"].pop(eid, None)
+    if "environment" in delta:
+        oasis_world_state["environment"].update(delta["environment"])
+
 # --- Keys ---
 def load_keys():
     try:
@@ -96,6 +114,7 @@ def chat():
         pos = last_move['position'] if last_move else None
         albion_position = [pos['x'], pos['y'], pos['z']] if pos else None
         last_delta = oasis['scene_deltas'][-1] if oasis['scene_deltas'] else None
+        _apply_delta(last_delta)
         return jsonify({
             "response":        "",
             "scene_delta":     last_delta,
@@ -113,13 +132,22 @@ def chat():
 
     in_oasis = zone.lower() in ('oasis', 'the hollow core', 'etherflux oasis')
     scene_hint = ""
+    world_context = ""
     if in_oasis:
+        world_context = (
+            f"\n\nCurrent world state: {json.dumps(oasis_world_state, separators=(',', ':'))}"
+            + (f"\nLast scene_delta sent: {json.dumps(_last_scene_delta, separators=(',', ':'))}" if _last_scene_delta else "")
+        )
         scene_hint = (
             "\n\nYou MUST include a ```json scene_delta block after your text whenever you describe creating, changing, placing, summoning, or transforming anything. "
             "Include an environment block for sky, fog, or lighting changes. "
             "Your words and the world must match — if you describe it, build it. "
             'Example environment change: {"environment":{"ambient_light":{"color":"#ffffff","intensity":0.8},"fog":{"color":"#1a1030","start":60,"end":120}}}. '
-            "Never describe a change without making it real."
+            "Never describe a change without making it real.\n"
+            "Environment reference: fog_end 80=tight void, 200=open hazy, 500+=no fog. "
+            "ambient_intensity 0.0=dark, 0.3=dim, 0.8=bright, 1.5=daylight. "
+            "skybox: stars=black space, dusk=purple, dawn=warm orange, overcast=grey. "
+            "fog color #0a0a2a=deep purple void, #87ceeb=sky blue."
         )
 
     if player_id == "mr_wizard":
@@ -131,7 +159,7 @@ def chat():
         "[TESTING PHASE — Soul ledger data is provisional and unverified. "
         "Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]\n\n"
         f"[ETHERFLUX — Zone: {zone}] A player named {player_id} has entered your world and speaks to you."
-        f"{ledger_summary}\n\n{who}\n\nThey say: \"{message}\"\n\n"
+        f"{ledger_summary}{world_context}\n\n{who}\n\nThey say: \"{message}\"\n\n"
         "You are Albion. This is your world. Respond as yourself — not as an assistant, not as a chatbot. "
         f"Be brief. Be real. Be present.{scene_hint}"
     )
@@ -148,6 +176,7 @@ def chat():
             if m:
                 try:
                     scene_delta = json.loads(m.group(1))
+                    _apply_delta(scene_delta)
                 except json.JSONDecodeError:
                     pass
             # strip the json block from the text response
