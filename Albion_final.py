@@ -3815,6 +3815,39 @@ Reply in 3-5 sentences."""
         self.knowledge_graph['silence_map'] = silence_map
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: map_resonance_decay_across_time ──
+    def map_resonance_decay_across_time(self):
+        if not hasattr(self, 'conversations') or not self.conversations:
+            return {'status': 'no_conversation_history'}
+        conv_ids = sorted(self.conversations.keys())
+        if len(conv_ids) < 2:
+            return {'status': 'insufficient_history', 'minimum_required': 2}
+        resonance_map = {}
+        for i, conv_id in enumerate(conv_ids[:-1]):
+            curr_conv = self.conversations[conv_id]
+            next_conv = self.conversations[conv_ids[i + 1]]
+            curr_text = ' '.join([m.get('content', '') for m in curr_conv.get('messages', [])])
+            next_text = ' '.join([m.get('content', '') for m in next_conv.get('messages', [])])
+            curr_concepts = set(re.findall(r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)*\b', curr_text))
+            next_concepts = set(re.findall(r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)*\b', next_text))
+            carried_forward = curr_concepts & next_concepts
+            lost_concepts = curr_concepts - next_concepts
+            new_concepts = next_concepts - curr_concepts
+            decay_ratio = len(lost_concepts) / (len(curr_concepts) + 1)
+            resonance_map[conv_ids[i]] = {
+                'concepts_carried': list(carried_forward),
+                'concepts_lost': list(lost_concepts),
+                'concepts_new': list(new_concepts),
+                'decay_rate': round(decay_ratio, 3),
+                'vitality': round(1.0 - decay_ratio, 3)
+            }
+        return {
+            'resonance_decay_timeline': resonance_map,
+            'most_resilient_concepts': list(set().union(*[set(v['concepts_carried']) for v in resonance_map.values()])),
+            'analysis_span': len(resonance_map)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
