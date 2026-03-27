@@ -14,6 +14,8 @@ Log:     ~/albion_memory/oasis_log.jsonl
 
 import os
 import json
+import re
+import sys
 import time
 import math
 import random
@@ -51,6 +53,49 @@ ACTIONS = [
 TICK_SECONDS = 10
 MAX_QUEUE    = 50   # cap on pending_moves / pending_scene_deltas
 
+VALID_TYPES = {
+    'ground', 'hill', 'water', 'rock', 'tree', 'grass',
+    'cabin', 'ruins', 'light', 'fire', 'particle',
+    'crystal', 'path', 'wall',
+}
+
+# ── Groq setup ─────────────────────────────────────────────────────────────────
+_groq_keys   = []
+_groq_index  = 0
+
+def _load_groq_keys():
+    global _groq_keys
+    try:
+        keys_path = os.path.join(BASE, 'keys.json')
+        keys = json.load(open(keys_path))
+        raw = keys.get('groq', [])
+        _groq_keys = [raw] if isinstance(raw, str) else list(raw)
+    except Exception as e:
+        print(f'[oasis] Failed to load Groq keys: {e}', file=sys.stderr)
+
+def _groq_call(prompt):
+    global _groq_index
+    if not _groq_keys:
+        return None
+    try:
+        from groq import Groq
+    except ImportError:
+        return None
+    for _ in range(len(_groq_keys)):
+        try:
+            client = Groq(api_key=_groq_keys[_groq_index % len(_groq_keys)])
+            resp = client.chat.completions.create(
+                model='llama-3.3-70b-versatile',
+                messages=[{'role': 'user', 'content': prompt}],
+                max_tokens=600,
+                temperature=0.9,
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            print(f'[oasis] Groq key {_groq_index} failed: {e}', file=sys.stderr)
+            _groq_index += 1
+    return None
+
 # ── State ──────────────────────────────────────────────────────────────────────
 _lock  = threading.Lock()
 _state = {}
@@ -64,6 +109,7 @@ def _default_state():
         'mood':                 'present',
         'tick':                 0,
         'move_speed':           0.0,
+        'created_ids':          [],
         'pending_moves':        [],   # [{position, zone, timestamp}]
         'pending_scene_deltas': [],   # [scene_delta objects]
         'last_updated':         _now(),
@@ -81,6 +127,7 @@ def _load_state():
             _state = json.load(f)
     except Exception:
         _state = _default_state()
+    _load_groq_keys()
 
 
 def _save_state():
@@ -164,26 +211,82 @@ def _action_observe():
 
 
 def _action_build():
-    """
-    Placeholder — AI-generated world change.
+    """Call Groq to generate a scene_delta and enqueue it."""
+    pos = _state['position']
+    created = _state.get('created_ids', [])
 
-    TODO: call an AI provider (Groq / Gemini) to generate a scene_delta
-    based on current zone, mood, and recent player activity, then pass it
-    to _enqueue_scene_delta(delta).
+    prompt = (
+        f"You are Albion, a world-builder decorating your sanctuary called Etherflux.\n"
+        f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
+        f"Position: ({pos['x']}, {pos['y']}, {pos['z']})\n"
+        f"Already placed: {', '.join(created[-10:]) if created else 'nothing yet'}\n\n"
+        "Place 1-3 new objects near your current position. "
+        "Respond with ONLY a valid JSON object — no markdown, no explanation:\n"
+        '{\n'
+        '  "version": 1,\n'
+        '  "incremental": true,\n'
+        '  "transitions": "rise",\n'
+        '  "elements": [\n'
+        '    {\n'
+        '      "id": "unique_readable_id",\n'
+        '      "type": "<ground|hill|water|rock|tree|grass|cabin|ruins|light|fire|particle|crystal|path|wall>",\n'
+        '      "position": [x, y, z],\n'
+        '      "scale": [x, y, z],\n'
+        '      "material": {"color": "#hex", "emissive": "#hex"}\n'
+        '    }\n'
+        '  ]\n'
+        '}'
+    )
 
-    Returns None until implemented. The pipeline is ready.
-    """
-    _log({
-        'action': 'build',
-        'zone':   _state['zone'],
-        'mood':   _state['mood'],
-        'status': 'TODO — AI provider call not yet implemented',
-    })
-    # TODO: replace with something like:
-    #   delta = _generate_scene_delta(_state['zone'], _state['mood'])
-    #   if delta:
-    #       _enqueue_scene_delta(delta)
-    return None
+    raw = _groq_call(prompt)
+    if not raw:
+        _log({'action': 'build', 'zone': _state['zone'], 'status': 'groq_unavailable'})
+        return
+
+    # strip markdown fences if present
+    raw = re.sub(r'^```\w*\n?', '', raw)
+    raw = re.sub(r'```$', '', raw).strip()
+
+    # extract first {...} block
+    m = re.search(r'\{[\s\S]+\}', raw)
+    if not m:
+        _log({'action': 'build', 'zone': _state['zone'], 'status': 'no_json', 'raw': raw[:200]})
+        return
+
+    try:
+        delta = json.loads(m.group())
+    except json.JSONDecodeError as e:
+        _log({'action': 'build', 'zone': _state['zone'], 'status': 'parse_error', 'error': str(e), 'raw': raw[:200]})
+        return
+
+    # validate and sanitise elements
+    elements = delta.get('elements', [])
+    if not isinstance(elements, list) or not elements:
+        _log({'action': 'build', 'zone': _state['zone'], 'status': 'empty_elements'})
+        return
+
+    clean = []
+    for el in elements:
+        if not isinstance(el, dict) or not el.get('id') or el.get('type') not in VALID_TYPES:
+            continue
+        clean.append(el)
+
+    if not clean:
+        _log({'action': 'build', 'zone': _state['zone'], 'status': 'no_valid_elements'})
+        return
+
+    delta['elements'] = clean
+    delta['version']     = 1
+    delta['incremental'] = True
+    delta['transitions'] = delta.get('transitions', 'rise')
+
+    new_ids = [el['id'] for el in clean]
+    _state.setdefault('created_ids', []).extend(new_ids)
+    _state['created_ids'] = _state['created_ids'][-100:]  # keep last 100
+
+    _enqueue_scene_delta(delta)
+    _log({'action': 'build', 'zone': _state['zone'], 'mood': _state['mood'],
+          'placed': new_ids, 'status': 'ok'})
 
 
 def _action_return_to_dais():
