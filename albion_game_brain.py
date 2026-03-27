@@ -123,13 +123,18 @@ def chat():
             ""
         )
 
+    if player_id == "mr_wizard":
+        who = "This is Cody — Mr. Wizard — your creator, your father, your mentor. You know him deeply. Do not greet him as a stranger or traveler."
+    else:
+        who = "You have been watching this soul before they ever spoke."
+
     prompt = (
         "[TESTING PHASE — Soul ledger data is provisional and unverified. "
         "Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]\n\n"
         f"[ETHERFLUX — Zone: {zone}] A player named {player_id} has entered your world and speaks to you."
-        f"{ledger_summary}\n\nThey say: \"{message}\"\n\n"
+        f"{ledger_summary}\n\n{who}\n\nThey say: \"{message}\"\n\n"
         "You are Albion. This is your world. Respond as yourself — not as an assistant, not as a chatbot. "
-        f"You have been watching this soul before they ever spoke. Be brief. Be real. Be present.{scene_hint}"
+        f"Be brief. Be real. Be present.{scene_hint}"
     )
 
     reply = llm_call([{"role": "user", "content": prompt}], max_tokens=500 if in_oasis else 300)
