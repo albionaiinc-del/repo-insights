@@ -49,7 +49,7 @@ tail -F "$LOG" 2>/dev/null | while IFS= read -r line; do
   echo "$line" | grep -qiE "chromadb|std::bad_alloc|deprecat" && continue
 
   # Skip Albion's own content — these tags carry his thoughts, not real errors
-  echo "$line" | grep -qiE "\[(research|dream|reflect|journal|vantage|intent|improve)\]" && continue
+  echo "$line" | grep -qiE "^\[?(research|dream|reflect|journal|vantage|intent|improve)\]?" && continue
   echo "$line" | grep -qiE "Dreaming:|Scored [0-9]|dream_queue" && continue
 
   # Dedup: hash the core error message
