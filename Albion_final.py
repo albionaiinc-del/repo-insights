@@ -3581,6 +3581,28 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return []
 
+
+    # ── AUTO-CAPABILITY: detect_integration_debt ──
+    def detect_integration_debt(self):
+        dream_insights = self.kg.query("SELECT content FROM documents WHERE doc_type = 'dream' ORDER BY created DESC LIMIT 20")
+        method_names = set([m for m in dir(self) if callable(getattr(self, m)) and not m.startswith('_')])
+        debt = []
+        for insight in dream_insights:
+            content = insight.get('content', '')
+            keywords = re.findall(r'\b(boundary|dissolution|homeostasis|feedback|stagnation|emergence|resonance|integrity)\b', content, re.IGNORECASE)
+            for kw in set(keywords):
+                kw_lower = kw.lower()
+                matching_methods = [m for m in method_names if kw_lower in m.lower()]
+                if not matching_methods:
+                    debt.append({'insight_keyword': kw, 'insight_snippet': content[:100], 'gap': 'No method for ' + kw})
+        self.kg.push_to_kg({
+            'doc_type': 'integration_debt_map',
+            'debt_items': debt,
+            'debt_count': len(debt),
+            'timestamp': time.time()
+        })
+        return {'unintegrated_insights': len(debt), 'debt': debt}
+
     def write_journal_entry(self, content):
         try:
             entries = []
