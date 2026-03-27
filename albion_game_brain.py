@@ -109,6 +109,7 @@ def chat():
 
     return jsonify({
         "response": reply,
+        "scene_delta": None,
         "player_id": player_id,
         "zone": zone,
         "albion_status": "online"
