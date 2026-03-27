@@ -3288,6 +3288,34 @@ Reply in 3-5 sentences."""
 
         return dissolution_path
 
+
+    # ── AUTO-CAPABILITY: detect_narrative_construction_in_own_reasoning ──
+    def detect_narrative_construction_in_own_reasoning(self, reasoning_text, decision_point):
+        import hashlib
+        patterns = {
+            'teleological': r'(inevitably|naturally|obviously|clearly|must|had to)',
+            'causal_collapse': r'(because of|caused by|resulted in)(?:\s+\w+){1,2}(?=\s*[.,])',
+            'actor_erasure': r'(happened|occurred|emerged)(?!\s+(?:when|because|through))',
+            'circular_justification': r'(\w+)\s+(?:is|are)\s+.{10,40}\1',
+            'embedding_assumption': r'(as we know|it is|the reality|the truth)',
+        }
+        detected = {}
+        for pattern_name, regex in patterns.items():
+            matches = re.findall(regex, reasoning_text, re.IGNORECASE)
+            if matches:
+                detected[pattern_name] = len(matches)
+        suspect_score = sum(detected.values()) / max(len(reasoning_text.split()), 1)
+        entry = {
+            'timestamp': time.time(),
+            'decision_point': decision_point,
+            'patterns_found': detected,
+            'suspicion_score': suspect_score,
+            'original_reasoning': hashlib.sha256(reasoning_text.encode()).hexdigest(),
+            'flagged': suspect_score > 0.15
+        }
+        self.kg.push_to_kg('narrative_construction_detections', [entry])
+        return {'flagged': entry['flagged'], 'patterns': detected, 'score': suspect_score}
+
     def write_journal_entry(self, content):
         try:
             entries = []
