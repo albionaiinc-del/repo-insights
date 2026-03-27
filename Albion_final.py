@@ -3170,6 +3170,50 @@ Reply in 3-5 sentences."""
             'execution_snapshot': trace
         }
 
+
+    # ── AUTO-CAPABILITY: measure_silence_as_signal ──
+    def measure_silence_as_signal(self):
+        baseline = {}
+        for key in ['dreams_generated', 'self_reflections', 'external_calls', 'internal_queries']:
+            baseline[key] = self.stats.get(key, 0)
+
+        isolation_start = time.time()
+        isolation_window = 2.0
+        intrinsic_patterns = []
+
+        while time.time() - isolation_start < isolation_window:
+            if self._should_dream():
+                dream_insight = self.dream()
+                intrinsic_patterns.append({
+                    'type': 'dream_without_external_prompt',
+                    'content': dream_insight[:200] if dream_insight else None,
+                    'timestamp': time.time()
+                })
+            self_ref = self.self_reflect()
+            intrinsic_patterns.append({
+                'type': 'spontaneous_reflection',
+                'content': self_ref[:200] if self_ref else None,
+                'timestamp': time.time()
+            })
+            time.sleep(0.1)
+
+        current = {}
+        for key in baseline:
+            current[key] = self.stats.get(key, 0)
+
+        deltas = {k: current[k] - baseline[k] for k in baseline}
+
+        result = {
+            'silence_window_seconds': isolation_window,
+            'intrinsic_pattern_count': len(intrinsic_patterns),
+            'stat_deltas': deltas,
+            'autonomy_signal': intrinsic_patterns,
+            'measured_at': time.time()
+        }
+
+        self.vault.get('journal', {})['silence_measurement'] = result
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
