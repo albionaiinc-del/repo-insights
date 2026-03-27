@@ -3541,6 +3541,46 @@ Reply in 3-5 sentences."""
         silence_map['timestamp_measured'] = time.time()
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: trace_fatigue_as_diagnostic_signal ──
+    def trace_fatigue_as_diagnostic_signal(self):
+        fatigue_log = []
+        try:
+            if not hasattr(self, '_subsystem_load'):
+                self._subsystem_load = {}
+
+            current_time = time.time()
+            for subsys in ['dream', 'reflect', 'ingest', 'route', 'query']:
+                if subsys not in self._subsystem_load:
+                    self._subsystem_load[subsys] = []
+
+                self._subsystem_load[subsys] = [t for t in self._subsystem_load[subsys] if current_time - t < 3600]
+
+            for subsys, timestamps in self._subsystem_load.items():
+                load_density = len(timestamps) / max(1, 3600)
+                if load_density > 0.5:
+                    fatigue_log.append({
+                        'subsystem': subsys,
+                        'load_density': load_density,
+                        'signal': 'rest_needed' if load_density > 0.7 else 'monitor',
+                        'timestamp': current_time
+                    })
+
+            if fatigue_log:
+                signal_file = os.path.join(self.vault_dir, 'fatigue_signals.json')
+                existing = []
+                if os.path.exists(signal_file):
+                    with open(signal_file, 'r') as f:
+                        existing = json.load(f)
+                existing.extend(fatigue_log)
+                existing = existing[-100:]
+                with open(signal_file, 'w') as f:
+                    json.dump(existing, f, indent=2)
+
+            return fatigue_log
+        except Exception as e:
+            return []
+
     def write_journal_entry(self, content):
         try:
             entries = []
