@@ -3247,6 +3247,47 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
+
+    # ── AUTO-CAPABILITY: trace_relational_dissolution ──
+    def trace_relational_dissolution(self, mode_name, max_iterations=10):
+        dissolution_path = []
+        current_state = {'mode': mode_name, 'coherence': 1.0, 'iteration': 0, 'capacity_used': 0.0}
+
+        for i in range(max_iterations):
+            dissolution_path.append(current_state.copy())
+
+            capacity_strain = current_state['capacity_used']
+            coherence_decay = 0.15 * (1.0 + capacity_strain)
+            new_coherence = max(0.0, current_state['coherence'] - coherence_decay)
+            new_capacity = min(1.0, current_state['capacity_used'] + 0.12)
+
+            if new_coherence < 0.3 and current_state['capacity_used'] > 0.7:
+                dissolution_path.append({
+                    'mode': mode_name,
+                    'coherence': new_coherence,
+                    'iteration': i + 1,
+                    'capacity_used': new_capacity,
+                    'event': 'collapse_threshold_reached',
+                    'minimal_perturbation': True,
+                    'relational_exhaustion': True
+                })
+                break
+
+            current_state = {
+                'mode': mode_name,
+                'coherence': new_coherence,
+                'iteration': i + 1,
+                'capacity_used': new_capacity
+            }
+
+        self.kg.push_to_kg('dissolution_trace', {
+            'mode': mode_name,
+            'path': dissolution_path,
+            'timestamp': time.time()
+        })
+
+        return dissolution_path
+
     def write_journal_entry(self, content):
         try:
             entries = []
