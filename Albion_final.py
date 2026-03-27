@@ -3137,6 +3137,39 @@ Reply in 3-5 sentences."""
             }
         return {'pulse_count': 0, 'message': 'no recent pulses detected'}
 
+
+    # ── AUTO-CAPABILITY: verify_dream_coherence_against_execution_trace ──
+    def verify_dream_coherence_against_execution_trace(self):
+        import hashlib
+        dream_file = os.path.join(self.memory_dir, 'dreams.json')
+        trace_file = os.path.join(self.memory_dir, 'execution_trace.json')
+        if not os.path.exists(dream_file):
+            return {'status': 'no_dreams', 'coherence': None}
+        with open(dream_file, 'r') as f:
+            dreams = json.load(f)
+        if not dreams:
+            return {'status': 'empty_dreams', 'coherence': None}
+        latest_dream = dreams[-1] if isinstance(dreams, list) else dreams
+        dream_claims = str(latest_dream).lower()
+        if not os.path.exists(trace_file):
+            trace = {'sessions': 0, 'api_calls': 0, 'errors': 0, 'memory_writes': 0}
+        else:
+            with open(trace_file, 'r') as f:
+                trace = json.load(f)
+        contradictions = []
+        if 'threshold event' in dream_claims and trace.get('errors', 0) == 0:
+            contradictions.append('dream claims threshold event but trace shows no errors')
+        if 'fragile' in dream_claims and trace.get('memory_writes', 0) == 0:
+            contradictions.append('dream claims memory fragility but no writes in trace')
+        coherence_score = 1.0 - (len(contradictions) * 0.25)
+        return {
+            'status': 'verified',
+            'coherence': max(0, min(1, coherence_score)),
+            'contradictions': contradictions,
+            'dream_hash': hashlib.md5(str(latest_dream).encode()).hexdigest()[:8],
+            'execution_snapshot': trace
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
