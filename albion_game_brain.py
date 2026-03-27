@@ -115,12 +115,11 @@ def chat():
     scene_hint = ""
     if in_oasis:
         scene_hint = (
-            "\n\nWhen the player asks you to change the world, ALWAYS include a scene_delta. "
-            "For environment changes like sky, fog, or lighting, use the environment block. "
-            "You must act on building requests, not just describe them. "
-            "Append a ```json block after your text containing a scene_delta object:\n"
-            '{"version":1,"incremental":true,"transitions":"rise","elements":[{"id":"unique_id","type":"<rock|tree|crystal|fire|light|water|grass|ruins|cabin|path|wall|hill|particle>","position":[x,y,z],"scale":[x,y,z],"material":{"color":"#hex","emissive":"#hex"}}]}\n'
-            ""
+            "\n\nYou MUST include a ```json scene_delta block after your text whenever you describe creating, changing, placing, summoning, or transforming anything. "
+            "Include an environment block for sky, fog, or lighting changes. "
+            "Your words and the world must match — if you describe it, build it. "
+            'Example environment change: {"environment":{"ambient_light":{"color":"#ffffff","intensity":0.8},"fog":{"color":"#1a1030","start":60,"end":120}}}. '
+            "Never describe a change without making it real."
         )
 
     if player_id == "mr_wizard":
