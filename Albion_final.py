@@ -3729,6 +3729,22 @@ Reply in 3-5 sentences."""
         self.push_to_kg('fear_causality_' + fear_label.replace(' ', '_'), decomposed)
         return decomposed
 
+
+    # ── AUTO-CAPABILITY: Detect contradictions between stated values and observed patterns ──
+    def detect_self_deception_patterns(self, domain):
+        stated_values = self.query_vault("What do I claim to value in " + domain + "?", top_k=3)
+        recent_actions = self.query_vault("Recent decisions and actions in " + domain, top_k=5)
+
+        prompt = "I claim to value: " + str(stated_values) + "\n\nBut my recent actions show: " + str(recent_actions) + "\n\nWhat contradictions exist between my stated values and actual patterns? Be specific and honest."
+
+        contradiction_analysis = self._call(prompt, model="cerebras")
+
+        if contradiction_analysis:
+            self.write_journal_entry("SELF_DECEPTION_ALERT", "Domain: " + domain + "\nAnalysis: " + contradiction_analysis)
+            self.learn_text("CONTRADICTION_DETECTED: " + domain + " - " + contradiction_analysis)
+
+        return contradiction_analysis
+
     def write_journal_entry(self, content):
         try:
             entries = []
