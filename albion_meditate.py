@@ -388,12 +388,17 @@ def call_model(tier_name, messages, max_tokens_override=None):
             )
             r.raise_for_status()  
             return _success(r.json()['choices'][0]['message']['content'].strip())  
-        elif t['provider'] == 'gemini':  
-            key = alb._load_key('gemini', default='')  
-            if not key:  
-                raise Exception("Gemini key not configured")  
-            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
+        elif t['provider'] == 'gemini':
+            key = alb._load_key('gemini', default='')
+            if not key:
+                raise Exception("Gemini key not configured")
             system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
+            contents = []
+            for m in messages:
+                if m["role"] == "user":
+                    contents.append({"role": "user", "parts": [{"text": m["content"]}]})
+                elif m["role"] == "assistant":
+                    contents.append({"role": "model", "parts": [{"text": m["content"]}]})
             payload = {"contents": contents, "generationConfig": {"maxOutputTokens": tokens, "temperature": t['temp']}}
             if system_text:
                 payload["systemInstruction"] = {"parts": [{"text": system_text}]}
