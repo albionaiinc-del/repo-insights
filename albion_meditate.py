@@ -1581,6 +1581,10 @@ def self_improve():
     global _improve_cycle_count
     _improve_cycle_count += 1
 
+    # mentor inbox fires regardless of API health
+    if _improve_cycle_count % 5 == 0:
+        check_mentor_inbox()
+
     # gate 1: API health
     if not _api_healthy_enough():
         return
@@ -1972,10 +1976,6 @@ END"""
                 fl['resolved'] = True
         with open(FLAGS, 'w') as f:
             json.dump(flags, f, indent=2)
-
-        # mentor inbox every 5 improvement cycles
-        if _improve_cycle_count % 5 == 0:
-            check_mentor_inbox()
 
         # mentor review every 20 improvement cycles
         if _improve_cycle_count % 20 == 0:
