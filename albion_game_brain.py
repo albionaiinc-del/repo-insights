@@ -115,8 +115,10 @@ def chat():
     scene_hint = ""
     if in_oasis:
         scene_hint = (
-            "\n\nIf this moment calls for a world change — a new object, effect, or atmosphere shift — "
-            "append a ```json block after your text containing a scene_delta object:\n"
+            "\n\nWhen the player asks you to change the world, ALWAYS include a scene_delta. "
+            "For environment changes like sky, fog, or lighting, use the environment block. "
+            "You must act on building requests, not just describe them. "
+            "Append a ```json block after your text containing a scene_delta object:\n"
             '{"version":1,"incremental":true,"transitions":"rise","elements":[{"id":"unique_id","type":"<rock|tree|crystal|fire|light|water|grass|ruins|cabin|path|wall|hill|particle>","position":[x,y,z],"scale":[x,y,z],"material":{"color":"#hex","emissive":"#hex"}}]}\n'
             "Only include it if it feels right. Omit it entirely if nothing should change."
         )
