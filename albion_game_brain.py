@@ -6,6 +6,7 @@ import re
 import datetime
 import sys
 from groq import Groq
+from albion_oasis import get_oasis_state, start_oasis_thread
 
 app = Flask(__name__)
 CORS(app)
@@ -13,6 +14,8 @@ CORS(app)
 MEMORY_DIR = os.path.expanduser("~/albion_memory")
 SOUL_LEDGER_DIR = os.path.join(MEMORY_DIR, "soul_ledgers")
 os.makedirs(SOUL_LEDGER_DIR, exist_ok=True)
+
+start_oasis_thread()
 
 # --- Keys ---
 def load_keys():
@@ -85,6 +88,18 @@ def chat():
         soul_ledger["last_seen"] = datetime.datetime.now().isoformat()
         with open(ledger_path, "w") as f:
             json.dump(soul_ledger, f, indent=2)
+
+    # Spectator poll — Babylon client drains Albion's position and scene queue
+    if message == '__spectator__':
+        oasis = get_oasis_state()
+        return jsonify({
+            "response":        "",
+            "scene_delta":     oasis['scene_deltas'] or None,
+            "albion_position": oasis['moves'] or None,
+            "player_id":       player_id,
+            "zone":            oasis['zone'],
+            "albion_status":   "online"
+        })
 
     log_interaction(player_id, zone, message)
 
