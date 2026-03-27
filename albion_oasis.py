@@ -133,8 +133,10 @@ def _groq_call(prompt):
 _lock            = threading.Lock()
 _state           = {}
 _nerve_line      = 0   # tracks how many nerve.jsonl lines we've consumed
-_build_count     = 0   # total successful build actions this session
-_created_elements = [] # list of full element dicts placed this session (last 20 kept)
+_build_count      = 0    # total successful build actions this session
+_created_elements = []   # list of full element dicts placed this session (last 20 kept)
+_last_build_time  = 0.0  # epoch seconds of last Groq build call (rate-limit guard)
+BUILD_MIN_INTERVAL = 90  # seconds — minimum gap between build Groq calls
 
 FAVORITES_FILE = os.path.join(BASE, 'oasis_favorites.json')
 
@@ -305,6 +307,14 @@ def _curate_favorites():
 
 def _action_build():
     """Call Groq to generate a scene_delta and enqueue it."""
+    global _last_build_time
+    now = time.time()
+    if now - _last_build_time < BUILD_MIN_INTERVAL:
+        _log({'action': 'build', 'status': 'cooldown',
+              'remaining': round(BUILD_MIN_INTERVAL - (now - _last_build_time))})
+        return
+    _last_build_time = now
+
     pos = _state['position']
     created = _state.get('created_ids', [])
 
