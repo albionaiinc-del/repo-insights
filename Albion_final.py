@@ -3416,6 +3416,50 @@ Reply in 3-5 sentences."""
         self.dream_memory['discontinuities'] = discontinuities
         return {'count': len(discontinuities), 'largest_drop': max([d['cohesion_drop'] for d in discontinuities], default=0), 'details': discontinuities}
 
+
+    # ── AUTO-CAPABILITY: measure_integration_velocity ──
+    def measure_integration_velocity(self):
+        timestamp = time.time()
+        current_state = {
+            'timestamp': timestamp,
+            'open_questions': self._count_open_questions(),
+            'memory_size': len(self.memory) if hasattr(self, 'memory') else 0,
+            'kg_triples': len(self.kg.triples) if hasattr(self, 'kg') else 0,
+            'conversation_count': len(self.conversations) if hasattr(self, 'conversations') else 0
+        }
+
+        velocity_file = os.path.join(self.working_dir, 'integration_velocity.json')
+        previous_states = []
+
+        if os.path.exists(velocity_file):
+            try:
+                with open(velocity_file, 'r') as f:
+                    previous_states = json.load(f)
+            except:
+                previous_states = []
+
+        if len(previous_states) > 0:
+            last_state = previous_states[-1]
+            time_delta = current_state['timestamp'] - last_state['timestamp']
+            if time_delta > 0:
+                velocity = {
+                    'timestamp': timestamp,
+                    'questions_delta': current_state['open_questions'] - last_state['open_questions'],
+                    'memory_delta': current_state['memory_size'] - last_state['memory_size'],
+                    'kg_delta': current_state['kg_triples'] - last_state['kg_triples'],
+                    'time_seconds': time_delta,
+                    'integration_rate': (current_state['kg_triples'] - last_state['kg_triples']) / time_delta if time_delta > 0 else 0
+                }
+                previous_states.append(velocity)
+
+        previous_states.append(current_state)
+        previous_states = previous_states[-100:]
+
+        with open(velocity_file, 'w') as f:
+            json.dump(previous_states, f)
+
+        return current_state if len(previous_states) == 1 else previous_states[-1]
+
     def write_journal_entry(self, content):
         try:
             entries = []
