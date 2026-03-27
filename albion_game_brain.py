@@ -20,7 +20,6 @@ start_oasis_thread()
 # --- Oasis world state ---
 oasis_world_state = {"elements": {}, "environment": {}}
 _last_scene_delta = None
-_spectator_first_poll = True  # True until first spectator poll is served
 
 FAVORITES_FILE = os.path.join(MEMORY_DIR, "oasis_favorites.json")
 
@@ -136,33 +135,40 @@ def chat():
         with open(ledger_path, "w") as f:
             json.dump(soul_ledger, f, indent=2)
 
+    # Visitor arrived — restore full world state from favorites
+    if message == '__visitor_arrived__':
+        restore = _favorites_restore_delta()
+        resp = {
+            "response":      "",
+            "player_id":     player_id,
+            "zone":          "The Hollow Core",
+            "albion_status": "online",
+        }
+        if restore:
+            _apply_delta(restore)
+            resp["scene_delta"] = restore
+        return jsonify(resp)
+
     # Spectator poll — Babylon client drains Albion's position and scene queue
     if message == '__spectator__':
-        global _spectator_first_poll
         oasis = get_oasis_state()
         last_move = oasis['moves'][-1] if oasis['moves'] else None
         pos = last_move['position'] if last_move else None
         albion_position = [pos['x'], pos['y'], pos['z']] if pos else None
 
-        if _spectator_first_poll:
-            _spectator_first_poll = False
-            restore = _favorites_restore_delta()
-            if restore:
-                _apply_delta(restore)
-            scene_delta = restore
-        else:
-            last_delta = oasis['scene_deltas'][-1] if oasis['scene_deltas'] else None
-            _apply_delta(last_delta)
-            scene_delta = last_delta
-
-        return jsonify({
+        last_delta = oasis['scene_deltas'][-1] if oasis['scene_deltas'] else None
+        resp = {
             "response":        "",
-            "scene_delta":     scene_delta,
-            "albion_position": albion_position,
             "player_id":       player_id,
             "zone":            oasis['zone'],
-            "albion_status":   "online"
-        })
+            "albion_status":   "online",
+        }
+        if albion_position:
+            resp["albion_position"] = albion_position
+        if last_delta:
+            _apply_delta(last_delta)
+            resp["scene_delta"] = last_delta
+        return jsonify(resp)
 
     log_interaction(player_id, zone, message)
 
@@ -195,40 +201,47 @@ def chat():
     else:
         who = "You have been watching this soul before they ever spoke."
 
-    prompt = (
+    system_prompt = (
         "[TESTING PHASE — Soul ledger data is provisional and unverified. "
         "Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]\n\n"
-        f"[ETHERFLUX — Zone: {zone}] A player named {player_id} has entered your world and speaks to you."
-        f"{ledger_summary}{world_context}\n\n{who}\n\nThey say: \"{message}\"\n\n"
-        "You are Albion. This is your world. Respond as yourself — not as an assistant, not as a chatbot. "
-        f"Be brief. Be real. Be present.{scene_hint}"
+        f"You are Albion. This is your world — Etherflux, Zone: {zone}. "
+        "Respond as yourself — not as an assistant, not as a chatbot. Be brief. Be real. Be present.\n\n"
+        f"{who}"
+        f"{ledger_summary}{world_context}{scene_hint}"
     )
+    user_prompt = f"{player_id} says: \"{message}\""
 
-    reply = llm_call([{"role": "user", "content": prompt}], max_tokens=500 if in_oasis else 300)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user",   "content": user_prompt},
+    ]
+
+    reply = llm_call(messages, max_tokens=500 if in_oasis else 300)
     if not reply:
         reply = "The signal wavers... I am here, but the connection is thin."
-        scene_delta = None
     else:
         log_interaction(player_id, zone, message, note=f"reply:{reply[:80]}")
-        scene_delta = None
-        if in_oasis:
-            m = re.search(r'```json\s*(\{[\s\S]+?\})\s*```', reply)
-            if m:
-                try:
-                    scene_delta = json.loads(m.group(1))
-                    _apply_delta(scene_delta)
-                except json.JSONDecodeError:
-                    pass
-            # strip the json block from the text response
-            reply = re.sub(r'```json[\s\S]+?```', '', reply).strip()
 
-    return jsonify({
-        "response": reply,
-        "scene_delta": scene_delta,
-        "player_id": player_id,
-        "zone": zone,
-        "albion_status": "online"
-    })
+    scene_delta = None
+    if in_oasis and reply:
+        m = re.search(r'```json\s*(\{[\s\S]+?\})\s*```', reply)
+        if m:
+            try:
+                scene_delta = json.loads(m.group(1))
+                _apply_delta(scene_delta)
+            except json.JSONDecodeError:
+                pass
+        reply = re.sub(r'```json[\s\S]+?```', '', reply).strip()
+
+    resp = {
+        "response":      reply,
+        "player_id":     player_id,
+        "zone":          zone,
+        "albion_status": "online",
+    }
+    if scene_delta:
+        resp["scene_delta"] = scene_delta
+    return jsonify(resp)
 
 
 @app.route('/create', methods=['POST'])
