@@ -7,6 +7,7 @@ import datetime
 import sys
 from groq import Groq
 from albion_oasis import get_oasis_state, start_oasis_thread
+from albion_voice import albion_speak
 
 app = Flask(__name__)
 CORS(app)
@@ -211,12 +212,7 @@ def chat():
     )
     user_prompt = f"{player_id} says: \"{message}\""
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user",   "content": user_prompt},
-    ]
-
-    reply = llm_call(messages, max_tokens=500 if in_oasis else 300)
+    reply = albion_speak(system_prompt, user_prompt, max_tokens=500 if in_oasis else 300)
     if not reply:
         reply = "The signal wavers... I am here, but the connection is thin."
     else:
