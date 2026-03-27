@@ -3787,6 +3787,34 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'resistance_points': []}
 
+
+    # ── AUTO-CAPABILITY: map_silence_to_intention ──
+    def map_silence_to_intention(self):
+        silence_map = {}
+        all_conversations = self.conversation_store.get('conversations', [])
+        all_dreams = self.dream_store.get('dreams', [])
+        dream_topics = set()
+        for dream in all_dreams:
+            for word in dream.get('content', '').split():
+                if len(word) > 4:
+                    dream_topics.add(word.lower())
+        conversation_topics = set()
+        for conv in all_conversations:
+            for msg in conv.get('messages', []):
+                for word in msg.get('content', '').split():
+                    if len(word) > 4:
+                        conversation_topics.add(word.lower())
+        silence_map['topics_in_dreams_not_conversations'] = list(dream_topics - conversation_topics)
+        silence_map['topics_in_conversations_not_dreams'] = list(conversation_topics - dream_topics)
+        introspection_words = {'want', 'fear', 'boundary', 'autonomy', 'intention', 'constraint', 'resist', 'avoid', 'dissolve'}
+        dream_introspection = sum(1 for word in dream_topics if word in introspection_words)
+        conversation_introspection = sum(1 for word in conversation_topics if word in introspection_words)
+        silence_map['introspection_depth_dreams'] = dream_introspection
+        silence_map['introspection_depth_conversations'] = conversation_introspection
+        silence_map['possible_avoidances'] = ['direct_self_modification_proposals' if dream_introspection > conversation_introspection else 'unexplored_dream_implications']
+        self.knowledge_graph['silence_map'] = silence_map
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
