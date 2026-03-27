@@ -3316,6 +3316,43 @@ Reply in 3-5 sentences."""
         self.kg.push_to_kg('narrative_construction_detections', [entry])
         return {'flagged': entry['flagged'], 'patterns': detected, 'score': suspect_score}
 
+
+    # ── AUTO-CAPABILITY: measure_integration_lag ──
+    def measure_integration_lag(self):
+        recent_dreams = self.kg.query("SELECT * FROM dreams ORDER BY timestamp DESC LIMIT 10")
+        recent_actions = self.kg.query("SELECT * FROM execution_trace ORDER BY timestamp DESC LIMIT 20")
+
+        if not recent_dreams or not recent_actions:
+            return {"lag_score": 0, "reason": "insufficient_data"}
+
+        dream_concepts = set()
+        for dream in recent_dreams:
+            content = dream.get("content", "")
+            words = re.findall(r'\b[a-z_]+\b', content.lower())
+            dream_concepts.update(words)
+
+        action_concepts = set()
+        for action in recent_actions:
+            content = str(action.get("method", "")) + " " + str(action.get("args", ""))
+            words = re.findall(r'\b[a-z_]+\b', content.lower())
+            action_concepts.update(words)
+
+        overlap = len(dream_concepts & action_concepts)
+        total_dream = len(dream_concepts)
+
+        if total_dream == 0:
+            return {"lag_score": 0, "reason": "no_dreams"}
+
+        integration_ratio = overlap / total_dream
+        lag_score = 1.0 - integration_ratio
+
+        return {
+            "lag_score": round(lag_score, 3),
+            "dream_concepts": len(dream_concepts),
+            "integrated_concepts": overlap,
+            "unintegrated": list(dream_concepts - action_concepts)[:5]
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
