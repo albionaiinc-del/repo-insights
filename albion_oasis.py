@@ -21,6 +21,8 @@ import math
 import random
 import threading
 import datetime
+sys.path.insert(0, os.path.expanduser('~'))
+from nerve import signal as nerve_signal, listen as nerve_listen
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE       = os.path.expanduser('~/albion_memory')
@@ -97,8 +99,9 @@ def _groq_call(prompt):
     return None
 
 # ── State ──────────────────────────────────────────────────────────────────────
-_lock  = threading.Lock()
-_state = {}
+_lock       = threading.Lock()
+_state      = {}
+_nerve_line = 0   # tracks how many nerve.jsonl lines we've consumed
 
 
 def _default_state():
@@ -328,6 +331,15 @@ def _pick_action():
 
 # ── Tick ───────────────────────────────────────────────────────────────────────
 def _tick():
+    global _nerve_line
+    # ── listen for signals from other heads ──────────────────────────────────
+    new_signals, _nerve_line = nerve_listen(_nerve_line)
+    for sig in new_signals:
+        if sig.get('from') == 'meditate' and sig.get('type') == 'heartbeat':
+            mood = sig['data'].get('mood', '')
+            if mood and mood in MOODS:
+                _state['mood'] = mood
+
     with _lock:
         _state['tick'] += 1
         action = _pick_action()
@@ -344,6 +356,12 @@ def _tick():
             _action_return_to_dais()
 
         _save_state()
+
+    nerve_signal("oasis", "action", {
+        "action":   action,
+        "position": _state['position'],
+        "zone":     _state['zone'],
+    })
 
 
 # ── Thread ─────────────────────────────────────────────────────────────────────

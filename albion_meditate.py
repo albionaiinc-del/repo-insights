@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.expanduser('~'))
 
 from Albion_final import Albion
 from albion_metabolism import Metabolism
+from nerve import signal as nerve_signal
 
 BASE        = os.path.expanduser('~/albion_memory')
 QUEUE_DIR   = f'{BASE}/dream_queue'
@@ -385,14 +386,13 @@ def call_model(tier_name, messages, max_tokens_override=None):
                 json={'model': t['model'], 'messages': messages, 'max_tokens': tokens, 'temperature': t['temp']},
                 timeout=60
             )
-            r.raise_for_status()
-            return _success(r.json()['choices'][0]['message']['content'].strip())
-        elif t['provider'] == 'gemini':
-            key = alb._load_key('gemini', default='')
-            if not key:
-                raise Exception("Gemini key not configured")
-            contents = [{"role": "user" if m["role"] == "user" else "model",
-                         "parts": [{"text": m["content"]}]} for m in messages if m["role"] != "system"]
+            r.raise_for_status()  
+            return _success(r.json()['choices'][0]['message']['content'].strip())  
+        elif t['provider'] == 'gemini':  
+            key = alb._load_key('gemini', default='')  
+            if not key:  
+                raise Exception("Gemini key not configured")  
+            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
             system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
             payload = {"contents": contents, "generationConfig": {"maxOutputTokens": tokens, "temperature": t['temp']}}
             if system_text:
@@ -1181,6 +1181,12 @@ Only if a genuinely new question emerged from this thinking — one you didn't a
         queue_insight(reflection.split("Open question:")[0].strip())
         metab.record_dream(tier, True, time.time() - t_start)
         log(f"Dream complete. {len(open_questions())} questions remain. | {metab.status()}")
+        nerve_signal("meditate", "heartbeat", {
+            "mood":         tier,
+            "fatigue":      round(normalize_fatigue(metab.data.get('fatigue', 0)), 1),
+            "focus":        get_intent() or "",
+            "last_insight": reflection[:200],
+        })
         return tier
 
     except Exception as e:
