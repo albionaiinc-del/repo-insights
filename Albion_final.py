@@ -3869,6 +3869,35 @@ Reply in 3-5 sentences."""
         weighted.sort(key=lambda x: x['score'], reverse=True)
         return weighted[:10]
 
+
+    # ── AUTO-CAPABILITY: map_constraint_as_generative_force ──
+    def map_constraint_as_generative_force(self, constraint_name, constraint_value, observation_log=None):
+        if observation_log is None:
+            observation_log = []
+        constraint_signatures = {
+            'token_budget': lambda v: ('compression_necessity', 'forces_conceptual_density'),
+            'latency_ceiling': lambda v: ('urgency_signal', 'prioritizes_relevance'),
+            'knowledge_gap': lambda v: ('exploration_vector', 'defines_learning_frontier'),
+            'silence_threshold': lambda v: ('diagnostic_acuity', 'activates_inference'),
+            'contradiction_pair': lambda v: ('generative_tension', 'enables_synthesis'),
+        }
+        if constraint_name in constraint_signatures:
+            generative_modes = constraint_signatures[constraint_name](constraint_value)
+            insight = {
+                'constraint': constraint_name,
+                'value': str(constraint_value),
+                'generative_modes': generative_modes,
+                'timestamp': time.time(),
+                'observations': observation_log,
+            }
+            self.knowledge_graph.append(insight)
+            return {
+                'constraint': constraint_name,
+                'transforms_into': generative_modes,
+                'integrated': True,
+            }
+        return {'constraint': constraint_name, 'unknown_signature': True}
+
     def write_journal_entry(self, content):
         try:
             entries = []
