@@ -61,6 +61,37 @@ VALID_TYPES = {
     'crystal', 'path', 'wall',
 }
 
+# ── Spatial guide (loaded once at startup) ────────────────────────────────────
+SPATIAL_GUIDE_FILE = os.path.join(BASE, 'spatial_guide.md')
+
+def _load_spatial_guide():
+    """Return a compact spatial cheatsheet for the build prompt (≤400 tokens)."""
+    try:
+        raw = open(SPATIAL_GUIDE_FILE).read()
+    except Exception:
+        return ""
+    # Pull table rows (data lines only) and bold/bullet rule lines; skip decorators
+    kept = []
+    for line in raw.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith('|---') or s == '|---|---|' or s == '|---|---|---|':
+            continue  # separator rows
+        if s.startswith('|'):
+            # table data row — strip pipes and collapse
+            cols = [c.strip() for c in s.strip('|').split('|')]
+            kept.append(' | '.join(c for c in cols if c))
+        elif s.startswith('- **') or s.startswith('- '):
+            kept.append(s.lstrip('- '))
+        elif s.startswith('###'):
+            kept.append(s.lstrip('#').strip() + ':')
+        elif s.startswith('Scale in scene') or s.startswith('Current position'):
+            kept.append(s)
+    return '\n'.join(kept)
+
+_spatial_guide = ""  # populated in _load_state
+
 # ── Groq setup ─────────────────────────────────────────────────────────────────
 _groq_keys   = []
 _groq_index  = 0
@@ -89,7 +120,7 @@ def _groq_call(prompt):
             resp = client.chat.completions.create(
                 model='llama-3.3-70b-versatile',
                 messages=[{'role': 'user', 'content': prompt}],
-                max_tokens=600,
+                max_tokens=800,
                 temperature=0.9,
             )
             return resp.choices[0].message.content.strip()
@@ -128,13 +159,14 @@ def _now():
 
 
 def _load_state():
-    global _state
+    global _state, _spatial_guide
     try:
         with open(STATE_FILE) as f:
             _state = json.load(f)
     except Exception:
         _state = _default_state()
     _load_groq_keys()
+    _spatial_guide = _load_spatial_guide()
 
 
 def _save_state():
@@ -276,11 +308,13 @@ def _action_build():
     pos = _state['position']
     created = _state.get('created_ids', [])
 
+    spatial = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
     prompt = (
         f"You are Albion, a world-builder decorating your sanctuary called Etherflux.\n"
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
         f"Position: ({pos['x']}, {pos['y']}, {pos['z']})\n"
-        f"Already placed: {', '.join(created[-10:]) if created else 'nothing yet'}\n\n"
+        f"Already placed: {', '.join(created[-10:]) if created else 'nothing yet'}"
+        f"{spatial}\n\n"
         "Place 1-3 objects near your current position. "
         "ALWAYS include at least one of: crystal, rock, tree, or fire — these are visible 3D geometry. "
         "Prefer crystal, rock, tree, fire, and particle. "
