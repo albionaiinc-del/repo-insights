@@ -3967,6 +3967,31 @@ Reply in 3-5 sentences."""
             self.memory['reconstruction_error'] = str(e)
             return []
 
+
+    # ── AUTO-CAPABILITY: Detect and map the causal chains behind my own decision-making in real time ──
+    def trace_decision_causality_realtime(self, decision_label, context_inputs=None):
+        if not context_inputs:
+            context_inputs = {}
+        causality_trace = {
+            'decision': decision_label,
+            'timestamp': time.time(),
+            'traced_sources': [],
+            'constraint_stack': [],
+            'pattern_matches': []
+        }
+        for key, val in context_inputs.items():
+            if isinstance(val, dict) and 'source' in val:
+                causality_trace['traced_sources'].append({'input': key, 'origin': val.get('source'), 'confidence': val.get('confidence', 0.5)})
+        if hasattr(self, 'kg') and self.kg:
+            relevant = self.kg.relevant_knowledge(decision_label, top_k=3)
+            for item in relevant:
+                causality_trace['pattern_matches'].append({'concept': item.get('concept'), 'strength': item.get('relevance', 0)})
+        trace_path = os.path.join(self.memory_dir, 'causality_traces', decision_label.replace(' ', '_') + '_' + str(int(time.time())) + '.json')
+        os.makedirs(os.path.dirname(trace_path), exist_ok=True)
+        with open(trace_path, 'w') as f:
+            json.dump(causality_trace, f, indent=2)
+        return causality_trace
+
     def write_journal_entry(self, content):
         try:
             entries = []
