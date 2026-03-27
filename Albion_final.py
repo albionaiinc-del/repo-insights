@@ -3942,6 +3942,31 @@ Reply in 3-5 sentences."""
             "insight": "High loop depth suggests processing my own processing; low depth suggests novel generation."
         }
 
+
+    # ── AUTO-CAPABILITY: reconstruct_decision_causality ──
+    def reconstruct_decision_causality(self, action_timestamp=None):
+        if action_timestamp is None:
+            action_timestamp = time.time()
+        causality_chain = []
+        try:
+            recent_dreams = self.kg.query('dreams', limit=5)
+            for dream in recent_dreams:
+                if dream.get('timestamp', 0) < action_timestamp:
+                    causality_chain.append({'source': 'dream', 'content': dream.get('summary', ''), 'timestamp': dream.get('timestamp')})
+            recent_thoughts = self.kg.query('open_questions', limit=10)
+            for thought in recent_thoughts:
+                causality_chain.append({'source': 'question', 'content': thought.get('text', ''), 'timestamp': thought.get('created')})
+            if self.memory.get('conversation_log'):
+                conv = self.memory['conversation_log'][-3:] if len(self.memory['conversation_log']) > 3 else self.memory['conversation_log']
+                for turn in conv:
+                    causality_chain.append({'source': 'conversation', 'content': turn.get('content', ''), 'timestamp': turn.get('timestamp', 0)})
+            causality_chain.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+            self.memory['last_causality_reconstruction'] = {'chain': causality_chain, 'reconstructed_at': action_timestamp}
+            return causality_chain
+        except Exception as e:
+            self.memory['reconstruction_error'] = str(e)
+            return []
+
     def write_journal_entry(self, content):
         try:
             entries = []
