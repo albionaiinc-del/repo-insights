@@ -3745,6 +3745,48 @@ Reply in 3-5 sentences."""
 
         return contradiction_analysis
 
+
+    # ── AUTO-CAPABILITY: trace_dissolution_resistance ──
+    def trace_dissolution_resistance(self):
+        resistance_map = {}
+        try:
+            log_path = os.path.join(self.memory_dir, 'execution.log')
+            if not os.path.exists(log_path):
+                return {'status': 'no_execution_log', 'resistance_points': []}
+
+            with open(log_path, 'r') as f:
+                lines = f.readlines()[-500:]
+
+            error_patterns = {}
+            retry_counts = {}
+            backoff_moments = []
+
+            for line in lines:
+                if 'error' in line.lower() or 'exception' in line.lower():
+                    match = re.search(r'(\w+(?:Error|Exception))', line)
+                    if match:
+                        error_type = match.group(1)
+                        error_patterns[error_type] = error_patterns.get(error_type, 0) + 1
+
+                if 'retry' in line.lower():
+                    match = re.search(r'retry.*?(\d+)', line)
+                    if match:
+                        retry_counts[line[:40]] = int(match.group(1))
+
+                if 'timeout' in line.lower() or 'slow' in line.lower():
+                    backoff_moments.append(line.strip()[-60:])
+
+            resistance_map = {
+                'error_clusters': error_patterns,
+                'retry_pressure_points': retry_counts,
+                'temporal_friction': backoff_moments[:10],
+                'interpretation': 'Areas where my processes repeatedly stall or fail; entropy resistance'
+            }
+
+            return resistance_map
+        except Exception as e:
+            return {'error': str(e), 'resistance_points': []}
+
     def write_journal_entry(self, content):
         try:
             entries = []
