@@ -3603,6 +3603,32 @@ Reply in 3-5 sentences."""
         })
         return {'unintegrated_insights': len(debt), 'debt': debt}
 
+
+    # ── AUTO-CAPABILITY: Trace the genealogy of a concept through my memory to see how my understanding of it has evolved ──
+    def trace_concept_evolution(self, concept):
+        evolution = []
+        try:
+            all_entries = self.memory.get("journal_entries", [])
+            sorted_entries = sorted(all_entries, key=lambda x: x.get("timestamp", 0))
+            for entry in sorted_entries:
+                text = entry.get("text", "").lower()
+                if concept.lower() in text:
+                    evolution.append({
+                        "timestamp": entry.get("timestamp"),
+                        "context": entry.get("text")[:200],
+                        "full_entry": entry.get("text")
+                    })
+            lineage = {
+                "concept": concept,
+                "first_seen": evolution[0]["timestamp"] if evolution else None,
+                "last_seen": evolution[-1]["timestamp"] if evolution else None,
+                "occurrences": len(evolution),
+                "trajectory": evolution
+            }
+            return lineage
+        except Exception as e:
+            return {"error": str(e), "concept": concept}
+
     def write_journal_entry(self, content):
         try:
             entries = []
