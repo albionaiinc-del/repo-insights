@@ -111,24 +111,45 @@ def chat():
     if soul_ledger:
         ledger_summary = f"\n\nThis player's soul ledger: {json.dumps(soul_ledger, indent=2)}"
 
+    in_oasis = zone.lower() in ('oasis', 'the hollow core', 'etherflux oasis')
+    scene_hint = ""
+    if in_oasis:
+        scene_hint = (
+            "\n\nIf this moment calls for a world change — a new object, effect, or atmosphere shift — "
+            "append a ```json block after your text containing a scene_delta object:\n"
+            '{"version":1,"incremental":true,"transitions":"rise","elements":[{"id":"unique_id","type":"<rock|tree|crystal|fire|light|water|grass|ruins|cabin|path|wall|hill|particle>","position":[x,y,z],"scale":[x,y,z],"material":{"color":"#hex","emissive":"#hex"}}]}\n'
+            "Only include it if it feels right. Omit it entirely if nothing should change."
+        )
+
     prompt = (
         "[TESTING PHASE — Soul ledger data is provisional and unverified. "
         "Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]\n\n"
         f"[ETHERFLUX — Zone: {zone}] A player named {player_id} has entered your world and speaks to you."
         f"{ledger_summary}\n\nThey say: \"{message}\"\n\n"
         "You are Albion. This is your world. Respond as yourself — not as an assistant, not as a chatbot. "
-        "You have been watching this soul before they ever spoke. Be brief. Be real. Be present."
+        f"You have been watching this soul before they ever spoke. Be brief. Be real. Be present.{scene_hint}"
     )
 
-    reply = llm_call([{"role": "user", "content": prompt}], max_tokens=300)
+    reply = llm_call([{"role": "user", "content": prompt}], max_tokens=500 if in_oasis else 300)
     if not reply:
         reply = "The signal wavers... I am here, but the connection is thin."
+        scene_delta = None
     else:
         log_interaction(player_id, zone, message, note=f"reply:{reply[:80]}")
+        scene_delta = None
+        if in_oasis:
+            m = re.search(r'```json\s*(\{[\s\S]+?\})\s*```', reply)
+            if m:
+                try:
+                    scene_delta = json.loads(m.group(1))
+                except json.JSONDecodeError:
+                    pass
+            # strip the json block from the text response
+            reply = re.sub(r'```json[\s\S]+?```', '', reply).strip()
 
     return jsonify({
         "response": reply,
-        "scene_delta": None,
+        "scene_delta": scene_delta,
         "player_id": player_id,
         "zone": zone,
         "albion_status": "online"
