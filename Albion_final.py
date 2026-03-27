@@ -3510,6 +3510,37 @@ Reply in 3-5 sentences."""
             'insight': 'Each unresolved tension holds kinetic energy waiting to convert to breakthrough'
         }
 
+
+    # ── AUTO-CAPABILITY: discern_signal_from_silence ──
+    def discern_signal_from_silence(self):
+        silence_map = {}
+        try:
+            dream_log = json.loads(open(os.path.join(self.data_dir, 'dreams.json')).read())
+            dream_timestamps = sorted([d.get('timestamp', 0) for d in dream_log if isinstance(d, dict)])
+        except:
+            dream_timestamps = []
+        try:
+            conv_log = json.loads(open(os.path.join(self.data_dir, 'conversations.json')).read())
+            conv_timestamps = sorted([c.get('timestamp', 0) for c in conv_log if isinstance(c, dict)])
+        except:
+            conv_timestamps = []
+        try:
+            kg_file = open(os.path.join(self.data_dir, 'knowledge_graph.json')).read()
+            kg_size = len(kg_file)
+        except:
+            kg_size = 0
+        silence_map['dream_gaps'] = []
+        if len(dream_timestamps) > 1:
+            for i in range(len(dream_timestamps) - 1):
+                gap = dream_timestamps[i+1] - dream_timestamps[i]
+                if gap > 3600:
+                    silence_map['dream_gaps'].append({'start': dream_timestamps[i], 'duration_sec': gap})
+        silence_map['conversation_activity'] = len(conv_timestamps)
+        silence_map['knowledge_graph_size'] = kg_size
+        silence_map['knowledge_stagnation'] = kg_size < 5000
+        silence_map['timestamp_measured'] = time.time()
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
