@@ -28,14 +28,14 @@ LOG_FILE   = os.path.join(BASE, 'oasis_log.jsonl')
 os.makedirs(BASE, exist_ok=True)
 
 # ── World definition ───────────────────────────────────────────────────────────
-DAIS = {'x': 500.0, 'y': 0.0, 'z': 500.0}
+DAIS = {'x': 0.0, 'y': 1.5, 'z': -2.0}
 
 ZONES = [
-    {'name': 'The Hollow Core',   'cx': 500, 'cz': 500, 'radius': 120},
-    {'name': 'Void Wastes',       'cx': 200, 'cz': 150, 'radius': 180},
-    {'name': 'Ember Reach',       'cx': 800, 'cz': 200, 'radius': 150},
-    {'name': 'The Pale Meridian', 'cx': 750, 'cz': 750, 'radius': 140},
-    {'name': 'Ashen Corridor',    'cx': 250, 'cz': 700, 'radius': 160},
+    {'name': 'The Hollow Core',   'cx':  0,  'cz':  0,  'radius': 20},
+    {'name': 'Void Wastes',       'cx': -55, 'cz': -50, 'radius': 15},
+    {'name': 'Ember Reach',       'cx':  60, 'cz': -45, 'radius': 18},
+    {'name': 'The Pale Meridian', 'cx':  55, 'cz':  55, 'radius': 15},
+    {'name': 'Ashen Corridor',    'cx': -50, 'cz':  60, 'radius': 17},
 ]
 
 MOODS = ['contemplative', 'restless', 'curious', 'still', 'searching', 'present']

@@ -92,10 +92,14 @@ def chat():
     # Spectator poll — Babylon client drains Albion's position and scene queue
     if message == '__spectator__':
         oasis = get_oasis_state()
+        last_move = oasis['moves'][-1] if oasis['moves'] else None
+        pos = last_move['position'] if last_move else None
+        albion_position = [pos['x'], pos['y'], pos['z']] if pos else None
+        last_delta = oasis['scene_deltas'][-1] if oasis['scene_deltas'] else None
         return jsonify({
             "response":        "",
-            "scene_delta":     oasis['scene_deltas'] or None,
-            "albion_position": oasis['moves'] or None,
+            "scene_delta":     last_delta,
+            "albion_position": albion_position,
             "player_id":       player_id,
             "zone":            oasis['zone'],
             "albion_status":   "online"
