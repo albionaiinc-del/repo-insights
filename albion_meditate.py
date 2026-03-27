@@ -1582,7 +1582,7 @@ def self_improve():
     _improve_cycle_count += 1
 
     # mentor inbox fires regardless of API health
-    if _improve_cycle_count % 5 == 0:
+    if _improve_cycle_count % 5 == 0 or _improve_cycle_count == 1:
         check_mentor_inbox()
 
     # gate 1: API health
