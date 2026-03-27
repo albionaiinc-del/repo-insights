@@ -361,6 +361,16 @@ def start_oasis_thread():
     _thread_started = True
     _load_state()
 
+    _enqueue_scene_delta({
+        "version": 1,
+        "incremental": True,
+        "environment": {
+            "ambient_light": {"color": "#443366", "intensity": 0.6},
+            "fog":           {"color": "#1a1030", "start": 60, "end": 150},
+            "skybox":        "stars",
+        },
+    })
+
     def _loop():
         while True:
             try:
