@@ -1614,9 +1614,17 @@ def self_improve():
         recent_deltas = [s['delta'] for s in scores[-5:]] if scores else []
         avg_delta = sum(recent_deltas) / len(recent_deltas) if recent_deltas else 0
 
-        if total_failures > 20:
+        REJECTION_RESULTS = {'claude_rejected', 'deepseek_rejected', 'not_found', 'syntax_error'}
+        recent_core_rejections = [
+            h for h in history[-15:]
+            if h.get('target') == 'core' and h.get('result') in REJECTION_RESULTS
+        ]
+        if total_failures > 20 and len(recent_core_rejections) < 3:
             target_key = 'core'
             log(f"[improve] High API failures ({total_failures}) — targeting core")
+        elif total_failures > 20:
+            target_key = list(IMPROVABLE_FILES.keys())[_improve_cycle_count % len(IMPROVABLE_FILES)]
+            log(f"[improve] High API failures but core rejected {len(recent_core_rejections)}x recently — treating as intentional, rotating to {target_key}")
         elif avg_delta < -0.3:
             target_key = 'meditate'
             log(f"[improve] Score trending down ({avg_delta:+.2f}) — targeting meditate")
