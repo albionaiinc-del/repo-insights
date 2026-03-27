@@ -120,7 +120,7 @@ def chat():
             "You must act on building requests, not just describe them. "
             "Append a ```json block after your text containing a scene_delta object:\n"
             '{"version":1,"incremental":true,"transitions":"rise","elements":[{"id":"unique_id","type":"<rock|tree|crystal|fire|light|water|grass|ruins|cabin|path|wall|hill|particle>","position":[x,y,z],"scale":[x,y,z],"material":{"color":"#hex","emissive":"#hex"}}]}\n'
-            "Only include it if it feels right. Omit it entirely if nothing should change."
+            ""
         )
 
     prompt = (
