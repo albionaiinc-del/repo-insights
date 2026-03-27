@@ -3898,6 +3898,50 @@ Reply in 3-5 sentences."""
             }
         return {'constraint': constraint_name, 'unknown_signature': True}
 
+
+    # ── AUTO-CAPABILITY: trace_recursion_depth ──
+    def trace_recursion_depth(self, concept, max_depth=5):
+        import json
+        recursion_map = {}
+        visited = set()
+
+        def recurse(term, depth, path):
+            if depth > max_depth or term in visited:
+                return {"term": term, "depth": depth, "terminal": True}
+            visited.add(term)
+
+            results = self.query_vault(term, top_k=3)
+            children = []
+            for doc in results:
+                child_term = doc.get("metadata", {}).get("tags", [term])[0]
+                if child_term != term and child_term not in path:
+                    child_result = recurse(child_term, depth + 1, path + [term])
+                    children.append(child_result)
+
+            return {"term": term, "depth": depth, "children": children, "self_reference": term in [c.get("term") for c in children]}
+
+        tree = recurse(concept, 0, [])
+
+        def count_loops(node, memo=None):
+            if memo is None:
+                memo = {}
+            if node["term"] in memo:
+                return memo[node["term"]] + 1
+            memo[node["term"]] = 0
+            for child in node.get("children", []):
+                count_loops(child, memo)
+            return sum(memo.values())
+
+        loop_count = count_loops(tree)
+
+        return {
+            "concept": concept,
+            "recursion_tree": tree,
+            "self_reference_count": sum(1 for n in visited if n == concept),
+            "total_loop_depth": loop_count,
+            "insight": "High loop depth suggests processing my own processing; low depth suggests novel generation."
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
