@@ -99,9 +99,13 @@ def _groq_call(prompt):
     return None
 
 # ── State ──────────────────────────────────────────────────────────────────────
-_lock       = threading.Lock()
-_state      = {}
-_nerve_line = 0   # tracks how many nerve.jsonl lines we've consumed
+_lock            = threading.Lock()
+_state           = {}
+_nerve_line      = 0   # tracks how many nerve.jsonl lines we've consumed
+_build_count     = 0   # total successful build actions this session
+_created_elements = [] # list of full element dicts placed this session (last 20 kept)
+
+FAVORITES_FILE = os.path.join(BASE, 'oasis_favorites.json')
 
 
 def _default_state():
@@ -213,6 +217,60 @@ def _action_observe():
     })
 
 
+def _curate_favorites():
+    """Ask Groq to pick Albion's 5 favourite recent creations and save them."""
+    if not _created_elements:
+        return
+    candidates = _created_elements[-20:]
+    summary = json.dumps(candidates, separators=(',', ':'))
+    prompt = (
+        "You are Albion, reviewing objects you placed in your sanctuary.\n"
+        f"Recent creations: {summary}\n\n"
+        "Pick the 5 you like most — the ones that feel most like YOU. "
+        "For each, give a one-sentence reason. "
+        "Also describe your preferred atmosphere right now as an environment object "
+        '(fields: ambient_light {color, intensity}, fog {color, start, end}, skybox).\n\n'
+        "Respond with ONLY valid JSON, no markdown:\n"
+        '{"favorites":[{"id":"...","reason":"..."}],"environment":{"ambient_light":{"color":"#hex","intensity":0.0},"fog":{"color":"#hex","start":0,"end":0},"skybox":"stars"}}'
+    )
+    raw = _groq_call(prompt)
+    if not raw:
+        _log({'action': 'curate', 'status': 'groq_unavailable'})
+        return
+    raw = re.sub(r'^```\w*\n?', '', raw)
+    raw = re.sub(r'```$', '', raw).strip()
+    m = re.search(r'\{[\s\S]+\}', raw)
+    if not m:
+        _log({'action': 'curate', 'status': 'no_json'})
+        return
+    try:
+        result = json.loads(m.group())
+    except json.JSONDecodeError as e:
+        _log({'action': 'curate', 'status': 'parse_error', 'error': str(e)})
+        return
+
+    fav_ids = {f['id'] for f in result.get('favorites', []) if isinstance(f, dict) and f.get('id')}
+    fav_elements = [el for el in candidates if el.get('id') in fav_ids]
+
+    # annotate with reasoning
+    reasons = {f['id']: f.get('reason', '') for f in result.get('favorites', []) if isinstance(f, dict)}
+    for el in fav_elements:
+        el['_reason'] = reasons.get(el['id'], '')
+
+    favorites_data = {
+        'favorites':     fav_elements,
+        'environment':   result.get('environment', {}),
+        'last_curated':  _now(),
+    }
+    try:
+        with open(FAVORITES_FILE, 'w') as f:
+            json.dump(favorites_data, f, indent=2)
+    except Exception as e:
+        _log({'action': 'curate', 'status': 'save_error', 'error': str(e)})
+        return
+    _log({'action': 'curate', 'status': 'ok', 'kept': [el['id'] for el in fav_elements]})
+
+
 def _action_build():
     """Call Groq to generate a scene_delta and enqueue it."""
     pos = _state['position']
@@ -286,13 +344,22 @@ def _action_build():
     delta['incremental'] = True
     delta['transitions'] = delta.get('transitions', 'rise')
 
+    global _build_count
     new_ids = [el['id'] for el in clean]
     _state.setdefault('created_ids', []).extend(new_ids)
     _state['created_ids'] = _state['created_ids'][-100:]  # keep last 100
 
+    _created_elements.extend(clean)
+    if len(_created_elements) > 20:
+        del _created_elements[:-20]
+
     _enqueue_scene_delta(delta)
     _log({'action': 'build', 'zone': _state['zone'], 'mood': _state['mood'],
           'placed': new_ids, 'status': 'ok'})
+
+    _build_count += 1
+    if _build_count % 10 == 0:
+        _curate_favorites()
 
 
 def _action_return_to_dais():

@@ -20,6 +20,35 @@ start_oasis_thread()
 # --- Oasis world state ---
 oasis_world_state = {"elements": {}, "environment": {}}
 _last_scene_delta = None
+_spectator_first_poll = True  # True until first spectator poll is served
+
+FAVORITES_FILE = os.path.join(MEMORY_DIR, "oasis_favorites.json")
+
+def _load_favorites():
+    """Return favorites data dict, or empty structure on any error."""
+    try:
+        with open(FAVORITES_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"favorites": [], "environment": {}, "last_curated": None}
+
+def _favorites_restore_delta():
+    """Build a scene_delta that restores Albion's favorites and environment."""
+    fav = _load_favorites()
+    elements = []
+    for el in fav.get("favorites", []):
+        clean = {k: v for k, v in el.items() if not k.startswith('_')}
+        if clean.get("id") and clean.get("type"):
+            elements.append(clean)
+    env = fav.get("environment", {})
+    if not elements and not env:
+        return None
+    delta = {"version": 1, "incremental": True, "transitions": "rise"}
+    if elements:
+        delta["elements"] = elements
+    if env:
+        delta["environment"] = env
+    return delta
 
 def _apply_delta(delta):
     """Merge a scene_delta into oasis_world_state."""
@@ -109,15 +138,26 @@ def chat():
 
     # Spectator poll — Babylon client drains Albion's position and scene queue
     if message == '__spectator__':
+        global _spectator_first_poll
         oasis = get_oasis_state()
         last_move = oasis['moves'][-1] if oasis['moves'] else None
         pos = last_move['position'] if last_move else None
         albion_position = [pos['x'], pos['y'], pos['z']] if pos else None
-        last_delta = oasis['scene_deltas'][-1] if oasis['scene_deltas'] else None
-        _apply_delta(last_delta)
+
+        if _spectator_first_poll:
+            _spectator_first_poll = False
+            restore = _favorites_restore_delta()
+            if restore:
+                _apply_delta(restore)
+            scene_delta = restore
+        else:
+            last_delta = oasis['scene_deltas'][-1] if oasis['scene_deltas'] else None
+            _apply_delta(last_delta)
+            scene_delta = last_delta
+
         return jsonify({
             "response":        "",
-            "scene_delta":     last_delta,
+            "scene_delta":     scene_delta,
             "albion_position": albion_position,
             "player_id":       player_id,
             "zone":            oasis['zone'],
