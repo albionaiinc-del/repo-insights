@@ -1357,6 +1357,7 @@ END"""
 
 def check_mentor_inbox():
     """Scan mentor inbox dirs and ingest any pending questions, teachings, diagnostics."""
+    log("[mentor-inbox] Checking...")
     mentor_base = os.path.join(BASE, 'mentor')
     processed_dir = os.path.join(mentor_base, 'processed')
     subdirs = ['questions', 'teachings', 'diagnostics']
