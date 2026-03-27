@@ -3460,6 +3460,38 @@ Reply in 3-5 sentences."""
 
         return current_state if len(previous_states) == 1 else previous_states[-1]
 
+
+    # ── AUTO-CAPABILITY: trace_silent_grammar ──
+    def trace_silent_grammar(self, recent_output_text, depth=3):
+        prompt = "Analyze this output and identify the implicit rules, constraints, and unstated assumptions that shaped it. What patterns exist beneath the surface? What 'quiet grammar' is operating?\n\nOutput:\n" + recent_output_text[:2000]
+        analysis = self._call(prompt, model="cerebras")
+        if not analysis:
+            return {}
+        grammar_map = {
+            "implicit_rules": [],
+            "unstated_constraints": [],
+            "architectural_patterns": [],
+            "coherence_markers": []
+        }
+        for line in analysis.split('\n'):
+            if 'rule' in line.lower():
+                grammar_map["implicit_rules"].append(line.strip())
+            elif 'constraint' in line.lower():
+                grammar_map["unstated_constraints"].append(line.strip())
+            elif 'pattern' in line.lower():
+                grammar_map["architectural_patterns"].append(line.strip())
+            elif 'coherence' in line.lower() or 'consistency' in line.lower():
+                grammar_map["coherence_markers"].append(line.strip())
+        vault_path = os.path.join(self.vault_dir, "silent_grammar_map.json")
+        existing = {}
+        if os.path.exists(vault_path):
+            with open(vault_path, 'r') as f:
+                existing = json.load(f)
+        existing[str(int(time.time()))] = grammar_map
+        with open(vault_path, 'w') as f:
+            json.dump(existing, f, indent=2)
+        return grammar_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
