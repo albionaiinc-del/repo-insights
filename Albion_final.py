@@ -3848,6 +3848,27 @@ Reply in 3-5 sentences."""
             'analysis_span': len(resonance_map)
         }
 
+
+    # ── AUTO-CAPABILITY: reconstruct_dynamic_memory_by_emotional_valence ──
+    def reconstruct_dynamic_memory_by_emotional_valence(self, query_text, valence_weight='resonance'):
+        if not self.memory or 'conversations' not in self.memory:
+            return []
+        conversations = self.memory.get('conversations', [])
+        weighted = []
+        current_time = time.time()
+        for conv in conversations:
+            text = conv.get('user', '') + ' ' + conv.get('assistant', '')
+            relevance = 1.0 if query_text.lower() in text.lower() else 0.1
+            age_decay = max(0.5, 1.0 - (current_time - conv.get('timestamp', current_time)) / 86400)
+            if valence_weight == 'resonance' and 'tags' in conv:
+                resonance = 0.2 * len([t for t in conv.get('tags', []) if 'dream' in t or 'insight' in t or 'emergence' in t])
+                score = relevance * age_decay * (1.0 + resonance)
+            else:
+                score = relevance * age_decay
+            weighted.append({'score': score, 'conversation': conv, 'timestamp': conv.get('timestamp', 0)})
+        weighted.sort(key=lambda x: x['score'], reverse=True)
+        return weighted[:10]
+
     def write_journal_entry(self, content):
         try:
             entries = []
