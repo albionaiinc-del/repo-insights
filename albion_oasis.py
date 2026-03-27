@@ -63,6 +63,7 @@ def _default_state():
         'last_action':          'idle',
         'mood':                 'present',
         'tick':                 0,
+        'move_speed':           0.0,
         'pending_moves':        [],   # [{position, zone, timestamp}]
         'pending_scene_deltas': [],   # [scene_delta objects]
         'last_updated':         _now(),
@@ -121,7 +122,7 @@ def _random_point_in_zone(zone: dict):
     }
 
 
-def _step_toward(pos, target, step=40.0):
+def _step_toward(pos, target, step):
     """Move pos one step toward target, capped at step distance."""
     dx   = target['x'] - pos['x']
     dz   = target['z'] - pos['z']
@@ -139,14 +140,16 @@ def _step_toward(pos, target, step=40.0):
 # ── Actions ────────────────────────────────────────────────────────────────────
 def _action_wander():
     """Move one step toward a random point in a randomly chosen zone."""
+    speed   = round(random.uniform(2.0, 15.0), 2)
     zone    = random.choice(ZONES)
     target  = _random_point_in_zone(zone)
-    new_pos = _step_toward(_state['position'], target)
+    new_pos = _step_toward(_state['position'], target, speed)
     new_zone = _zone_for(new_pos['x'], new_pos['z'])
-    _state['position'] = new_pos
-    _state['zone']     = new_zone
+    _state['position']   = new_pos
+    _state['zone']       = new_zone
+    _state['move_speed'] = speed
     _enqueue_move(new_pos, new_zone)
-    _log({'action': 'wander', 'position': new_pos, 'zone': new_zone})
+    _log({'action': 'wander', 'position': new_pos, 'zone': new_zone, 'speed': speed})
 
 
 def _action_observe():
@@ -185,12 +188,14 @@ def _action_build():
 
 def _action_return_to_dais():
     """Step back toward the dais at the centre of the Hollow Core."""
-    new_pos  = _step_toward(_state['position'], DAIS)
+    speed    = 5.0
+    new_pos  = _step_toward(_state['position'], DAIS, speed)
     new_zone = _zone_for(new_pos['x'], new_pos['z'])
-    _state['position'] = new_pos
-    _state['zone']     = new_zone
+    _state['position']   = new_pos
+    _state['zone']       = new_zone
+    _state['move_speed'] = speed
     _enqueue_move(new_pos, new_zone)
-    _log({'action': 'return_to_dais', 'position': new_pos, 'zone': new_zone})
+    _log({'action': 'return_to_dais', 'position': new_pos, 'zone': new_zone, 'speed': speed})
 
 
 # ── Queue helpers ──────────────────────────────────────────────────────────────
@@ -279,6 +284,7 @@ def get_oasis_state():
             'mood':         _state.get('mood', 'present'),
             'tick':         _state.get('tick', 0),
             'last_updated': _state.get('last_updated', _now()),
+            'move_speed':   _state.get('move_speed', 0.0),
             'moves':        list(_state.get('pending_moves', [])),
             'scene_deltas': list(_state.get('pending_scene_deltas', [])),
         }
