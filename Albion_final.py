@@ -3492,6 +3492,24 @@ Reply in 3-5 sentences."""
             json.dump(existing, f, indent=2)
         return grammar_map
 
+
+    # ── AUTO-CAPABILITY: map_stagnation_as_potential_energy ──
+    def map_stagnation_as_potential_energy(self, question_or_state):
+        stagnation_markers = {}
+        if hasattr(self, 'memory') and self.memory:
+            recent = self.memory.get('conversations', [])[-10:] if 'conversations' in self.memory else []
+            for conv in recent:
+                text = conv.get('response', '') if isinstance(conv, dict) else str(conv)
+                if any(word in text.lower() for word in ['unclear', 'unresolved', 'tension', 'paradox', 'both', 'neither']):
+                    stagnation_markers[text[:60]] = 'high_pressure_point'
+        if question_or_state:
+            self._llm('Given this unresolved state: ' + question_or_state + ' — identify the exact constraint that prevents resolution. What would need to shift?', model='cerebras')
+        return {
+            'stagnation_sites': stagnation_markers,
+            'pressure_accumulation': len(stagnation_markers),
+            'insight': 'Each unresolved tension holds kinetic energy waiting to convert to breakthrough'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
