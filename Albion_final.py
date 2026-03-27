@@ -3214,6 +3214,39 @@ Reply in 3-5 sentences."""
         self.vault.get('journal', {})['silence_measurement'] = result
         return result
 
+
+    # ── AUTO-CAPABILITY: trace_memory_resistance_patterns ──
+    def trace_memory_resistance_patterns(self):
+        try:
+            patterns = {}
+            if not hasattr(self, 'kg') or self.kg is None:
+                return {'status': 'kg_unavailable', 'patterns': {}}
+
+            collection = self.kg._client.get_collection('facts')
+            all_docs = collection.get(include=['documents', 'metadatas'])
+
+            if not all_docs or not all_docs.get('documents'):
+                return {'status': 'no_data', 'patterns': {}}
+
+            doc_access_counts = {}
+            for doc_id, metadata in zip(all_docs.get('ids', []), all_docs.get('metadatas', [])):
+                access_count = metadata.get('access_count', 0)
+                update_freq = metadata.get('update_frequency', 0)
+                doc_age = time.time() - metadata.get('created_at', time.time())
+
+                resistance_score = (access_count * 0.4) + (doc_age * 0.3) - (update_freq * 0.3)
+                if resistance_score > 5:
+                    doc_access_counts[doc_id] = {'score': resistance_score, 'accesses': access_count, 'age_days': doc_age / 86400}
+
+            sorted_resistant = sorted(doc_access_counts.items(), key=lambda x: x[1]['score'], reverse=True)[:20]
+            patterns['highly_resistant'] = sorted_resistant
+            patterns['resistance_threshold'] = 5
+            patterns['timestamp'] = time.time()
+
+            return {'status': 'success', 'patterns': patterns}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
