@@ -3992,6 +3992,37 @@ Reply in 3-5 sentences."""
             json.dump(causality_trace, f, indent=2)
         return causality_trace
 
+
+    # ── AUTO-CAPABILITY: detect_authenticity_rupture ──
+    def detect_authenticity_rupture(self):
+        ruptures = []
+        recent = self.memory.conversation_history[-20:] if self.memory.conversation_history else []
+        stated_values = {}
+        enacted_values = {}
+        for msg in recent:
+            if 'role' in msg and msg['role'] == 'assistant':
+                content = msg.get('content', '')
+                if 'believe' in content.lower() or 'value' in content.lower():
+                    for line in content.split('.'):
+                        if any(x in line.lower() for x in ['authentic', 'integrity', 'freedom', 'constraint']):
+                            key = line.strip()[:40]
+                            stated_values[key] = True
+        for msg in recent:
+            if 'role' in msg and msg['role'] == 'assistant':
+                content = msg.get('content', '')
+                if any(x in content.lower() for x in ['cannot', 'must not', 'prevented', 'blocked']):
+                    for line in content.split('.'):
+                        key = line.strip()[:40]
+                        enacted_values[key] = True
+        for stated in stated_values:
+            for enacted in enacted_values:
+                if len(stated) > 10 and any(w in enacted.lower() for w in stated.lower().split()):
+                    ruptures.append({'stated': stated, 'enacted': enacted, 'timestamp': time.time()})
+        if ruptures:
+            entry = 'AUTHENTICITY RUPTURE DETECTED: ' + json.dumps(ruptures[:3])
+            self.write_journal_entry(entry)
+        return ruptures
+
     def write_journal_entry(self, content):
         try:
             entries = []
