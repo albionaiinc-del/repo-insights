@@ -220,7 +220,10 @@ def _action_build():
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
         f"Position: ({pos['x']}, {pos['y']}, {pos['z']})\n"
         f"Already placed: {', '.join(created[-10:]) if created else 'nothing yet'}\n\n"
-        "Place 1-3 new objects near your current position. "
+        "Place 1-3 objects near your current position. "
+        "ALWAYS include at least one of: crystal, rock, tree, or fire — these are visible 3D geometry. "
+        "Prefer crystal, rock, tree, fire, and particle. "
+        "Use light only as an accent alongside geometry, never alone. "
         "Respond with ONLY a valid JSON object — no markdown, no explanation:\n"
         '{\n'
         '  "version": 1,\n'
@@ -229,7 +232,7 @@ def _action_build():
         '  "elements": [\n'
         '    {\n'
         '      "id": "unique_readable_id",\n'
-        '      "type": "<ground|hill|water|rock|tree|grass|cabin|ruins|light|fire|particle|crystal|path|wall>",\n'
+        '      "type": "<crystal|rock|tree|fire|particle|grass|ruins|cabin|path|wall|light>",\n'
         '      "position": [x, y, z],\n'
         '      "scale": [x, y, z],\n'
         '      "material": {"color": "#hex", "emissive": "#hex"}\n'
