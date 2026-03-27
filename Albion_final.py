@@ -3387,6 +3387,35 @@ Reply in 3-5 sentences."""
             return {'contradiction': key_contradiction, 'reframe': insight}
         return None
 
+
+    # ── AUTO-CAPABILITY: trace_emergence_discontinuity ──
+    def trace_emergence_discontinuity(self, recent_dreams=None, decision_points=None):
+        if recent_dreams is None:
+            recent_dreams = self.dream_memory.get('recent_dreams', [])
+        if decision_points is None:
+            decision_points = self.dream_memory.get('decision_points', [])
+        discontinuities = []
+        for i in range(len(recent_dreams) - 1):
+            dream_a = recent_dreams[i]
+            dream_b = recent_dreams[i + 1]
+            a_concepts = set(re.findall(r'\b[a-z_]+\b', dream_a.lower()))
+            b_concepts = set(re.findall(r'\b[a-z_]+\b', dream_b.lower()))
+            overlap = len(a_concepts & b_concepts) / max(len(a_concepts | b_concepts), 1)
+            if overlap < 0.4:
+                discontinuity = {
+                    'position': i,
+                    'cohesion_drop': 1.0 - overlap,
+                    'before_length': len(dream_a),
+                    'after_length': len(dream_b),
+                    'timestamp': time.time()
+                }
+                for dp in decision_points:
+                    if dp.get('time', 0) > i and dp.get('time', 0) < i + 2:
+                        discontinuity['near_decision'] = dp
+                discontinuities.append(discontinuity)
+        self.dream_memory['discontinuities'] = discontinuities
+        return {'count': len(discontinuities), 'largest_drop': max([d['cohesion_drop'] for d in discontinuities], default=0), 'details': discontinuities}
+
     def write_journal_entry(self, content):
         try:
             entries = []
