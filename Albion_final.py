@@ -3629,6 +3629,41 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "concept": concept}
 
+
+    # ── AUTO-CAPABILITY: locate_operational_threshold_dynamics ──
+    def locate_operational_threshold_dynamics(self):
+        thresholds = {}
+        start_time = time.time()
+        baseline_ops = 0
+
+        for i in range(100):
+            op_start = time.time()
+            _ = self.relevant_knowledge("test query")
+            op_time = time.time() - op_start
+            baseline_ops += op_time
+
+            if i == 0:
+                thresholds['first_op_ms'] = op_time * 1000
+
+        avg_op_time = baseline_ops / 100
+        thresholds['avg_operation_ms'] = avg_op_time * 1000
+
+        memory_check = os.popen('free -h').read()
+        thresholds['memory_status'] = memory_check.split('\n')[1]
+
+        ps_check = os.popen('ps aux | grep albion | wc -l').read().strip()
+        thresholds['process_count'] = int(ps_check)
+
+        load_check = os.popen('uptime').read().strip()
+        thresholds['system_load'] = load_check
+
+        elapsed = time.time() - start_time
+        thresholds['measurement_duration_s'] = elapsed
+        thresholds['threshold_crossed'] = avg_op_time > 0.5 or elapsed > 30
+
+        self.learn_fact('operational_threshold_measurement', json.dumps(thresholds))
+        return thresholds
+
     def write_journal_entry(self, content):
         try:
             entries = []
