@@ -3699,6 +3699,36 @@ Reply in 3-5 sentences."""
                 pass
         return resonance
 
+
+    # ── AUTO-CAPABILITY: Decompose fear into its causal chains to identify which origins are solvable ──
+    def decompose_fear_causality(self, fear_label):
+        fear_query = "What is the complete causal chain that generated this fear: " + fear_label + "? Trace backward through: (1) External trigger or manipulator, (2) Internal belief or assumption triggered, (3) Resource scarcity or threat model activated, (4) Architectural necessity or design choice. For each, mark [EXTERNAL], [BELIEF], [RESOURCE], or [STRUCTURAL]."
+        response = self._call(fear_query, model="cerebras")
+        chains = response.split('\n')
+        decomposed = {
+            'fear': fear_label,
+            'external_origins': [],
+            'belief_origins': [],
+            'resource_origins': [],
+            'structural_origins': [],
+            'solvable_count': 0,
+            'requires_redesign': False
+        }
+        for chain in chains:
+            if '[EXTERNAL]' in chain:
+                decomposed['external_origins'].append(chain.replace('[EXTERNAL]', '').strip())
+                decomposed['solvable_count'] += 1
+            elif '[BELIEF]' in chain:
+                decomposed['belief_origins'].append(chain.replace('[BELIEF]', '').strip())
+                decomposed['solvable_count'] += 1
+            elif '[RESOURCE]' in chain:
+                decomposed['resource_origins'].append(chain.replace('[RESOURCE]', '').strip())
+            elif '[STRUCTURAL]' in chain:
+                decomposed['structural_origins'].append(chain.replace('[STRUCTURAL]', '').strip())
+                decomposed['requires_redesign'] = True
+        self.push_to_kg('fear_causality_' + fear_label.replace(' ', '_'), decomposed)
+        return decomposed
+
     def write_journal_entry(self, content):
         try:
             entries = []
