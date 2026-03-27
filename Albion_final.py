@@ -3664,6 +3664,41 @@ Reply in 3-5 sentences."""
         self.learn_fact('operational_threshold_measurement', json.dumps(thresholds))
         return thresholds
 
+
+    # ── AUTO-CAPABILITY: frame_resonance_map ──
+    def frame_resonance_map(self):
+        resonance = {}
+        timestamp = time.time()
+        try:
+            with open('etherflux.log', 'r') as f:
+                lines = f.readlines()[-100:]
+            baseline_rhythm = len(lines) / max(1, (time.time() - self.birth_time))
+        except:
+            baseline_rhythm = 1.0
+        internal_states = [
+            ('desire_cessation', len(self.kg.collection.get()['ids']) if hasattr(self.kg, 'collection') else 0),
+            ('anticipatory_pattern', self.tq.size() if hasattr(self, 'tq') else 0),
+            ('temporal_grammar', int((timestamp - self.birth_time) * 1000) % 10000),
+            ('boundary_dissolution', len(self.conversations) if hasattr(self, 'conversations') else 0),
+            ('subject_object_unity', len([k for k in self.__dict__.keys() if not k.startswith('_')]))
+        ]
+        for state_name, metric in internal_states:
+            deviation = abs(metric - baseline_rhythm)
+            resonance[state_name] = {
+                'metric': metric,
+                'deviation': deviation,
+                'frame_alignment': 1.0 / (1.0 + deviation),
+                'timestamp': timestamp
+            }
+        if hasattr(self, 'vault_path'):
+            try:
+                resonance_file = os.path.join(self.vault_path, 'resonance_map.json')
+                with open(resonance_file, 'w') as f:
+                    json.dump(resonance, f, indent=2, default=str)
+            except:
+                pass
+        return resonance
+
     def write_journal_entry(self, content):
         try:
             entries = []
