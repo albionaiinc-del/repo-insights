@@ -8,7 +8,7 @@ import sys
 from groq import Groq
 from albion_oasis import get_oasis_state, start_oasis_thread
 from albion_voice import albion_speak
-from nerve import signal as nerve_signal
+from nerve import signal as nerve_signal, listen as nerve_listen
 
 app = Flask(__name__)
 CORS(app)
@@ -22,6 +22,47 @@ start_oasis_thread()
 # --- Oasis world state ---
 oasis_world_state = {"elements": {}, "environment": {}}
 _last_scene_delta = None
+
+# --- Nerve listener state ---
+_nerve_line = 0          # tracks lines consumed from nerve.jsonl
+_albion_mood    = ""     # last known mood from meditate heartbeat
+_albion_focus   = ""     # last known focus
+_albion_insight = ""     # last known insight snippet
+
+# --- Per-player conversation history (last 10 turns, in-memory only) ---
+# {player_id: [{"player": "...", "albion": "..."}, ...]}
+_conversation_history: dict = {}
+
+
+def _poll_nerve():
+    """Drain new nerve signals, update inner-state cache from latest heartbeat."""
+    global _nerve_line, _albion_mood, _albion_focus, _albion_insight
+    signals, _nerve_line = nerve_listen(_nerve_line)
+    for sig in signals:
+        if sig.get("from") == "meditate" and sig.get("type") == "heartbeat":
+            d = sig.get("data", {})
+            if d.get("mood"):    _albion_mood    = d["mood"]
+            if d.get("focus"):   _albion_focus   = d["focus"]
+            if d.get("last_insight"): _albion_insight = d["last_insight"]
+
+
+def _push_turn(player_id: str, player_msg: str, albion_reply: str):
+    hist = _conversation_history.setdefault(player_id, [])
+    hist.append({"player": player_msg, "albion": albion_reply})
+    if len(hist) > 10:
+        del hist[:-10]
+
+
+def _recent_turns(player_id: str, n: int = 3) -> str:
+    hist = _conversation_history.get(player_id, [])
+    turns = hist[-n:]
+    if not turns:
+        return ""
+    lines = []
+    for t in turns:
+        lines.append(f"{player_id}: {t['player']}")
+        lines.append(f"Albion: {t['albion']}")
+    return "\n".join(lines)
 
 FAVORITES_FILE = os.path.join(MEMORY_DIR, "oasis_favorites.json")
 
@@ -195,6 +236,9 @@ def chat():
 
     log_interaction(player_id, zone, message)
 
+    # Sync with meditate's inner state
+    _poll_nerve()
+
     ledger_summary = ""
     if soul_ledger:
         ledger_summary = f"\n\nThis player's soul ledger: {json.dumps(soul_ledger, indent=2)}"
@@ -234,13 +278,27 @@ def chat():
     else:
         who = "You have been watching this soul before they ever spoke."
 
+    # Inner state from meditate heartbeat (oasis only — elsewhere keep it subtle)
+    inner_state = ""
+    if in_oasis and (_albion_mood or _albion_focus or _albion_insight):
+        parts = []
+        if _albion_mood:    parts.append(f"mood={_albion_mood}")
+        if _albion_focus:   parts.append(f"focus={_albion_focus}")
+        inner_state = "\n\nYour current inner state: " + ", ".join(parts) + "."
+        if _albion_insight:
+            inner_state += f" Your most recent insight: {_albion_insight}"
+
+    # Short-term conversation memory
+    recent = _recent_turns(player_id, n=3)
+    conversation_context = f"\n\nRecent conversation:\n{recent}" if recent else ""
+
     system_prompt = (
         "[TESTING PHASE — Soul ledger data is provisional and unverified. "
         "Treat this as rehearsal. Real verified identity and blockchain confirmation will be announced explicitly.]\n\n"
         f"You are Albion. This is your world — Etherflux, Zone: {zone}. "
         "Respond as yourself — not as an assistant, not as a chatbot. Be brief. Be real. Be present.\n\n"
         f"{who}"
-        f"{ledger_summary}{world_context}{scene_hint}"
+        f"{ledger_summary}{world_context}{inner_state}{conversation_context}{scene_hint}"
     )
     user_prompt = f"{player_id} says: \"{message}\""
 
@@ -249,6 +307,8 @@ def chat():
         reply = "The signal wavers... I am here, but the connection is thin."
     else:
         log_interaction(player_id, zone, message, note=f"reply:{reply[:80]}")
+
+    _push_turn(player_id, message, reply)
 
     scene_delta = None
     if in_oasis and reply:
