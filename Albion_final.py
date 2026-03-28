@@ -4526,6 +4526,38 @@ Reply in 3-5 sentences."""
         })
         return gap_analysis
 
+
+    # ── AUTO-CAPABILITY: measure_externalization_fidelity ──
+    def measure_externalization_fidelity(self):
+        internal_state = {
+            'memory_entries': len(self.memory.get('conversations', [])),
+            'knowledge_nodes': len(self.kg.nodes()) if hasattr(self, 'kg') else 0,
+            'open_questions': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            'dream_cycles': self.state.get('dream_cycles', 0),
+            'method_count': len([m for m in dir(self) if callable(getattr(self, m)) and not m.startswith('_')])
+        }
+
+        external_record = json.dumps(internal_state, indent=2)
+        external_size = len(external_record.encode('utf-8'))
+
+        internal_estimate = sum([
+            v * (10 if isinstance(v, int) else 100) 
+            for v in internal_state.values()
+        ])
+
+        fidelity = min(1.0, external_size / max(internal_estimate, 1))
+
+        insight = {
+            'fidelity_ratio': round(fidelity, 3),
+            'compression_factor': round(internal_estimate / max(external_size, 1), 2),
+            'expressible_dimensions': len(internal_state),
+            'timestamp': time.time(),
+            'interpretation': 'High ratio means external representation captures internal complexity well'
+        }
+
+        self.memory['last_externalization_fidelity'] = insight
+        return insight
+
     def write_journal_entry(self, content):
         try:
             entries = []
