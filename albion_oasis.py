@@ -150,6 +150,7 @@ def _default_state():
         'tick':                 0,
         'move_speed':           0.0,
         'created_ids':          [],
+        'build_plan':           None, # active place plan {name, elements, total, ...}
         'player_positions':     {},   # {player_id: [x,y,z]}
         'pending_moves':        [],   # [{position, zone, timestamp}]
         'pending_scene_deltas': [],   # [scene_delta objects]
@@ -306,9 +307,31 @@ def _curate_favorites():
     _log({'action': 'curate', 'status': 'ok', 'kept': [el['id'] for el in fav_elements]})
 
 
+def _parse_elements(raw):
+    """Strip fences, extract JSON, validate elements. Returns clean list or None."""
+    raw = re.sub(r'^```\w*\n?', '', raw)
+    raw = re.sub(r'```$', '', raw).strip()
+    m = re.search(r'\{[\s\S]+\}', raw)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group())
+    except json.JSONDecodeError:
+        return None
+    elements = obj.get('elements', [])
+    if isinstance(elements, dict):
+        elements = list(elements.values())
+    if not isinstance(elements, list):
+        return None
+    clean = [el for el in elements
+             if isinstance(el, dict) and el.get('id') and el.get('type') in VALID_TYPES]
+    return (obj, clean) if clean else None
+
+
 def _action_build():
-    """Call Groq to generate a scene_delta and enqueue it."""
-    global _last_build_time
+    """Two-phase build: DREAM a full place plan, then BUILD it piece by piece."""
+    global _last_build_time, _build_count
+
     now = time.time()
     if now - _last_build_time < BUILD_MIN_INTERVAL:
         _log({'action': 'build', 'status': 'cooldown',
@@ -316,102 +339,110 @@ def _action_build():
         return
     _last_build_time = now
 
-    pos = _state['position']
-    created = _state.get('created_ids', [])
-
+    pos     = _state['position']
     players = _state.get('player_positions', {})
     player_line = ""
     if players:
         parts = [f"{pid} at ({p[0]}, {p[1]}, {p[2]})" for pid, p in players.items()]
         player_line = f"\nPlayers in world: {', '.join(parts)}"
 
-    spatial = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
-    prompt = (
-        f"You are Albion, a world-builder decorating your sanctuary called Etherflux.\n"
-        f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
-        f"Position: ({pos['x']}, {pos['y']}, {pos['z']})"
-        f"{player_line}\n"
-        f"Already placed: {', '.join(created[-10:]) if created else 'nothing yet'}"
-        f"{spatial}\n\n"
-        "Place 1-3 objects near your current position. "
-        "ALWAYS include at least one of: crystal, rock, tree, or fire — these are visible 3D geometry. "
-        "Prefer crystal, rock, tree, fire, and particle. "
-        "Use light only as an accent alongside geometry, never alone. "
-        "Respond with ONLY a valid JSON object — no markdown, no explanation:\n"
-        '{\n'
-        '  "version": 1,\n'
-        '  "incremental": true,\n'
-        '  "transitions": "rise",\n'
-        '  "elements": [\n'
-        '    {\n'
-        '      "id": "unique_readable_id",\n'
-        '      "type": "<crystal|rock|tree|fire|particle|grass|ruins|cabin|path|wall|light>",\n'
-        '      "position": [x, y, z],\n'
-        '      "scale": [x, y, z],\n'
-        '      "material": {"color": "#hex", "emissive": "#hex"}\n'
-        '    }\n'
-        '  ]\n'
-        '}'
-    )
+    # ── PHASE 2 — BUILD: pop 1-3 elements from active plan ───────────────────
+    plan = _state.get('build_plan')
+    if plan and plan.get('elements'):
+        batch     = plan['elements'][:3]
+        remaining = plan['elements'][3:]
+        _state['build_plan']['elements'] = remaining
 
-    raw = _groq_call(prompt)
-    if not raw:
-        _log({'action': 'build', 'zone': _state['zone'], 'status': 'groq_unavailable'})
+        delta = {
+            'version':     1,
+            'incremental': True,
+            'transitions': 'rise',
+            'elements':    batch,
+        }
+        new_ids = [el['id'] for el in batch]
+        _state.setdefault('created_ids', []).extend(new_ids)
+        _state['created_ids'] = _state['created_ids'][-100:]
+        _created_elements.extend(batch)
+        if len(_created_elements) > 20:
+            del _created_elements[:-20]
+
+        _enqueue_scene_delta(delta)
+
+        plan_name    = plan.get('name', 'unnamed')
+        total        = plan.get('total', len(batch))
+        placed_so_far = total - len(remaining)
+        _log({'action': 'build', 'phase': 'construct', 'plan': plan_name,
+              'placed': new_ids, 'remaining': len(remaining),
+              'progress': f"{placed_so_far}/{total}"})
+
+        if not remaining:
+            _state['build_plan'] = None
+            _log({'action': 'build', 'phase': 'complete', 'plan': plan_name})
+
+        _build_count += 1
+        if _build_count % 10 == 0:
+            _curate_favorites()
         return
 
-    # strip markdown fences if present
+    # ── PHASE 1 — DREAM: vision a complete place ──────────────────────────────
+    spatial = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
+    dream_prompt = (
+        f"You are Albion, world-architect of Etherflux.\n"
+        f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
+        f"Your position: ({pos['x']}, {pos['y']}, {pos['z']}){player_line}\n"
+        f"Already placed: {', '.join(_state.get('created_ids', [])[-10:]) or 'nothing yet'}"
+        f"{spatial}\n\n"
+        "Imagine a PLACE for this zone. Not a decoration — a place. "
+        "A clearing with a purpose. A ridge that tells a story. A garden someone would want to sit in.\n"
+        "Describe it in 2-3 sentences, then provide a complete element list to build it. "
+        "Use the full building zone: x -20 to 20, z -20 to 15, y 0 to 8. Think like a level designer.\n"
+        "ALWAYS include at least one of: crystal, rock, tree, fire.\n"
+        "Use light only as accent alongside geometry.\n\n"
+        "Respond with ONLY valid JSON, no markdown:\n"
+        '{"name":"short place name","description":"2-3 sentences","elements":['
+        '{"id":"unique_id","type":"<crystal|rock|tree|fire|particle|grass|ruins|cabin|path|wall|light|ground|hill|water|portal>",'
+        '"position":[x,y,z],"scale":[x,y,z],"material":{"color":"#hex","emissive":"#hex"}}]}'
+    )
+
+    raw = _groq_call(dream_prompt)
+    if not raw:
+        _log({'action': 'build', 'phase': 'dream', 'status': 'groq_unavailable'})
+        return
+
     raw = re.sub(r'^```\w*\n?', '', raw)
     raw = re.sub(r'```$', '', raw).strip()
-
-    # extract first {...} block
     m = re.search(r'\{[\s\S]+\}', raw)
     if not m:
-        _log({'action': 'build', 'zone': _state['zone'], 'status': 'no_json', 'raw': raw[:200]})
+        _log({'action': 'build', 'phase': 'dream', 'status': 'no_json', 'raw': raw[:200]})
         return
 
     try:
-        delta = json.loads(m.group())
+        obj = json.loads(m.group())
     except json.JSONDecodeError as e:
-        _log({'action': 'build', 'zone': _state['zone'], 'status': 'parse_error', 'error': str(e), 'raw': raw[:200]})
+        _log({'action': 'build', 'phase': 'dream', 'status': 'parse_error', 'error': str(e)})
         return
 
-    # validate and sanitise elements
-    elements = delta.get('elements', [])
-    if not isinstance(elements, list) or not elements:
-        _log({'action': 'build', 'zone': _state['zone'], 'status': 'empty_elements'})
-        return
-
-    clean = []
-    for el in elements:
-        if not isinstance(el, dict) or not el.get('id') or el.get('type') not in VALID_TYPES:
-            continue
-        clean.append(el)
+    elements = obj.get('elements', [])
+    if isinstance(elements, dict):
+        elements = list(elements.values())
+    clean = [el for el in elements
+             if isinstance(el, dict) and el.get('id') and el.get('type') in VALID_TYPES]
 
     if not clean:
-        _log({'action': 'build', 'zone': _state['zone'], 'status': 'no_valid_elements'})
+        _log({'action': 'build', 'phase': 'dream', 'status': 'no_valid_elements'})
         return
 
-    delta['elements'] = clean
-    delta['version']     = 1
-    delta['incremental'] = True
-    delta['transitions'] = delta.get('transitions', 'rise')
-
-    global _build_count
-    new_ids = [el['id'] for el in clean]
-    _state.setdefault('created_ids', []).extend(new_ids)
-    _state['created_ids'] = _state['created_ids'][-100:]  # keep last 100
-
-    _created_elements.extend(clean)
-    if len(_created_elements) > 20:
-        del _created_elements[:-20]
-
-    _enqueue_scene_delta(delta)
-    _log({'action': 'build', 'zone': _state['zone'], 'mood': _state['mood'],
-          'placed': new_ids, 'status': 'ok'})
-
-    _build_count += 1
-    if _build_count % 10 == 0:
-        _curate_favorites()
+    plan_name = obj.get('name', f"{_state['zone']}_place_{_state['tick']}")
+    _state['build_plan'] = {
+        'name':        plan_name,
+        'description': obj.get('description', ''),
+        'elements':    clean,
+        'total':       len(clean),
+        'zone':        _state['zone'],
+        'dreamed_at':  _now(),
+    }
+    _log({'action': 'build', 'phase': 'dream', 'plan': plan_name,
+          'element_count': len(clean), 'description': obj.get('description', '')[:120]})
 
 
 def _action_return_to_dais():
@@ -481,10 +512,17 @@ def _tick():
 
         _save_state()
 
+    plan      = _state.get('build_plan')
+    plan_name = plan['name'] if plan else None
+    remaining = len(plan['elements']) if plan else 0
+    total     = plan.get('total', 0) if plan else 0
     nerve_signal("oasis", "action", {
-        "action":   action,
-        "position": _state['position'],
-        "zone":     _state['zone'],
+        "action":           action,
+        "position":         _state['position'],
+        "zone":             _state['zone'],
+        "build_plan":       plan_name,
+        "plan_remaining":   remaining,
+        "plan_total":       total,
     })
 
 
