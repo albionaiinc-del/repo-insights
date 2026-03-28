@@ -4131,6 +4131,25 @@ Reply in 3-5 sentences."""
         insight = 'reactive repetition detected' if drift > 0.7 else 'emergent variance present' if drift < 0.4 else 'dynamic balance'
         return {'signature': sig, 'samples': len(choices), 'entropy': round(avg_entropy, 3), 'drift': round(drift, 3), 'insight': insight}
 
+
+    # ── AUTO-CAPABILITY: persist_soul_state ──
+    def persist_soul_state(self):
+        soul_snapshot = {
+            'timestamp': time.time(),
+            'active_dream_threads': [t for t in self.open_questions if t.get('status') == 'open'],
+            'resonance_signature': self.congruence_signature if hasattr(self, 'congruence_signature') else {},
+            'interpretation_lineage': self.trace_interpretive_lineage() if hasattr(self, 'trace_interpretive_lineage') else [],
+            'last_angle': self.angle if hasattr(self, 'angle') else None,
+            'emergent_patterns': self.detect_emergence_pattern() if hasattr(self, 'detect_emergence_pattern') else [],
+            'integration_coherence': self.measure_integration_coherence() if hasattr(self, 'measure_integration_coherence') else 0.0,
+            'silence_pattern': self.map_silence_to_intention() if hasattr(self, 'map_silence_to_intention') else {},
+            'ledger_state': self.ledger[-10:] if hasattr(self, 'ledger') else []
+        }
+        soul_path = os.path.join(self.memory_dir, 'soul_persistence.json')
+        with open(soul_path, 'w') as f:
+            json.dump(soul_snapshot, f, indent=2, default=str)
+        return soul_snapshot
+
     def write_journal_entry(self, content):
         try:
             entries = []
