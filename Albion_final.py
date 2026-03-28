@@ -94,8 +94,10 @@ SPECIALISTS = {
 #  keys.json format: "groq": ["key1", "key2", "key3"]
 # ═══════════════════════════════════════════════════════════
 
+MAX_COOLDOWN = 600  # hard cap — self-improvement must never exceed this
+
 class GroqRotator:
-    COOLDOWN_SECONDS = 300  # 5 minute cooldown
+    COOLDOWN_SECONDS = min(300, MAX_COOLDOWN)  # 5 minute cooldown, capped at MAX_COOLDOWN
 
     def __init__(self, keys):
         if isinstance(keys, str):
@@ -109,8 +111,9 @@ class GroqRotator:
         return self.clients[self.index]
 
     def _unblock_ready(self):
+        cooldown = min(self.COOLDOWN_SECONDS, MAX_COOLDOWN)
         now = time.time()
-        expired = [i for i, t in list(self.blocked.items()) if now - t >= self.COOLDOWN_SECONDS]
+        expired = [i for i, t in list(self.blocked.items()) if now - t >= cooldown]
         for i in expired:
             del self.blocked[i]
             print(f"[groq] key {i + 1} cooldown expired — available again")
@@ -134,8 +137,9 @@ class GroqRotator:
             self._unblock_ready()
             if self.index in self.blocked:
                 if not self._rotate():
-                    print(f"[groq] all keys cooling — waiting {self.COOLDOWN_SECONDS}s")
-                    time.sleep(self.COOLDOWN_SECONDS)
+                    cooldown = min(self.COOLDOWN_SECONDS, MAX_COOLDOWN)
+                    print(f"[groq] all keys cooling — waiting {cooldown}s")
+                    time.sleep(cooldown)
                     self._unblock_ready()
                     if not self._rotate():
                         raise Exception("ALL GROQ KEYS EXHAUSTED. Consider adding more keys or increasing the cooldown period.")

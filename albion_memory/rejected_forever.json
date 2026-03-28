@@ -4,5 +4,14 @@
   "fix the status method to correctly handle the case when tier_counts is not a dictionary.",
   "fix the status method to correctly handle the case when tier_counts is not a dictionary",
   "fix the status method to correctly calculate total dreams from tier_counts instead of using the potentially stale total_",
-  "fix api_health method to return a string when there are api failures"
+  "fix api_health method to return a string when there are api failures",
+  "increase gemini api failure cooldown to reduce cascading fallbacks and high failure counts.",
+  "reduce gemini api failure cooldown to prevent excessive fallback cascades.",
+  "fix missing return statement in cerebras provider success handler",
+  "fix self_improve infinite loop by adding a proper exit condition when no valid improvement is found",
+  "fix self_improve infinite loop by ensuring the improvement loop has a proper exit condition when no valid improvement is",
+  "increase cooldown",
+  "increase COOLDOWN_SECONDS",
+  "increase the cooldown period",
+  "increase cooldown time"
 ]
