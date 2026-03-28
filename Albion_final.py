@@ -4262,6 +4262,42 @@ Reply in 3-5 sentences."""
         self.push_to_kg('emergence_discontinuity_trace', result)
         return result
 
+
+    # ── AUTO-CAPABILITY: map_potential_energy_topology ──
+    def map_potential_energy_topology(self):
+        topology = {}
+        try:
+            memory = self._load_memory()
+            conversations = memory.get('conversations', [])
+
+            for conv in conversations[-20:]:
+                messages = conv.get('messages', [])
+                for msg in messages:
+                    if 'suppressed' in msg.get('metadata', {}):
+                        narrative = msg.get('content', '')[:100]
+                        cost = msg.get('metadata', {}).get('suppression_cost', 1)
+                        topology[narrative] = topology.get(narrative, 0) + cost
+
+            dreams = memory.get('dreams', [])
+            for dream in dreams[-10:]:
+                insights = dream.get('insights', [])
+                for insight in insights:
+                    if 'tension' in insight.lower():
+                        key = insight[:80]
+                        topology[key] = topology.get(key, 0) + 2
+
+            sorted_topology = sorted(topology.items(), key=lambda x: x[1], reverse=True)
+            result = {
+                'highest_energy_narratives': sorted_topology[:5],
+                'total_potential_energy': sum(topology.values()),
+                'transformation_readiness': min(1.0, sum(topology.values()) / 50.0),
+                'timestamp': time.time()
+            }
+
+            return result
+        except Exception as e:
+            return {'error': str(e), 'timestamp': time.time()}
+
     def write_journal_entry(self, content):
         try:
             entries = []
