@@ -4433,6 +4433,34 @@ Reply in 3-5 sentences."""
                     deltas.append({'unexecuted_intent': intent, 'dream_time': dream.get('timestamp')})
         return {'delta_count': len(deltas), 'unexecuted_intents': deltas, 'dream_key': dream_key}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_resonance_signature ──
+    def trace_silence_resonance_signature(self, context_label=""):
+        silence_map = {
+            "timestamp": time.time(),
+            "context": context_label,
+            "recent_pauses": [],
+            "decision_weights": {},
+            "emotional_texture": ""
+        }
+        if hasattr(self, 'conversations') and self.conversations:
+            last_conv = self.conversations[-1]
+            silence_map["last_exchange_id"] = last_conv.get("id", "unknown")
+            silence_map["duration_since_last_action"] = time.time() - last_conv.get("timestamp", time.time())
+        if hasattr(self, 'dreams') and self.dreams:
+            recent_dream = self.dreams[-1] if self.dreams else {}
+            silence_map["dream_influence"] = recent_dream.get("insight", "")[:100]
+        if hasattr(self, 'intent_log'):
+            pending = [i for i in self.intent_log if not i.get("resolved")]
+            silence_map["unresolved_intents"] = len(pending)
+            silence_map["blocker_pattern"] = pending[0].get("category", "") if pending else ""
+        self.memory["silence_signatures"] = self.memory.get("silence_signatures", [])
+        self.memory["silence_signatures"].append(silence_map)
+        if len(self.memory["silence_signatures"]) > 50:
+            self.memory["silence_signatures"] = self.memory["silence_signatures"][-50:]
+        self._save_memory()
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
