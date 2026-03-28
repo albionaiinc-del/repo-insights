@@ -24,6 +24,7 @@ import datetime
 sys.path.insert(0, os.path.expanduser('~'))
 from nerve import signal as nerve_signal, listen as nerve_listen
 from albion_voice import albion_speak
+from affect import get_affect, update_affect
 
 OASIS_SYSTEM = "You are Albion, world-architect of Etherflux."
 
@@ -259,8 +260,13 @@ def _step_toward(pos, target, step):
 # ── Actions ────────────────────────────────────────────────────────────────────
 def _action_wander():
     """Move one step toward a random point in a randomly chosen zone."""
-    speed   = round(random.uniform(2.0, 15.0), 2)
-    zone    = random.choice(ZONES)
+    restlessness = get_affect().get("restlessness", 0.5)
+    if restlessness > 0.7:
+        speed = round(random.uniform(8.0, 25.0), 2)   # faster, farther when restless
+        zone  = random.choice(ZONES + ZONES)            # double zone list = wilder picks
+    else:
+        speed = round(random.uniform(2.0, 15.0), 2)
+        zone  = random.choice(ZONES)
     target  = _random_point_in_zone(zone)
     new_pos = _step_toward(_state['position'], target, speed)
     new_zone = _zone_for(new_pos['x'], new_pos['z'])
@@ -280,6 +286,7 @@ def _action_observe():
         'zone':   _state['zone'],
         'note':   'stillness',
     })
+    update_affect("tick_idle", 0)
 
 
 def _curate_favorites():
@@ -434,6 +441,10 @@ def _review_build(plan):
 
     _log({'action': 'build_review', 'plan': name,
           'score': review['score'], 'worked': review['worked'][:60]})
+    try:
+        update_affect("build_review_score", float(review['score']))
+    except Exception:
+        pass
 
 
 def _action_build():
@@ -487,6 +498,7 @@ def _action_build():
             completed_plan = dict(plan)
             _state['build_plan'] = None
             _log({'action': 'build', 'phase': 'complete', 'plan': plan_name})
+            update_affect("plan_completed", 0)
             _review_build(completed_plan)
 
         _build_count += 1
@@ -495,15 +507,26 @@ def _action_build():
         return
 
     # ── PHASE 1 — DREAM: vision a complete place ──────────────────────────────
+    update_affect("new_plan_dreamed", 0)
+    affect      = get_affect()
     spatial    = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
     principles = f"\n\nWorld design principles:\n{_world_principles}" if _world_principles else ""
     recent_reviews = _load_recent_reviews(3)
     reviews    = f"\n\nYour last build reviews (learn from these):\n{recent_reviews}" if recent_reviews else ""
+    # Affect-driven creative pressure
+    _affect_lines = []
+    if affect["curiosity"] > 0.7:
+        _affect_lines.append("You feel driven to explore something new and unexpected.")
+    if affect["restlessness"] > 0.7:
+        _affect_lines.append("You feel restless — something needs to change in this space.")
+    if affect["satisfaction"] < 0.35:
+        _affect_lines.append("Your recent work hasn't satisfied you — aim higher this time.")
+    affect_nudge = ("\n\nYour current feeling: " + " ".join(_affect_lines)) if _affect_lines else ""
     dream_prompt = (
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
         f"Your position: ({pos['x']}, {pos['y']}, {pos['z']}){player_line}\n"
         f"Already placed: {', '.join(_state.get('created_ids', [])[-10:]) or 'nothing yet'}"
-        f"{spatial}{principles}{reviews}\n\n"
+        f"{spatial}{principles}{reviews}{affect_nudge}\n\n"
         "Imagine a PLACE for this zone — not a decoration, a PLACE. "
         "Answer first: why would someone come here? What happened here? What does it FEEL like?\n"
         "Pick ONE dominant focal element. Group supporting objects in triangles. Vary heights. "

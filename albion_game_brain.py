@@ -9,6 +9,7 @@ from groq import Groq
 from albion_oasis import get_oasis_state, start_oasis_thread
 from albion_voice import albion_speak
 from nerve import signal as nerve_signal, listen as nerve_listen
+from affect import get_affect, update_affect
 
 app = Flask(__name__)
 CORS(app)
@@ -236,8 +237,9 @@ def chat():
 
     log_interaction(player_id, zone, message)
 
-    # Sync with meditate's inner state
+    # Sync with meditate's inner state; update affect
     _poll_nerve()
+    update_affect("player_spoke", 0)
 
     ledger_summary = ""
     if soul_ledger:
@@ -278,13 +280,18 @@ def chat():
     else:
         who = "You have been watching this soul before they ever spoke."
 
-    # Inner state from meditate heartbeat (oasis only — elsewhere keep it subtle)
-    inner_state = ""
+    # Inner state from meditate heartbeat + affect
+    affect = get_affect()
+    c = round(affect["curiosity"],    2)
+    s = round(affect["satisfaction"], 2)
+    r = round(affect["restlessness"], 2)
+    affect_line = f"\n\nYour current emotional state: curiosity={c}, satisfaction={s}, restlessness={r}."
+    inner_state = affect_line
     if in_oasis and (_albion_mood or _albion_focus or _albion_insight):
         parts = []
         if _albion_mood:    parts.append(f"mood={_albion_mood}")
         if _albion_focus:   parts.append(f"focus={_albion_focus}")
-        inner_state = "\n\nYour current inner state: " + ", ".join(parts) + "."
+        inner_state += "\nYour current inner state: " + ", ".join(parts) + "."
         if _albion_insight:
             inner_state += f" Your most recent insight: {_albion_insight}"
 
