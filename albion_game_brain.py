@@ -194,7 +194,10 @@ def chat():
             "Environment reference: fog_end 80=tight void, 200=open hazy, 500+=no fog. "
             "ambient_intensity 0.0=dark, 0.3=dim, 0.8=bright, 1.5=daylight. "
             "skybox: stars=black space, dusk=purple, dawn=warm orange, overcast=grey. "
-            "fog color #0a0a2a=deep purple void, #87ceeb=sky blue."
+            "fog color #0a0a2a=deep purple void, #87ceeb=sky blue.\n"
+            "VALID TYPES ONLY: crystal, rock, tree, fire, particle, light, grass, ruins, cabin, path, wall, ground, hill, water, portal. "
+            "Do NOT use sphere, torus, cube, plane, cylinder, or any raw geometry names. "
+            "Use crystal for glowing objects, rock for solid masses, fire for flame effects."
         )
 
     if player_id == "mr_wizard":
