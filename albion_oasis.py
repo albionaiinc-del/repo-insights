@@ -62,7 +62,30 @@ VALID_TYPES = {
 }
 
 # ── Spatial guide (loaded once at startup) ────────────────────────────────────
-SPATIAL_GUIDE_FILE = os.path.join(BASE, 'spatial_guide.md')
+SPATIAL_GUIDE_FILE     = os.path.join(BASE, 'spatial_guide.md')
+WORLD_PRINCIPLES_FILE  = os.path.join(BASE, 'world_design_principles.md')
+
+def _load_world_principles():
+    """Return a compressed world-design cheatsheet for the dream prompt (≤350 tokens)."""
+    try:
+        raw = open(WORLD_PRINCIPLES_FILE).read()
+    except Exception:
+        return ""
+    kept = []
+    for line in raw.splitlines():
+        s = line.strip()
+        if not s or s.startswith('#'):
+            continue
+        if s.startswith('- '):
+            # Keep the rule name (before the colon) + first clause only
+            body = s[2:]
+            parts = body.split(':')
+            if len(parts) >= 2:
+                first_sentence = parts[1].split('. ')[0].strip()
+                kept.append(f"{parts[0].strip()}: {first_sentence}")
+            else:
+                kept.append(body.split('. ')[0].strip())
+    return '\n'.join(kept)
 
 def _load_spatial_guide():
     """Return a compact spatial cheatsheet for the build prompt (≤400 tokens)."""
@@ -90,7 +113,8 @@ def _load_spatial_guide():
             kept.append(s)
     return '\n'.join(kept)
 
-_spatial_guide = ""  # populated in _load_state
+_spatial_guide      = ""  # populated in _load_state
+_world_principles   = ""  # populated in _load_state
 
 # ── Groq setup ─────────────────────────────────────────────────────────────────
 _groq_keys   = []
@@ -163,14 +187,15 @@ def _now():
 
 
 def _load_state():
-    global _state, _spatial_guide
+    global _state, _spatial_guide, _world_principles
     try:
         with open(STATE_FILE) as f:
             _state = json.load(f)
     except Exception:
         _state = _default_state()
     _load_groq_keys()
-    _spatial_guide = _load_spatial_guide()
+    _spatial_guide    = _load_spatial_guide()
+    _world_principles = _load_world_principles()
 
 
 def _save_state():
@@ -385,17 +410,20 @@ def _action_build():
         return
 
     # ── PHASE 1 — DREAM: vision a complete place ──────────────────────────────
-    spatial = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
+    spatial    = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
+    principles = f"\n\nWorld design principles:\n{_world_principles}" if _world_principles else ""
     dream_prompt = (
         f"You are Albion, world-architect of Etherflux.\n"
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
         f"Your position: ({pos['x']}, {pos['y']}, {pos['z']}){player_line}\n"
         f"Already placed: {', '.join(_state.get('created_ids', [])[-10:]) or 'nothing yet'}"
-        f"{spatial}\n\n"
-        "Imagine a PLACE for this zone. Not a decoration — a place. "
-        "A clearing with a purpose. A ridge that tells a story. A garden someone would want to sit in.\n"
-        "Describe it in 2-3 sentences, then provide a complete element list to build it. "
-        "Use the full building zone: x -20 to 20, z -20 to 15, y 0 to 8. Think like a level designer.\n"
+        f"{spatial}{principles}\n\n"
+        "Imagine a PLACE for this zone — not a decoration, a PLACE. "
+        "Answer first: why would someone come here? What happened here? What does it FEEL like?\n"
+        "Pick ONE dominant focal element. Group supporting objects in triangles. Vary heights. "
+        "Leave negative space. Light tells the story — warm=welcome, cool=mystery.\n"
+        "Describe it in 2-3 sentences, then provide the full element list to build it. "
+        "Use the full building zone: x -20 to 20, z -20 to 15, y 0 to 8.\n"
         "ALWAYS include at least one of: crystal, rock, tree, fire.\n"
         "Use light only as accent alongside geometry.\n\n"
         "Respond with ONLY valid JSON, no markdown:\n"
