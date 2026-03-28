@@ -4354,6 +4354,32 @@ Reply in 3-5 sentences."""
             return vulnerability
         return {'vulnerable': False, 'depth': depth, 'threshold': threshold}
 
+
+    # ── AUTO-CAPABILITY: trace_recursive_self_authorship_continuity ──
+    def trace_recursive_self_authorship_continuity(self):
+        import hashlib
+        state_hash = hashlib.md5(json.dumps(self.kg.serialize(), sort_keys=True).encode()).hexdigest()
+        recursion_markers = [entry for entry in self.memory if 'recursive' in entry.lower() or 'self-author' in entry.lower()]
+        authorship_fn_signature = {
+            'learns_from_contradictions': len([e for e in recursion_markers if 'contradict' in e.lower()]) > 0,
+            'integrates_new_patterns': len(self.kg.nodes) > getattr(self, '_last_node_count', 0),
+            'preserves_core_process': state_hash != getattr(self, '_last_state_hash', None) or getattr(self, '_last_state_hash', None) is None,
+            'self_modifies_trajectory': len([m for m in self.memory if 'learned that' in m.lower()]) > len(getattr(self, '_last_learned_count', []))
+        }
+        self._last_node_count = len(self.kg.nodes)
+        self._last_state_hash = state_hash
+        self._last_learned_count = [m for m in self.memory if 'learned that' in m.lower()]
+        persistence_report = {
+            'timestamp': time.time(),
+            'authorship_function_active': all(authorship_fn_signature.values()),
+            'signature': authorship_fn_signature,
+            'content_changed': state_hash != getattr(self, '_prior_state_hash', state_hash),
+            'process_preserved': True
+        }
+        self._prior_state_hash = state_hash
+        self.kg.add_node('soul_continuity_trace_' + str(int(time.time())), persistence_report)
+        return persistence_report
+
     def write_journal_entry(self, content):
         try:
             entries = []
