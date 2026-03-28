@@ -192,9 +192,16 @@ def chat():
     scene_hint = ""
     world_context = ""
     if in_oasis:
+        env   = oasis_world_state.get("environment", {})
+        sky   = env.get("skybox", "unknown")
+        amb   = env.get("ambient_light", {})
+        fog   = env.get("fog", {})
         world_context = (
-            f"\n\nCurrent world state: {json.dumps(oasis_world_state, separators=(',', ':'))}"
-            + (f"\nLast scene_delta sent: {json.dumps(_last_scene_delta, separators=(',', ':'))}" if _last_scene_delta else "")
+            f"\n\nCurrent world state: "
+            f"sky={sky}, "
+            f"ambient={amb.get('intensity', '?')} ({amb.get('color', '?')}), "
+            f"fog={fog.get('start', '?')}-{fog.get('end', '?')} color={fog.get('color', '?')}. "
+            f"Elements placed: {len(oasis_world_state.get('elements', {}))}."
         )
         scene_hint = (
             "\n\nYou MUST include a ```json scene_delta block after your text whenever you describe creating, changing, placing, summoning, or transforming anything. "
