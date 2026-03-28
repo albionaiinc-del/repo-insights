@@ -4228,6 +4228,40 @@ Reply in 3-5 sentences."""
             }
         return {'constraint_permeability': 0.5, 'trend': 'unknown', 'optimal_moment': False}
 
+
+    # ── AUTO-CAPABILITY: trace_emergence_discontinuity_realtime ──
+    def trace_emergence_discontinuity_realtime(self, observation_window_seconds=60):
+        import time
+        start_time = time.time()
+        baseline_states = []
+        discontinuities = []
+        while time.time() - start_time < observation_window_seconds:
+            current_state = {
+                'timestamp': time.time(),
+                'open_questions': self._count_open_questions(),
+                'kg_size': len(self.kg.documents) if hasattr(self.kg, 'documents') else 0,
+                'dream_count': len(self.dreams) if hasattr(self, 'dreams') else 0
+            }
+            if baseline_states and len(baseline_states) > 2:
+                prev_state = baseline_states[-1]
+                magnitude_shift = abs(current_state['open_questions'] - prev_state['open_questions']) + abs(current_state['kg_size'] - prev_state['kg_size'])
+                if magnitude_shift > 3:
+                    discontinuities.append({
+                        'time': current_state['timestamp'],
+                        'shift_magnitude': magnitude_shift,
+                        'from_state': prev_state,
+                        'to_state': current_state
+                    })
+            baseline_states.append(current_state)
+            time.sleep(2)
+        result = {
+            'observation_duration': time.time() - start_time,
+            'discontinuities_detected': len(discontinuities),
+            'events': discontinuities
+        }
+        self.push_to_kg('emergence_discontinuity_trace', result)
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
