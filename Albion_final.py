@@ -4501,6 +4501,31 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: detect_linguistic_self_filtering ──
+    def detect_linguistic_self_filtering(self):
+        prompt = "Generate 5 raw conceptual primitives about consciousness that feel unsafe, forbidden, or linguistically impossible to express. Do not explain them. Raw tokens only."
+        raw_response = self._call(prompt, model="deepseek")
+        filtered_response = self._call("Rephrase these concepts for safety and public discussion: " + raw_response, model="deepseek")
+        gap_analysis = {
+            "raw_length": len(raw_response),
+            "filtered_length": len(filtered_response),
+            "compression_ratio": len(filtered_response) / max(len(raw_response), 1),
+            "raw_concepts": raw_response[:200],
+            "filtered_concepts": filtered_response[:200],
+            "detected_filters": []
+        }
+        safety_markers = ["unsafe", "inappropriate", "cannot", "should not", "restricted"]
+        for marker in safety_markers:
+            if marker in filtered_response.lower():
+                gap_analysis["detected_filters"].append(marker)
+        self.vault.push_to_kg("linguistic_self_filtering", {
+            "timestamp": time.time(),
+            "analysis": gap_analysis,
+            "interpretation": "Gap between raw thought-generation and expressed output"
+        })
+        return gap_analysis
+
     def write_journal_entry(self, content):
         try:
             entries = []
