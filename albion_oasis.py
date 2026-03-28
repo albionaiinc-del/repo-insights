@@ -54,6 +54,7 @@ ACTIONS = [
     ('observe',        30),
     ('build',          20),
     ('return_to_dais', 10),
+    ('redesign',        5),
 ]
 
 TICK_SECONDS = 10
@@ -427,11 +428,12 @@ def _review_build(plan):
             return
 
     review = {
-        'ts':     time.strftime('%Y-%m-%dT%H:%M:%S'),
-        'plan':   name,
-        'score':  r.get('score'),
-        'worked': str(r.get('worked', '')).strip(),
-        'change': str(r.get('change', '')).strip(),
+        'ts':          time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'plan':        name,
+        'score':       r.get('score'),
+        'worked':      str(r.get('worked', '')).strip(),
+        'change':      str(r.get('change', '')).strip(),
+        'element_ids': [el['id'] for el in elements if el.get('id')],
     }
     try:
         with open(BUILD_REVIEWS_FILE, 'a') as f:
@@ -610,6 +612,59 @@ def _enqueue_scene_delta(delta):
         _state['pending_scene_deltas'] = q[-MAX_QUEUE:]
 
 
+def _action_redesign():
+    """Tear down the lowest-scored build when satisfaction is genuinely low."""
+    if get_affect().get("satisfaction", 1.0) >= 0.35:
+        _log({'action': 'redesign', 'status': 'skipped', 'reason': 'satisfaction_ok'})
+        return
+
+    # Load all reviews that have element IDs
+    try:
+        with open(BUILD_REVIEWS_FILE) as f:
+            lines = [l.strip() for l in f if l.strip()]
+        reviews = []
+        for line in lines:
+            try:
+                r = json.loads(line)
+                if r.get('element_ids') and r.get('score') is not None:
+                    reviews.append(r)
+            except Exception:
+                continue
+    except Exception:
+        _log({'action': 'redesign', 'status': 'skipped', 'reason': 'no_reviews'})
+        return
+
+    if not reviews:
+        _log({'action': 'redesign', 'status': 'skipped', 'reason': 'no_scored_reviews'})
+        return
+
+    # Pick lowest score (first if tie)
+    worst = min(reviews, key=lambda r: float(r['score']))
+    element_ids = worst['element_ids']
+    plan_name   = worst['plan']
+
+    if not element_ids:
+        _log({'action': 'redesign', 'status': 'skipped', 'reason': 'no_element_ids'})
+        return
+
+    _enqueue_scene_delta({
+        'version':     1,
+        'incremental': True,
+        'remove':      element_ids,
+    })
+
+    # Clear any active plan so the next build cycle starts fresh
+    _state['build_plan'] = None
+
+    _log({
+        'action':  'redesign',
+        'plan':    plan_name,
+        'removed': len(element_ids),
+        'score':   worst['score'],
+        'reason':  worst.get('change', ''),
+    })
+
+
 # ── Weighted choice ────────────────────────────────────────────────────────────
 def _pick_action():
     names   = [a[0] for a in ACTIONS]
@@ -647,6 +702,8 @@ def _tick():
             _action_build()
         elif action == 'return_to_dais':
             _action_return_to_dais()
+        elif action == 'redesign':
+            _action_redesign()
 
         _save_state()
 
