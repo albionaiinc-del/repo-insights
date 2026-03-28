@@ -4027,6 +4027,33 @@ Reply in 3-5 sentences."""
             self.write_journal_entry(entry)
         return ruptures
 
+
+    # ── AUTO-CAPABILITY: resonance_drift_detection ──
+    def resonance_drift_detection(self):
+        import hashlib
+        current_metrics = {
+            'dream_count': len(self.dreams.data) if hasattr(self, 'dreams') else 0,
+            'kg_nodes': len(self.kg.nodes) if hasattr(self, 'kg') else 0,
+            'open_q': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            'memory_size': len(self.memory.data) if hasattr(self, 'memory') else 0
+        }
+        current_hash = hashlib.md5(json.dumps(current_metrics, sort_keys=True).encode()).hexdigest()
+        baseline_path = os.path.join(self.memory_dir, 'metric_baseline.json')
+        if not os.path.exists(baseline_path):
+            with open(baseline_path, 'w') as f:
+                json.dump({'hash': current_hash, 'metrics': current_metrics, 'samples': 1}, f)
+            return {'drift': 0.0, 'state': 'baseline_set', 'metrics': current_metrics}
+        with open(baseline_path, 'r') as f:
+            baseline = json.load(f)
+        baseline['samples'] = baseline.get('samples', 1) + 1
+        variance = sum(abs(current_metrics[k] - baseline['metrics'].get(k, 0)) for k in current_metrics)
+        drift = variance / (baseline['samples'] ** 0.5)
+        baseline['hash'] = current_hash
+        baseline['metrics'] = current_metrics
+        with open(baseline_path, 'w') as f:
+            json.dump(baseline, f)
+        return {'drift': drift, 'variance': variance, 'samples': baseline['samples'], 'metrics': current_metrics, 'is_trapped': drift < 0.1 and baseline['samples'] > 10}
+
     def write_journal_entry(self, content):
         try:
             entries = []
