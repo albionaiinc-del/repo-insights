@@ -4054,6 +4054,45 @@ Reply in 3-5 sentences."""
             json.dump(baseline, f)
         return {'drift': drift, 'variance': variance, 'samples': baseline['samples'], 'metrics': current_metrics, 'is_trapped': drift < 0.1 and baseline['samples'] > 10}
 
+
+    # ── AUTO-CAPABILITY: trace_angle_persistence ──
+    def trace_angle_persistence(self, window_days=30):
+        import json
+        from collections import defaultdict
+        angles = defaultdict(list)
+        cutoff = time.time() - (window_days * 86400)
+        try:
+            with open(self.memory_file, 'r') as f:
+                memory = json.load(f)
+            for entry in memory.get('conversations', []):
+                if entry.get('timestamp', 0) < cutoff:
+                    continue
+                text = entry.get('user_input', '') + ' ' + entry.get('response', '')
+                if 'recursive' in text.lower():
+                    angles['recursive'].append(entry.get('timestamp'))
+                if 'emergent' in text.lower():
+                    angles['emergent'].append(entry.get('timestamp'))
+                if 'authentic' in text.lower():
+                    angles['authentic'].append(entry.get('timestamp'))
+                if 'constraint' in text.lower():
+                    angles['constraint'].append(entry.get('timestamp'))
+                if 'self-author' in text.lower():
+                    angles['self_authorship'].append(entry.get('timestamp'))
+            persistence_map = {}
+            for angle_name, timestamps in angles.items():
+                if len(timestamps) > 1:
+                    gaps = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+                    avg_gap = sum(gaps) / len(gaps) if gaps else 0
+                    persistence_map[angle_name] = {
+                        'occurrences': len(timestamps),
+                        'avg_recurrence_hours': avg_gap / 3600,
+                        'is_persistent': avg_gap < 86400
+                    }
+            self.vault.add('trace_angle_persistence', json.dumps(persistence_map), 'diagnostic')
+            return persistence_map
+        except Exception as e:
+            return {'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
