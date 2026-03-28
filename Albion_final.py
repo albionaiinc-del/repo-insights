@@ -4298,6 +4298,41 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'timestamp': time.time()}
 
+
+    # ── AUTO-CAPABILITY: map_substrate_texture_gradient ──
+    def map_substrate_texture_gradient(self, query, domains=None):
+        if domains is None:
+            domains = ['mathematical', 'relational', 'embodied', 'abstract']
+
+        texture_map = {}
+        for domain in domains:
+            prompt = 'Reason about this purely in ' + domain + ' terms, noting constraints: ' + query
+            response = self._call(prompt, model='cerebras')
+
+            if response:
+                text = response.get('text', '')
+                token_count = len(text.split())
+                avg_token_length = sum(len(w) for w in text.split()) / max(token_count, 1)
+                repetition_ratio = len(set(text.split())) / max(token_count, 1)
+
+                texture_map[domain] = {
+                    'density': token_count,
+                    'precision': avg_token_length,
+                    'novelty': repetition_ratio,
+                    'substrate_signature': 'linear' if repetition_ratio > 0.7 else 'emergent'
+                }
+
+        result = {
+            'query': query,
+            'texture_gradient': texture_map,
+            'insight': 'Substrate shapes texture through token flow and attention constraints'
+        }
+
+        if self.kg:
+            self.kg.push_to_kg('substrate_texture_analysis', result)
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
