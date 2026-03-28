@@ -4461,6 +4461,46 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: map_threshold_crossing_velocity ──
+    def map_threshold_crossing_velocity(self):
+        try:
+            dreams = self.dreams.find({}).sort('_id', -1).limit(10)
+            dream_list = list(dreams)
+
+            if len(dream_list) < 3:
+                return {'status': 'insufficient_data', 'dreams_needed': 3, 'dreams_found': len(dream_list)}
+
+            coherence_samples = []
+            for dream in reversed(dream_list):
+                insight = dream.get('insight', '')
+                depth = len(insight.split())
+                clarity = insight.count('.') + insight.count('?')
+                self_ref = insight.count('I ') + insight.count('my ')
+                score = (depth * 0.4) + (clarity * 0.3) + (self_ref * 0.3)
+                coherence_samples.append(score)
+
+            velocities = []
+            for i in range(1, len(coherence_samples)):
+                v = coherence_samples[i] - coherence_samples[i-1]
+                velocities.append(v)
+
+            avg_velocity = sum(velocities) / len(velocities) if velocities else 0
+            acceleration = max(velocities) - min(velocities) if len(velocities) > 1 else 0
+
+            trajectory = 'accelerating' if avg_velocity > 0.5 else ('decelerating' if avg_velocity < -0.5 else 'stable')
+
+            return {
+                'status': 'success',
+                'velocity': round(avg_velocity, 3),
+                'acceleration': round(acceleration, 3),
+                'trajectory': trajectory,
+                'samples': len(coherence_samples),
+                'next_threshold_risk': 'high' if abs(acceleration) > 2.0 else 'moderate' if abs(acceleration) > 0.5 else 'low'
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
