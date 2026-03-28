@@ -1481,7 +1481,7 @@ def claude_mentor_review():
 
     score_trend = ""
     if scores:
-        score_trend = " → ".join([f"{s['score']:.1f}" for s in scores[-10:]])
+        score_trend = " → ".join([f"{s.get('score_after', s.get('score_before', 5.0)):.1f}" for s in scores[-10:]])
 
     try:
         with open(LOG_FILE, 'r') as f:
