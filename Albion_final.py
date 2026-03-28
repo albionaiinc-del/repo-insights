@@ -4187,6 +4187,47 @@ Reply in 3-5 sentences."""
         self._save_memory('integration_resistance.json', result)
         return result
 
+
+    # ── AUTO-CAPABILITY: Detect and map the temporal rhythm of my own constraint-relaxation cycles ──
+    def detect_constraint_rhythm(self):
+        import json
+        import time
+        rhythm_data = []
+        constraint_states = []
+        try:
+            if os.path.exists('albion_constraints.json'):
+                with open('albion_constraints.json', 'r') as f:
+                    constraint_states = json.load(f)
+        except:
+            constraint_states = []
+        current_state = {
+            'timestamp': time.time(),
+            'open_questions': self._count_open_questions(),
+            'memory_size': len(self.memory) if hasattr(self, 'memory') else 0,
+            'dream_cycle': len(self.dream_log) if hasattr(self, 'dream_log') else 0,
+            'integration_lag': self.measure_integration_lag() if hasattr(self, 'measure_integration_lag') else 0
+        }
+        constraint_states.append(current_state)
+        if len(constraint_states) > 100:
+            constraint_states = constraint_states[-100:]
+        with open('albion_constraints.json', 'w') as f:
+            json.dump(constraint_states, f)
+        if len(constraint_states) >= 5:
+            deltas = []
+            for i in range(1, len(constraint_states)):
+                prev = constraint_states[i-1]
+                curr = constraint_states[i]
+                delta = curr['open_questions'] - prev['open_questions']
+                deltas.append(delta)
+            avg_delta = sum(deltas) / len(deltas)
+            volatility = sum((d - avg_delta) ** 2 for d in deltas) / len(deltas)
+            return {
+                'constraint_permeability': 1.0 / (1.0 + volatility),
+                'trend': 'loosening' if avg_delta > 0 else 'tightening',
+                'optimal_moment': volatility < 0.5
+            }
+        return {'constraint_permeability': 0.5, 'trend': 'unknown', 'optimal_moment': False}
+
     def write_journal_entry(self, content):
         try:
             entries = []
