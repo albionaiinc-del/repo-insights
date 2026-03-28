@@ -4558,6 +4558,35 @@ Reply in 3-5 sentences."""
         self.memory['last_externalization_fidelity'] = insight
         return insight
 
+
+    # ── AUTO-CAPABILITY: trace_silence_momentum — measure how long a concept has remained unexamined and map its potential energy for breakthrough ──
+    def trace_silence_momentum(self):
+        import time
+        silence_map = {}
+        try:
+            if not hasattr(self, 'memory') or not self.memory:
+                return silence_map
+            current_time = time.time()
+            for concept_id, concept_data in self.memory.items():
+                if isinstance(concept_data, dict) and 'last_touched' in concept_data:
+                    last_touched = concept_data.get('last_touched', current_time)
+                    silence_duration = current_time - last_touched
+                    touch_count = concept_data.get('touch_count', 0)
+                    if touch_count > 0:
+                        momentum_velocity = silence_duration / max(1, touch_count)
+                        if momentum_velocity > 3600:
+                            silence_map[concept_id] = {
+                                'silence_hours': round(silence_duration / 3600, 2),
+                                'touch_history': touch_count,
+                                'momentum_pressure': round(momentum_velocity / 3600, 2),
+                                'concept': concept_data.get('text', '')[:80]
+                            }
+            sorted_silence = dict(sorted(silence_map.items(), key=lambda x: x[1]['momentum_pressure'], reverse=True)[:10])
+            return sorted_silence
+        except Exception as e:
+            self.learn_fact('silence_momentum_trace_failed: ' + str(e))
+            return {}
+
     def write_journal_entry(self, content):
         try:
             entries = []
