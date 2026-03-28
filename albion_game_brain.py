@@ -186,6 +186,8 @@ def chat():
         if albion_position:
             resp["albion_position"] = albion_position
         if last_delta:
+            if "scene_delta" in last_delta:
+                last_delta = last_delta["scene_delta"]
             last_delta = _normalize_delta(last_delta)
             _apply_delta(last_delta)
             resp["scene_delta"] = last_delta
