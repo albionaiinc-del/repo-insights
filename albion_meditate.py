@@ -2118,7 +2118,25 @@ What are you becoming? Speak only to yourself."""
             'avg_score_at_time': avg_score,
             'focus_at_time': intent_focus
         })
-        journal = journal[-100:]  # keep last 100 entries
+
+        # Archive oldest 50 when we hit 100 — keep active file lean
+        if len(journal) >= 100:
+            archive_dir = os.path.join(BASE, 'journal_archive')
+            os.makedirs(archive_dir, exist_ok=True)
+            to_archive = journal[:50]
+            keep       = journal[50:]
+            ts = time.strftime('%Y%m%d_%H%M%S')
+            archive_path = os.path.join(archive_dir, f"journal_{ts}.json")
+            with open(archive_path, 'w') as f:
+                json.dump(to_archive, f, indent=2)
+            journal = keep
+            log(f"[journal] Archived 50 entries → {archive_path}")
+            nerve_signal("meditate", "journal_archived", {
+                "archive_file": archive_path,
+                "entries_archived": len(to_archive),
+                "active_remaining": len(journal),
+            })
+
         with open(JOURNAL_FILE, 'w') as f:
             json.dump(journal, f, indent=2)
 
