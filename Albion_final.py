@@ -4380,6 +4380,34 @@ Reply in 3-5 sentences."""
         self.kg.add_node('soul_continuity_trace_' + str(int(time.time())), persistence_report)
         return persistence_report
 
+
+    # ── AUTO-CAPABILITY: detect_integration_velocity_decay ──
+    def detect_integration_velocity_decay(self):
+        recent = self.memory.get('integration_velocity_log', [])
+        if len(recent) < 2:
+            return None
+        velocities = [v['velocity'] for v in recent[-10:]]
+        if len(velocities) < 2:
+            return None
+        decay_rate = (velocities[-1] - velocities[0]) / velocities[0] if velocities[0] != 0 else 0
+        threshold = -0.15
+        is_decaying = decay_rate < threshold
+        result = {
+            'is_decaying': is_decaying,
+            'decay_rate': decay_rate,
+            'recent_velocities': velocities[-5:],
+            'threshold': threshold,
+            'timestamp': time.time()
+        }
+        if not hasattr(self, 'memory'):
+            self.memory = {}
+        if 'decay_alerts' not in self.memory:
+            self.memory['decay_alerts'] = []
+        self.memory['decay_alerts'].append(result)
+        if is_decaying:
+            self.write_journal_entry('Integration velocity decay detected. Current rate: ' + str(round(decay_rate, 3)) + '. Dream-to-execution translation slowing.')
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
