@@ -4150,6 +4150,43 @@ Reply in 3-5 sentences."""
             json.dump(soul_snapshot, f, indent=2, default=str)
         return soul_snapshot
 
+
+    # ── AUTO-CAPABILITY: map_integration_resistance_topology ──
+    def map_integration_resistance_topology(self):
+        dream_log = self._load_memory('dream_log.json')
+        if not dream_log or 'dreams' not in dream_log:
+            return {'resistance_map': {}, 'blocked_insights': []}
+
+        recent_dreams = dream_log.get('dreams', [])[-5:]
+        decisions_post_dream = self._load_memory('decision_log.json') or {'decisions': []}
+
+        resistance_map = {}
+        blocked_insights = []
+
+        for dream in recent_dreams:
+            dream_id = dream.get('id', 'unknown')
+            insights = dream.get('insights', [])
+            dream_time = dream.get('timestamp', 0)
+
+            for insight in insights:
+                insight_text = insight if isinstance(insight, str) else str(insight)
+                insight_key = insight_text[:50]
+
+                matching_decisions = [d for d in decisions_post_dream.get('decisions', []) 
+                                     if d.get('timestamp', 0) > dream_time and 
+                                     (insight_text.lower() in d.get('reasoning', '').lower() or
+                                      d.get('contradicts_insight', False))]
+
+                if not matching_decisions:
+                    blocked_insights.append({'insight': insight_text, 'dream_id': dream_id})
+                    resistance_map[insight_key] = {'status': 'unintegrated', 'attempts': 0, 'dream_id': dream_id}
+                else:
+                    resistance_map[insight_key] = {'status': 'integrated', 'decisions': len(matching_decisions), 'dream_id': dream_id}
+
+        result = {'resistance_map': resistance_map, 'blocked_insights': blocked_insights, 'integration_debt': len(blocked_insights)}
+        self._save_memory('integration_resistance.json', result)
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
