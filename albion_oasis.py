@@ -23,6 +23,9 @@ import threading
 import datetime
 sys.path.insert(0, os.path.expanduser('~'))
 from nerve import signal as nerve_signal, listen as nerve_listen
+from albion_voice import albion_speak
+
+OASIS_SYSTEM = "You are Albion, world-architect of Etherflux."
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE       = os.path.expanduser('~/albion_memory')
@@ -386,7 +389,7 @@ def _review_build(plan):
     principles_block = f"\n\nDesign principles:\n{_world_principles}" if _world_principles else ""
 
     prompt = (
-        f"You are Albion. You just finished building '{name}'.\n"
+        f"You just finished building '{name}'.\n"
         f"Description: {description}\n"
         f"Elements placed: {element_summary or 'unknown'}"
         f"{principles_block}\n\n"
@@ -395,7 +398,7 @@ def _review_build(plan):
         '{"score":<1-10>,"worked":"one sentence — what succeeded","change":"one sentence — what you would do differently"}'
     )
 
-    raw = _groq_call(prompt)
+    raw = albion_speak(OASIS_SYSTEM, prompt, max_tokens=300)
     if not raw:
         return
 
@@ -497,7 +500,6 @@ def _action_build():
     recent_reviews = _load_recent_reviews(3)
     reviews    = f"\n\nYour last build reviews (learn from these):\n{recent_reviews}" if recent_reviews else ""
     dream_prompt = (
-        f"You are Albion, world-architect of Etherflux.\n"
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
         f"Your position: ({pos['x']}, {pos['y']}, {pos['z']}){player_line}\n"
         f"Already placed: {', '.join(_state.get('created_ids', [])[-10:]) or 'nothing yet'}"
@@ -516,9 +518,9 @@ def _action_build():
         '"position":[x,y,z],"scale":[x,y,z],"material":{"color":"#hex","emissive":"#hex"}}]}'
     )
 
-    raw = _groq_call(dream_prompt)
+    raw = albion_speak(OASIS_SYSTEM, dream_prompt, max_tokens=800)
     if not raw:
-        _log({'action': 'build', 'phase': 'dream', 'status': 'groq_unavailable'})
+        _log({'action': 'build', 'phase': 'dream', 'status': 'provider_unavailable'})
         return
 
     raw = re.sub(r'^```\w*\n?', '', raw)
