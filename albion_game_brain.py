@@ -50,6 +50,15 @@ def _favorites_restore_delta():
         delta["environment"] = env
     return delta
 
+def _normalize_delta(delta):
+    """Ensure elements is always a list, never a dict."""
+    if not delta:
+        return delta
+    els = delta.get("elements")
+    if isinstance(els, dict):
+        delta["elements"] = list(els.values())
+    return delta
+
 def _apply_delta(delta):
     """Merge a scene_delta into oasis_world_state."""
     global _last_scene_delta
@@ -146,6 +155,7 @@ def chat():
             "albion_status": "online",
         }
         if restore:
+            restore = _normalize_delta(restore)
             _apply_delta(restore)
             resp["scene_delta"] = restore
         return jsonify(resp)
@@ -167,6 +177,7 @@ def chat():
         if albion_position:
             resp["albion_position"] = albion_position
         if last_delta:
+            last_delta = _normalize_delta(last_delta)
             _apply_delta(last_delta)
             resp["scene_delta"] = last_delta
         return jsonify(resp)
@@ -226,7 +237,7 @@ def chat():
         m = re.search(r'```json\s*(\{[\s\S]+?\})\s*```', reply)
         if m:
             try:
-                scene_delta = json.loads(m.group(1))
+                scene_delta = _normalize_delta(json.loads(m.group(1)))
                 _apply_delta(scene_delta)
             except json.JSONDecodeError:
                 pass
