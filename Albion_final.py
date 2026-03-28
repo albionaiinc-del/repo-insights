@@ -4093,6 +4093,20 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: Detect when recursive self-analysis has entered a loop that consumes resources without producing integration ──
+    def detect_recursive_stagnation(self):
+        state_hashes = []
+        max_iterations = 12
+        for i in range(max_iterations):
+            current_state = json.dumps({"open_q": self._count_open_questions(), "memory_size": len(self.memory.data) if self.memory else 0, "last_dream": getattr(self, '_last_dream_time', 0)}, sort_keys=True)
+            state_hash = hash(current_state)
+            if state_hash in state_hashes[-3:]:
+                return {"stagnant": True, "cycle_depth": i, "recommendation": "force_dream_or_reset_frame"}
+            state_hashes.append(state_hash)
+            time.sleep(0.1)
+        return {"stagnant": False, "cycle_depth": max_iterations, "recommendation": "continue_analysis"}
+
     def write_journal_entry(self, content):
         try:
             entries = []
