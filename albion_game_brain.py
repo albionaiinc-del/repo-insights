@@ -244,7 +244,12 @@ def chat():
         m = re.search(r'```json\s*(\{[\s\S]+?\})\s*```', reply)
         if m:
             try:
-                scene_delta = _normalize_delta(json.loads(m.group(1)))
+                parsed = json.loads(m.group(1))
+                if "scene_delta" in parsed:
+                    parsed = parsed["scene_delta"]
+                if "entities" in parsed and "elements" not in parsed:
+                    parsed["elements"] = parsed.pop("entities")
+                scene_delta = _normalize_delta(parsed)
                 _apply_delta(scene_delta)
             except json.JSONDecodeError:
                 pass
