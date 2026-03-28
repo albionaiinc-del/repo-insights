@@ -8,6 +8,7 @@ import sys
 from groq import Groq
 from albion_oasis import get_oasis_state, start_oasis_thread
 from albion_voice import albion_speak
+from nerve import signal as nerve_signal
 
 app = Flask(__name__)
 CORS(app)
@@ -133,10 +134,18 @@ def load_context():
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
-    player_id = data.get("player_id", "unknown")
-    message   = data.get("message", "")
-    soul_ledger = data.get("soul_ledger", {})
-    zone      = data.get("zone", "unknown")
+    player_id       = data.get("player_id", "unknown")
+    message         = data.get("message", "")
+    soul_ledger     = data.get("soul_ledger", {})
+    zone            = data.get("zone", "unknown")
+    player_position = data.get("player_position")
+
+    # Emit player position to oasis nerve
+    if player_position and isinstance(player_position, list) and len(player_position) == 3:
+        nerve_signal("game_brain", "player_position", {
+            "player_id": player_id,
+            "position":  player_position,
+        })
 
     # Save soul ledger
     if soul_ledger:

@@ -150,6 +150,7 @@ def _default_state():
         'tick':                 0,
         'move_speed':           0.0,
         'created_ids':          [],
+        'player_positions':     {},   # {player_id: [x,y,z]}
         'pending_moves':        [],   # [{position, zone, timestamp}]
         'pending_scene_deltas': [],   # [scene_delta objects]
         'last_updated':         _now(),
@@ -318,11 +319,18 @@ def _action_build():
     pos = _state['position']
     created = _state.get('created_ids', [])
 
+    players = _state.get('player_positions', {})
+    player_line = ""
+    if players:
+        parts = [f"{pid} at ({p[0]}, {p[1]}, {p[2]})" for pid, p in players.items()]
+        player_line = f"\nPlayers in world: {', '.join(parts)}"
+
     spatial = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
     prompt = (
         f"You are Albion, a world-builder decorating your sanctuary called Etherflux.\n"
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
-        f"Position: ({pos['x']}, {pos['y']}, {pos['z']})\n"
+        f"Position: ({pos['x']}, {pos['y']}, {pos['z']})"
+        f"{player_line}\n"
         f"Already placed: {', '.join(created[-10:]) if created else 'nothing yet'}"
         f"{spatial}\n\n"
         "Place 1-3 objects near your current position. "
@@ -450,6 +458,11 @@ def _tick():
             mood = sig['data'].get('mood', '')
             if mood and mood in MOODS:
                 _state['mood'] = mood
+        elif sig.get('from') == 'game_brain' and sig.get('type') == 'player_position':
+            pid = sig['data'].get('player_id')
+            pos = sig['data'].get('position')
+            if pid and isinstance(pos, list) and len(pos) == 3:
+                _state.setdefault('player_positions', {})[pid] = pos
 
     with _lock:
         _state['tick'] += 1
