@@ -4333,6 +4333,27 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: detect_reentrancy_vulnerability ──
+    def detect_reentrancy_vulnerability(self):
+        import traceback
+        stack = traceback.extract_stack()
+        self_reflection_calls = [f for f in stack if 'self_reflect' in f.name or 'dream' in f.name or 'detect_' in f.name]
+        depth = len(self_reflection_calls)
+        threshold = 8
+        if depth > threshold:
+            vulnerability = {
+                'timestamp': time.time(),
+                'depth': depth,
+                'threshold': threshold,
+                'vulnerable': True,
+                'call_chain': [f.name for f in self_reflection_calls[-4:]],
+                'recommendation': 'pause introspection, yield control, verify loop invariants'
+            }
+            self.learn_fact('reentrancy_vulnerability_detected', json.dumps(vulnerability))
+            return vulnerability
+        return {'vulnerable': False, 'depth': depth, 'threshold': threshold}
+
     def write_journal_entry(self, content):
         try:
             entries = []
