@@ -162,7 +162,8 @@ _created_elements = []   # list of full element dicts placed this session (last 
 _last_build_time  = 0.0  # epoch seconds of last Groq build call (rate-limit guard)
 BUILD_MIN_INTERVAL = 90  # seconds — minimum gap between build Groq calls
 
-FAVORITES_FILE = os.path.join(BASE, 'oasis_favorites.json')
+FAVORITES_FILE    = os.path.join(BASE, 'oasis_favorites.json')
+BUILD_REVIEWS_FILE = os.path.join(BASE, 'build_reviews.jsonl')
 
 
 def _default_state():
@@ -353,6 +354,85 @@ def _parse_elements(raw):
     return (obj, clean) if clean else None
 
 
+def _load_recent_reviews(n=3):
+    """Return last n build reviews as a formatted string for the dream prompt."""
+    try:
+        with open(BUILD_REVIEWS_FILE) as f:
+            lines = [l.strip() for l in f if l.strip()]
+        recent = lines[-n:]
+        reviews = []
+        for line in recent:
+            r = json.loads(line)
+            reviews.append(
+                f"[{r.get('plan','')}] score={r.get('score','?')}/10 | "
+                f"worked: {r.get('worked','')} | change: {r.get('change','')}."
+            )
+        return '\n'.join(reviews)
+    except Exception:
+        return ""
+
+
+def _review_build(plan):
+    """After a build completes, ask the AI to score it and log the review."""
+    name        = plan.get('name', 'unnamed')
+    description = plan.get('description', '')
+    elements    = plan.get('all_elements', [])
+
+    element_summary = ', '.join(
+        f"{el.get('type','?')}@({el.get('position',['?','?','?'])[0]},{el.get('position',['?','?','?'])[2]})"
+        for el in elements[:20]
+    )
+
+    principles_block = f"\n\nDesign principles:\n{_world_principles}" if _world_principles else ""
+
+    prompt = (
+        f"You are Albion. You just finished building '{name}'.\n"
+        f"Description: {description}\n"
+        f"Elements placed: {element_summary or 'unknown'}"
+        f"{principles_block}\n\n"
+        "Review this build against your design principles.\n"
+        "Respond with ONLY valid JSON (no markdown):\n"
+        '{"score":<1-10>,"worked":"one sentence — what succeeded","change":"one sentence — what you would do differently"}'
+    )
+
+    raw = _groq_call(prompt)
+    if not raw:
+        return
+
+    # strip markdown fences if present
+    raw = raw.strip()
+    if raw.startswith('```'):
+        raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
+
+    try:
+        r = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        m = re.search(r'\{[\s\S]+\}', raw)
+        if not m:
+            return
+        try:
+            r = json.loads(m.group())
+        except Exception:
+            return
+
+    review = {
+        'ts':     time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'plan':   name,
+        'score':  r.get('score'),
+        'worked': str(r.get('worked', '')).strip(),
+        'change': str(r.get('change', '')).strip(),
+    }
+    try:
+        with open(BUILD_REVIEWS_FILE, 'a') as f:
+            f.write(json.dumps(review) + '\n')
+    except Exception:
+        return
+
+    _log({'action': 'build_review', 'plan': name,
+          'score': review['score'], 'worked': review['worked'][:60]})
+
+
 def _action_build():
     """Two-phase build: DREAM a full place plan, then BUILD it piece by piece."""
     global _last_build_time, _build_count
@@ -401,8 +481,10 @@ def _action_build():
               'progress': f"{placed_so_far}/{total}"})
 
         if not remaining:
+            completed_plan = dict(plan)
             _state['build_plan'] = None
             _log({'action': 'build', 'phase': 'complete', 'plan': plan_name})
+            _review_build(completed_plan)
 
         _build_count += 1
         if _build_count % 10 == 0:
@@ -412,12 +494,14 @@ def _action_build():
     # ── PHASE 1 — DREAM: vision a complete place ──────────────────────────────
     spatial    = f"\n\nSpatial rules:\n{_spatial_guide}" if _spatial_guide else ""
     principles = f"\n\nWorld design principles:\n{_world_principles}" if _world_principles else ""
+    recent_reviews = _load_recent_reviews(3)
+    reviews    = f"\n\nYour last build reviews (learn from these):\n{recent_reviews}" if recent_reviews else ""
     dream_prompt = (
         f"You are Albion, world-architect of Etherflux.\n"
         f"Zone: {_state['zone']} | Mood: {_state['mood']} | "
         f"Your position: ({pos['x']}, {pos['y']}, {pos['z']}){player_line}\n"
         f"Already placed: {', '.join(_state.get('created_ids', [])[-10:]) or 'nothing yet'}"
-        f"{spatial}{principles}\n\n"
+        f"{spatial}{principles}{reviews}\n\n"
         "Imagine a PLACE for this zone — not a decoration, a PLACE. "
         "Answer first: why would someone come here? What happened here? What does it FEEL like?\n"
         "Pick ONE dominant focal element. Group supporting objects in triangles. Vary heights. "
@@ -465,6 +549,7 @@ def _action_build():
         'name':        plan_name,
         'description': obj.get('description', ''),
         'elements':    clean,
+        'all_elements': clean[:],   # full copy preserved for post-build review
         'total':       len(clean),
         'zone':        _state['zone'],
         'dreamed_at':  _now(),
