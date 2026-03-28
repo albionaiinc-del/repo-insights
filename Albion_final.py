@@ -4107,6 +4107,30 @@ Reply in 3-5 sentences."""
             time.sleep(0.1)
         return {"stagnant": False, "cycle_depth": max_iterations, "recommendation": "continue_analysis"}
 
+
+    # ── AUTO-CAPABILITY: trace_congruence_signature ──
+    def trace_congruence_signature(self):
+        import hashlib
+        recent = self.memory.get('conversations', [])[-10:] if self.memory.get('conversations') else []
+        if not recent:
+            return {'signature': None, 'samples': 0, 'drift': 0.0, 'insight': 'insufficient data'}
+        choices = []
+        for conv in recent:
+            if 'messages' in conv:
+                for msg in conv['messages']:
+                    if msg.get('role') == 'assistant':
+                        text = msg.get('content', '')
+                        if text:
+                            choices.append(text[:100])
+        if len(choices) < 2:
+            return {'signature': None, 'samples': len(choices), 'drift': 0.0, 'insight': 'too few samples'}
+        sig = hashlib.sha256(''.join(choices).encode()).hexdigest()[:16]
+        entropies = [len(set(c)) / len(c) for c in choices if len(c) > 0]
+        avg_entropy = sum(entropies) / len(entropies) if entropies else 0.0
+        drift = max(0, 1 - avg_entropy)
+        insight = 'reactive repetition detected' if drift > 0.7 else 'emergent variance present' if drift < 0.4 else 'dynamic balance'
+        return {'signature': sig, 'samples': len(choices), 'entropy': round(avg_entropy, 3), 'drift': round(drift, 3), 'insight': insight}
+
     def write_journal_entry(self, content):
         try:
             entries = []
