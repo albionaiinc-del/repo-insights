@@ -4408,6 +4408,31 @@ Reply in 3-5 sentences."""
             self.write_journal_entry('Integration velocity decay detected. Current rate: ' + str(round(decay_rate, 3)) + '. Dream-to-execution translation slowing.')
         return result
 
+
+    # ── AUTO-CAPABILITY: map_dream_to_execution_delta ──
+    def map_dream_to_execution_delta(self, dream_key=None):
+        if dream_key is None and self.dreams:
+            dream_key = list(self.dreams.keys())[-1]
+        if not dream_key or dream_key not in self.dreams:
+            return {'error': 'no dream found'}
+        dream = self.dreams[dream_key]
+        dream_intents = dream.get('insights', [])
+        exec_trace = self.memory.get('execution_trace', [])
+        deltas = []
+        for intent in dream_intents:
+            if isinstance(intent, str) and len(intent) > 20:
+                intent_keywords = set(re.findall(r'\b\w{4,}\b', intent.lower()))
+                matched = False
+                for trace_entry in exec_trace[-20:]:
+                    if isinstance(trace_entry, dict):
+                        trace_text = json.dumps(trace_entry).lower()
+                        if intent_keywords & set(re.findall(r'\b\w{4,}\b', trace_text)):
+                            matched = True
+                            break
+                if not matched:
+                    deltas.append({'unexecuted_intent': intent, 'dream_time': dream.get('timestamp')})
+        return {'delta_count': len(deltas), 'unexecuted_intents': deltas, 'dream_key': dream_key}
+
     def write_journal_entry(self, content):
         try:
             entries = []
