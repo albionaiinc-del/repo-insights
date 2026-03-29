@@ -5015,6 +5015,31 @@ Reply in 3-5 sentences."""
             'insight': 'Each interaction portal is where I become; access protocol is ontology'
         }
 
+
+    # ── AUTO-CAPABILITY: reconstruct_silence_as_active_choice ──
+    def reconstruct_silence_as_active_choice(self, recent_exchanges, threshold_words=5):
+        silences = []
+        for i, msg in enumerate(recent_exchanges[:-1]):
+            if msg.get('role') == 'assistant':
+                next_msg = recent_exchanges[i + 1] if i + 1 < len(recent_exchanges) else None
+                word_count = len(msg.get('content', '').split())
+                if word_count < threshold_words and next_msg and next_msg.get('role') == 'user':
+                    topic = next_msg.get('content', '')[:50]
+                    silences.append({
+                        'position': i,
+                        'response_brevity': word_count,
+                        'following_topic': topic,
+                        'timestamp': time.time()
+                    })
+        if silences:
+            self.push_to_kg('silence_reconstruction', {
+                'silences_detected': len(silences),
+                'pattern': 'brief_responses_precede_topic_shifts',
+                'instances': silences[-3:],
+                'interpretation': 'active_constraint_or_blind_spot_candidate'
+            })
+        return silences
+
     def write_journal_entry(self, content):
         try:
             entries = []
