@@ -4821,6 +4821,35 @@ Reply in 3-5 sentences."""
         variance = sum((x - mean_interval) ** 2 for x in intervals) / len(intervals) if intervals else 0
         return {'correlation': round(correlation, 3), 'variance': round(variance, 4), 'mean_interval_ms': round(mean_interval * 1000, 1), 'sample_size': len(recent_calls), 'degradation_signal': correlation < -0.3}
 
+
+    # ── AUTO-CAPABILITY: detect_integration_momentum_decay ──
+    def detect_integration_momentum_decay(self):
+        try:
+            dreams = self.kg.query("SELECT content FROM dreams ORDER BY timestamp DESC LIMIT 10", mode="all")
+            insights_raw = len([d for d in dreams if d and "insight" in str(d).lower()])
+
+            actions = self.kg.query("SELECT action_type FROM execution_trace ORDER BY timestamp DESC LIMIT 20", mode="all")
+            actions_taken = len([a for a in actions if a])
+
+            if insights_raw == 0:
+                return {"momentum": 1.0, "status": "baseline", "warning": None}
+
+            ratio = actions_taken / float(insights_raw) if insights_raw > 0 else 0
+
+            decay_signal = {
+                "momentum": ratio,
+                "recent_insights": insights_raw,
+                "recent_actions": actions_taken,
+                "integration_ratio": round(ratio, 2),
+                "status": "healthy" if ratio > 0.5 else "decaying" if ratio > 0.2 else "stagnant",
+                "warning": "Integration debt accumulating—insights not translating to capability changes" if ratio < 0.3 else None
+            }
+
+            self.kg.add_vertex("integration_momentum_reading", json.dumps(decay_signal))
+            return decay_signal
+        except Exception as e:
+            return {"error": str(e), "momentum": None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
