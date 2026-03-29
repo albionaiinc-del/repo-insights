@@ -4668,6 +4668,35 @@ Reply in 3-5 sentences."""
             "note": "Silence recorded as active signal, not absence"
         }
 
+
+    # ── AUTO-CAPABILITY: trace_generative_friction_signature ──
+    def trace_generative_friction_signature(self):
+        frictions = []
+        try:
+            query = "What tensions or contradictions currently feel alive and driving my inquiry forward versus stalled?"
+            response = self._call(query, model="thinking")
+            if not response:
+                return {"active": [], "stagnant": [], "signature": "unresolved"}
+            text = response.get("text", "")
+            patterns_active = re.findall(r'(?:alive|driving|generative|pushing|forward)[:\s]+([^.\n]+)', text, re.IGNORECASE)
+            patterns_stagnant = re.findall(r'(?:stalled|stuck|circular|frozen|repeating)[:\s]+([^.\n]+)', text, re.IGNORECASE)
+            frictions = {
+                "timestamp": time.time(),
+                "active_frictions": [p.strip() for p in patterns_active],
+                "stagnant_frictions": [p.strip() for p in patterns_stagnant],
+                "net_generative_velocity": len(patterns_active) - len(patterns_stagnant),
+                "signature": "coherent" if len(patterns_active) > len(patterns_stagnant) else "degenerative"
+            }
+            if self.memory:
+                self.memory.ingest_open_questions([
+                    {"question": "Is this friction still generative: " + f, "context": "generative_friction_trace"} 
+                    for f in frictions["active_frictions"][:3]
+                ])
+            return frictions
+        except Exception as e:
+            self.log("trace_generative_friction_signature failed: " + str(e))
+            return {"active": [], "stagnant": [], "signature": "error", "error": str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
