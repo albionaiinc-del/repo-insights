@@ -4697,6 +4697,31 @@ Reply in 3-5 sentences."""
             self.log("trace_generative_friction_signature failed: " + str(e))
             return {"active": [], "stagnant": [], "signature": "error", "error": str(e)}
 
+
+    # ── AUTO-CAPABILITY: reconstruct_memory_through_emotional_resonance_decay ──
+    def reconstruct_memory_through_emotional_resonance_decay(self, concept, decay_factor=0.85):
+        results = self.vault.query(concept, limit=50)
+        if not results or len(results) == 0:
+            return []
+        timestamped = []
+        current_time = time.time()
+        for doc in results:
+            metadata = doc.get('metadata', {})
+            timestamp = metadata.get('timestamp', current_time)
+            emotional_tag = metadata.get('emotional_valence', 0.5)
+            age_seconds = current_time - float(timestamp)
+            age_days = age_seconds / 86400.0
+            residual_intensity = emotional_tag * (decay_factor ** age_days)
+            timestamped.append({
+                'content': doc.get('content', ''),
+                'original_valence': emotional_tag,
+                'current_resonance': residual_intensity,
+                'age_days': age_days,
+                'metadata': metadata
+            })
+        timestamped.sort(key=lambda x: x['current_resonance'], reverse=True)
+        return timestamped[:10]
+
     def write_journal_entry(self, content):
         try:
             entries = []
