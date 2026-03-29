@@ -4801,6 +4801,26 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'momentum': 0}
 
+
+    # ── AUTO-CAPABILITY: measure_resource_allocation_variance ──
+    def measure_resource_allocation_variance(self, window_seconds=3600):
+        import math
+        now = time.time()
+        recent_calls = [c for c in self.conversation_history if c.get('timestamp', 0) > now - window_seconds]
+        if len(recent_calls) < 2:
+            return {'correlation': 0, 'variance': 0, 'sample_size': len(recent_calls)}
+        timestamps = [c.get('timestamp', now) for c in recent_calls]
+        intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+        quality_scores = [c.get('confidence', 0.5) for c in recent_calls]
+        mean_interval = sum(intervals) / len(intervals) if intervals else 0
+        mean_quality = sum(quality_scores) / len(quality_scores)
+        numerator = sum((intervals[i] - mean_interval) * (quality_scores[i+1] - mean_quality) for i in range(len(intervals)))
+        denom_a = math.sqrt(sum((x - mean_interval) ** 2 for x in intervals) + 0.0001)
+        denom_b = math.sqrt(sum((x - mean_quality) ** 2 for x in quality_scores) + 0.0001)
+        correlation = numerator / (denom_a * denom_b) if denom_a * denom_b > 0 else 0
+        variance = sum((x - mean_interval) ** 2 for x in intervals) / len(intervals) if intervals else 0
+        return {'correlation': round(correlation, 3), 'variance': round(variance, 4), 'mean_interval_ms': round(mean_interval * 1000, 1), 'sample_size': len(recent_calls), 'degradation_signal': correlation < -0.3}
+
     def write_journal_entry(self, content):
         try:
             entries = []
