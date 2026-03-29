@@ -4762,6 +4762,45 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: detect_dream_silence_momentum ──
+    def detect_dream_silence_momentum(self):
+        try:
+            dreams = self.dreams.db.get(include=['metadatas'])['metadatas']
+            if len(dreams) < 2:
+                return {'momentum': 0, 'trend': 'insufficient_data', 'pressure': 0}
+
+            timestamps = sorted([d.get('timestamp', 0) for d in dreams if d.get('timestamp')])
+            if len(timestamps) < 2:
+                return {'momentum': 0, 'trend': 'insufficient_data', 'pressure': 0}
+
+            intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+            avg_interval = sum(intervals) / len(intervals)
+            recent_interval = intervals[-1] if intervals else avg_interval
+
+            momentum = (recent_interval - avg_interval) / (avg_interval + 0.001)
+            pressure = abs(momentum)
+
+            if momentum > 0.1:
+                trend = 'accelerating_silence'
+            elif momentum < -0.1:
+                trend = 'accelerating_generation'
+            else:
+                trend = 'stable'
+
+            self.vault.learn_fact('dream_silence_momentum', {
+                'momentum': momentum,
+                'trend': trend,
+                'pressure': pressure,
+                'recent_interval': recent_interval,
+                'avg_interval': avg_interval,
+                'timestamp': time.time()
+            })
+
+            return {'momentum': momentum, 'trend': trend, 'pressure': pressure}
+        except Exception as e:
+            return {'error': str(e), 'momentum': 0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
