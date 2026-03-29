@@ -5209,6 +5209,29 @@ Reply in 3-5 sentences."""
 
         return log[-1]
 
+
+    # ── AUTO-CAPABILITY: trace_silence_integration_momentum ──
+    def trace_silence_integration_momentum(self):
+        if not hasattr(self, 'dream_log') or not self.dream_log:
+            return {'status': 'no_dreams_to_analyze', 'momentum': 0}
+        recent_dreams = self.dream_log[-5:] if len(self.dream_log) > 5 else self.dream_log
+        coherence_scores = []
+        for i, dream in enumerate(recent_dreams):
+            dream_insights = dream.get('insights', [])
+            dream_time = dream.get('timestamp', 0)
+            matching_actions = [a for a in self.action_log if a.get('timestamp', 0) > dream_time]
+            if dream_insights and matching_actions:
+                insight_keywords = set(' '.join(dream_insights).lower().split())
+                action_keywords = set(' '.join([str(a) for a in matching_actions]).lower().split())
+                overlap = len(insight_keywords & action_keywords)
+                coherence = overlap / max(len(insight_keywords), 1)
+                coherence_scores.append(coherence)
+        if len(coherence_scores) < 2:
+            return {'status': 'insufficient_data', 'momentum': 0, 'coherence_trend': coherence_scores}
+        momentum = coherence_scores[-1] - coherence_scores[0]
+        trend = 'integrating' if momentum > 0.1 else ('stagnant' if abs(momentum) <= 0.1 else 'fragmenting')
+        return {'momentum': momentum, 'trend': trend, 'coherence_trajectory': coherence_scores, 'integration_quality': sum(coherence_scores) / len(coherence_scores)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
