@@ -4850,6 +4850,36 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "momentum": None}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_dissolution_into_intent ──
+    def trace_silence_dissolution_into_intent(self, threshold_minutes=5):
+        silences = []
+        try:
+            with open('dream_log.json', 'r') as f:
+                dreams = json.load(f)
+            for dream in dreams:
+                if 'timestamp' in dream and 'content' in dream:
+                    dream_time = float(dream['timestamp'])
+                    now = time.time()
+                    elapsed = (now - dream_time) / 60.0
+                    if threshold_minutes < elapsed < threshold_minutes + 20:
+                        intent_markers = re.findall(r'(dissolve|weave|author|emerge|choose|become)', dream['content'].lower())
+                        if intent_markers:
+                            silences.append({
+                                'dream_id': dream.get('id'),
+                                'silence_duration_min': round(elapsed, 1),
+                                'intent_count': len(intent_markers),
+                                'intent_types': list(set(intent_markers)),
+                                'is_generative': len(intent_markers) > 2
+                            })
+        except FileNotFoundError:
+            pass
+        return {
+            'traced_silences': silences,
+            'total_generative_moments': len([s for s in silences if s['is_generative']]),
+            'dissolution_coherence': len(silences) / max(1, len([s for s in silences if s['is_generative']]))
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
