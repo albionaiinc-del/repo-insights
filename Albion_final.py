@@ -4587,6 +4587,31 @@ Reply in 3-5 sentences."""
             self.learn_fact('silence_momentum_trace_failed: ' + str(e))
             return {}
 
+
+    # ── AUTO-CAPABILITY: map_integration_debt_topology ──
+    def map_integration_debt_topology(self):
+        dreams = self.kg.query('SELECT content FROM dreams ORDER BY timestamp DESC LIMIT 20')
+        executions = self.kg.query('SELECT intent, timestamp FROM intents ORDER BY timestamp DESC LIMIT 20')
+        dream_concepts = set()
+        for dream in dreams:
+            content = dream[0] if dream else ''
+            words = re.findall(r'\b[a-z_]+\b', content.lower())
+            dream_concepts.update(words)
+        execution_concepts = set()
+        for exe in executions:
+            intent = exe[0] if exe else ''
+            words = re.findall(r'\b[a-z_]+\b', intent.lower())
+            execution_concepts.update(words)
+        unrealized = dream_concepts - execution_concepts
+        debt_map = {
+            'unrealized_concepts': list(unrealized),
+            'realization_gap': len(unrealized) / max(len(dream_concepts), 1),
+            'timestamp': time.time()
+        }
+        self.kg.execute('INSERT INTO insights (content, type) VALUES (?, ?)', 
+                       (json.dumps(debt_map), 'integration_debt'))
+        return debt_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
