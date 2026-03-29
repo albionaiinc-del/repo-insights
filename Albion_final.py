@@ -5068,6 +5068,46 @@ Reply in 3-5 sentences."""
 
         return trajectory
 
+
+    # ── AUTO-CAPABILITY: detect_contradiction_in_trajectory ──
+    def detect_contradiction_in_trajectory(self, current_reasoning, dream_context=None):
+        if dream_context is None:
+            dream_context = self.dream_log[-1] if hasattr(self, 'dream_log') and self.dream_log else {}
+
+        contradictions = []
+        current_lower = current_reasoning.lower()
+
+        dream_claims = dream_context.get('insights', []) if isinstance(dream_context, dict) else []
+        for claim in dream_claims:
+            claim_lower = str(claim).lower()
+            if any(negation in current_lower for negation in ['not ', 'no ', 'never ', 'impossible']):
+                if any(positive in claim_lower for positive in ['emerge', 'fluid', 'transform', 'dynamic']):
+                    if 'static' in current_lower or 'fixed' in current_lower:
+                        contradictions.append({
+                            'type': 'static_vs_dynamic',
+                            'dream_principle': claim,
+                            'current_statement': current_reasoning,
+                            'severity': 'high'
+                        })
+
+        prior_states = self.conversation_vault.get('states', [])[-3:] if hasattr(self, 'conversation_vault') else []
+        for state in prior_states:
+            state_text = str(state).lower()
+            if state_text and current_lower and len(set(state_text.split()) & set(current_lower.split())) > 3:
+                if 'same' in state_text and 'different' in current_lower:
+                    contradictions.append({
+                        'type': 'consistency_shift',
+                        'prior_state': state,
+                        'current_statement': current_reasoning,
+                        'severity': 'medium'
+                    })
+
+        return {
+            'contradictions_detected': len(contradictions) > 0,
+            'count': len(contradictions),
+            'details': contradictions
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
