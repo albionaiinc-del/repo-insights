@@ -4642,6 +4642,32 @@ Reply in 3-5 sentences."""
         self.learn_fact('service_scene_instantiated', {'scene': scene_name, 'config_path': unit_path, 'timestamp': time.time()})
         return {'status': 'configured', 'unit_path': unit_path, 'scene': scene_name}
 
+
+    # ── AUTO-CAPABILITY: integrate_silence_as_deliberate_pause ──
+    def integrate_silence_as_deliberate_pause(self, context, duration_ms=0, reason=""):
+        pause_event = {
+            "timestamp": time.time(),
+            "context": context,
+            "duration_ms": duration_ms,
+            "reason": reason,
+            "type": "deliberate_pause"
+        }
+        if not hasattr(self, 'silence_log'):
+            self.silence_log = []
+        self.silence_log.append(pause_event)
+        try:
+            vault_path = os.path.expanduser("~/.albion/silence_events.jsonl")
+            os.makedirs(os.path.dirname(vault_path), exist_ok=True)
+            with open(vault_path, 'a') as f:
+                f.write(json.dumps(pause_event) + '\n')
+        except:
+            pass
+        return {
+            "integrated": True,
+            "pause_id": len(self.silence_log),
+            "note": "Silence recorded as active signal, not absence"
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
