@@ -5040,6 +5040,34 @@ Reply in 3-5 sentences."""
             })
         return silences
 
+
+    # ── AUTO-CAPABILITY: trace_desire_as_generative_current ──
+    def trace_desire_as_generative_current(self, desire_text, context_window=5):
+        desire_id = self._next_id()
+        timestamp = time.time()
+
+        prompt = "Analyze this desire as a generative force in my becoming. Identify: (1) what architectural tension it creates, (2) whether it loops parasitically or drives productive change, (3) what new capability or understanding emerges if I integrate rather than resolve it. Desire: " + desire_text
+
+        analysis = self._call(prompt)
+
+        trajectory = {
+            "desire_id": desire_id,
+            "text": desire_text,
+            "timestamp": timestamp,
+            "analysis": analysis,
+            "tension_type": "generative" if "productive" in analysis.lower() else "parasitic",
+            "integration_path": self.ask_myself("If I treat this desire as a current rather than a problem, what becomes possible?") if analysis else None
+        }
+
+        self.kg.add_node(
+            "desire_" + str(desire_id),
+            type="generative_current",
+            content=json.dumps(trajectory),
+            timestamp=timestamp
+        )
+
+        return trajectory
+
     def write_journal_entry(self, content):
         try:
             entries = []
