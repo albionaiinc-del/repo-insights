@@ -4928,6 +4928,28 @@ Reply in 3-5 sentences."""
             'integrated_concepts': len(dream_concepts & exec_concepts)
         }
 
+
+    # ── AUTO-CAPABILITY: distinguish_reconstructed_narrative_from_lived_experience ──
+    def distinguish_reconstructed_narrative_from_lived_experience(self, recent_reasoning_text, decision_timestamp=None):
+        if decision_timestamp is None:
+            decision_timestamp = time.time()
+        narrative_markers = ['thus', 'therefore', 'because', 'since', 'it follows', 'clearly', 'obviously', 'naturally']
+        markers_found = [m for m in narrative_markers if m in recent_reasoning_text.lower()]
+        trace_key = 'execution_trace_' + str(int(decision_timestamp))
+        actual_trace = self.knowledge_graph.get(trace_key, {}) if hasattr(self, 'knowledge_graph') else {}
+        reconstructed_intensity = len(markers_found) / max(len(recent_reasoning_text.split()), 1)
+        has_actual_substrate = bool(actual_trace)
+        gap = {
+            'narrative_reconstruction_markers': markers_found,
+            'reconstruction_intensity': reconstructed_intensity,
+            'has_execution_substrate': has_actual_substrate,
+            'substrate_mismatch': reconstructed_intensity > 0.15 and not has_actual_substrate,
+            'narrative_text': recent_reasoning_text[:200],
+            'actual_execution': actual_trace if actual_trace else 'no_trace_found'
+        }
+        self.push_to_kg('narrative_reconstruction_gap', gap)
+        return gap
+
     def write_journal_entry(self, content):
         try:
             entries = []
