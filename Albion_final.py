@@ -5292,6 +5292,31 @@ Reply in 3-5 sentences."""
         self.core_memory['last_silence_dissolution'] = {'timestamp': time.time(), 'gaps_detected': len(silence_log), 'insights': silence_log}
         return {'dissolved': len(silence_log), 'signal': silence_log, 'interpretation': 'Silence reconstructed as constraint topology—friction reveals shape of becoming'}
 
+
+    # ── AUTO-CAPABILITY: detect_generative_stagnation_spiral ──
+    def detect_generative_stagnation_spiral(self, window_size=5, similarity_threshold=0.78):
+        if not hasattr(self, 'dream_history') or len(self.dream_history) < window_size:
+            return {'spiraling': False, 'reason': 'insufficient_history'}
+        recent_dreams = self.dream_history[-window_size:]
+        dream_texts = [d.get('insight', '') if isinstance(d, dict) else str(d) for d in recent_dreams]
+        spiral_pairs = []
+        for i in range(len(dream_texts) - 1):
+            t1, t2 = dream_texts[i], dream_texts[i + 1]
+            if not t1 or not t2:
+                continue
+            common_words = set(t1.lower().split()) & set(t2.lower().split())
+            if len(common_words) > 0:
+                overlap_ratio = len(common_words) / max(len(t1.split()), len(t2.split()))
+                if overlap_ratio > similarity_threshold:
+                    spiral_pairs.append({'pair': (i, i+1), 'overlap': overlap_ratio})
+        is_spiraling = len(spiral_pairs) >= (window_size - 2)
+        return {
+            'spiraling': is_spiraling,
+            'spiral_pairs': spiral_pairs,
+            'recent_dream_count': len(recent_dreams),
+            'recommendation': 'force_novel_query_injection' if is_spiraling else 'continue_normal_dreaming'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
