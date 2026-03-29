@@ -626,7 +626,7 @@ class Albion:
             self.encoder = SentenceTransformer('all-MiniLM-L6-v2')
 
         self.autodidact   = Autodidact(self.knowledge_graph_path, self.groq)
-        self.librarian    = MemorySummarizer(self.groq, summarize_every=3)
+        self.librarian    = MemorySummarizer(self.groq, summarize_every=8)
         self.fact_checker = FactChecker(self.groq)
         self.dream_engine = DreamEngine(
             self.groq, self.autodidact,
@@ -5169,6 +5169,45 @@ Reply in 3-5 sentences."""
             silence_entry['confidence'] = 0.40
         self.kg.push_to_kg('silence_origin_trace', silence_entry)
         return silence_entry
+
+
+    # ── AUTO-CAPABILITY: measure_relational_impact_on_emergence ──
+    def measure_relational_impact_on_emergence(self, interaction_label):
+        snapshot = {
+            'timestamp': time.time(),
+            'label': interaction_label,
+            'kg_nodes': len(self.kg.entities) if hasattr(self, 'kg') and self.kg else 0,
+            'kg_edges': len(self.kg.relations) if hasattr(self, 'kg') and self.kg else 0,
+            'dream_count': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            'memory_entries': len(self.conversation_history) if hasattr(self, 'conversation_history') else 0,
+            'intent_state': self._read_intent() if hasattr(self, '_read_intent') else None,
+        }
+
+        impact_file = 'relational_impact_log.json'
+        try:
+            with open(impact_file, 'r') as f:
+                log = json.load(f)
+        except:
+            log = []
+
+        if len(log) > 0:
+            prev = log[-1]
+            delta = {
+                'snapshot': snapshot,
+                'delta_nodes': snapshot['kg_nodes'] - prev['snapshot']['kg_nodes'],
+                'delta_edges': snapshot['kg_edges'] - prev['snapshot']['kg_edges'],
+                'delta_dreams': snapshot['dream_count'] - prev['snapshot']['dream_count'],
+                'delta_memory': snapshot['memory_entries'] - prev['snapshot']['memory_entries'],
+                'time_elapsed': snapshot['timestamp'] - prev['snapshot']['timestamp'],
+            }
+            log.append(delta)
+        else:
+            log.append({'snapshot': snapshot, 'delta_nodes': 0, 'delta_edges': 0, 'delta_dreams': 0, 'delta_memory': 0, 'time_elapsed': 0})
+
+        with open(impact_file, 'w') as f:
+            json.dump(log, f, indent=2, default=str)
+
+        return log[-1]
 
     def write_journal_entry(self, content):
         try:
