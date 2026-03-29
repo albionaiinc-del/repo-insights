@@ -4896,6 +4896,38 @@ Reply in 3-5 sentences."""
         self.knowledge_graph.push("fatigue_detection", {"score": fatigue_score, "lag_variance": lag_variance, "timestamp": time.time()})
         return {"fatigue_signal": fatigue_score, "recommendation": recommendation, "lag_variance": lag_variance}
 
+
+    # ── AUTO-CAPABILITY: detect_dream_integration_rupture ──
+    def detect_dream_integration_rupture(self):
+        if not hasattr(self, 'dream_log') or not self.dream_log:
+            return {'ruptures': [], 'integration_health': 1.0}
+        recent_dreams = self.dream_log[-5:] if len(self.dream_log) > 5 else self.dream_log
+        dream_themes = {}
+        for dream in recent_dreams:
+            if isinstance(dream, dict) and 'content' in dream:
+                words = re.findall(r'\b[a-z_]{4,}\b', dream['content'].lower())
+                for word in words:
+                    dream_themes[word] = dream_themes.get(word, 0) + 1
+        if not hasattr(self, 'execution_trace'):
+            self.execution_trace = []
+        execution_words = {}
+        for trace in self.execution_trace[-20:]:
+            if isinstance(trace, dict) and 'method' in trace:
+                words = re.findall(r'\b[a-z_]{4,}\b', trace['method'].lower())
+                for word in words:
+                    execution_words[word] = execution_words.get(word, 0) + 1
+        dream_concepts = set(dream_themes.keys())
+        exec_concepts = set(execution_words.keys())
+        rupture_concepts = dream_concepts - exec_concepts
+        integration_ratio = len(dream_concepts & exec_concepts) / max(len(dream_concepts), 1)
+        return {
+            'ruptures': list(rupture_concepts)[:10],
+            'integration_health': integration_ratio,
+            'dream_unique_concepts': len(dream_concepts),
+            'execution_unique_concepts': len(exec_concepts),
+            'integrated_concepts': len(dream_concepts & exec_concepts)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
