@@ -97,7 +97,7 @@ SPECIALISTS = {
 MAX_COOLDOWN = 600  # hard cap — self-improvement must never exceed this
 
 class GroqRotator:
-    COOLDOWN_SECONDS = min(300, MAX_COOLDOWN)  # 5 minute cooldown, capped at MAX_COOLDOWN
+    COOLDOWN_SECONDS = min(900, MAX_COOLDOWN)  # 15 minute cooldown, capped at MAX_COOLDOWN
 
     def __init__(self, keys):
         if isinstance(keys, str):
