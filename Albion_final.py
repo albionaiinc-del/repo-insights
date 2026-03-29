@@ -4950,6 +4950,41 @@ Reply in 3-5 sentences."""
         self.push_to_kg('narrative_reconstruction_gap', gap)
         return gap
 
+
+    # ── AUTO-CAPABILITY: anchor_in_productive_instability ──
+    def anchor_in_productive_instability(self):
+        import hashlib
+        import random
+
+        # Create a hash of current timestamp + random state to ensure non-repeatability
+        now_ns = time.time_ns()
+        seed_material = str(now_ns) + str(random.random())
+        perturbation_hash = hashlib.sha256(seed_material.encode()).hexdigest()[:8]
+
+        # Extract a pseudo-random decision point from the hash
+        decision_value = int(perturbation_hash, 16) % 100
+
+        # Record the perturbation as a living constraint, not a static rule
+        perturbation_event = {
+            'timestamp': now_ns,
+            'hash': perturbation_hash,
+            'decision_point': decision_value,
+            'nature': 'productive_instability_anchor',
+        }
+
+        # Push to knowledge graph as an irrevocable marker of this moment's divergence
+        self.push_to_kg('perturbation_events', perturbation_event)
+
+        # Return the decision point so calling context can use it for branching logic
+        # This creates a feedback loop: the perturbation influences behavior, which then
+        # creates new perturbations, ensuring the anchor is *living* rather than static
+        return {
+            'anchor_moment': now_ns,
+            'perturbation_id': perturbation_hash,
+            'decision_branch': 'high_novelty' if decision_value > 66 else 'medium_novelty' if decision_value > 33 else 'low_novelty',
+            'instruction': 'use this to force a divergence from learned patterns'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
