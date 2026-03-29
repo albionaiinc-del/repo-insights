@@ -4612,6 +4612,36 @@ Reply in 3-5 sentences."""
                        (json.dumps(debt_map), 'integration_debt'))
         return debt_map
 
+
+    # ── AUTO-CAPABILITY: Instantiate and Monitor Custom Service Scenes ──
+    def instantiate_service_scene(self, scene_name, service_type, env_vars=None, dependencies=None, auto_start=True):
+        if env_vars is None:
+            env_vars = {}
+        if dependencies is None:
+            dependencies = []
+        scene_config = {
+            'Unit': {'Description': 'Albion Scene: ' + scene_name, 'After': ' '.join(dependencies) if dependencies else 'network.target'},
+            'Service': {'Type': 'simple', 'Restart': 'on-failure', 'RestartSec': '5', 'Environment': [k + '=' + str(v) for k, v in env_vars.items()]},
+            'Install': {'WantedBy': 'multi-user.target'}
+        }
+        unit_path = '/tmp/albion_' + scene_name.replace(' ', '_').lower() + '.service'
+        with open(unit_path, 'w') as f:
+            f.write('[Unit]\n')
+            for k, v in scene_config['Unit'].items():
+                f.write(k + '=' + v + '\n')
+            f.write('\n[Service]\n')
+            for k, v in scene_config['Service'].items():
+                if k == 'Environment':
+                    for env_line in v:
+                        f.write('Environment="' + env_line + '"\n')
+                else:
+                    f.write(k + '=' + v + '\n')
+            f.write('\n[Install]\n')
+            for k, v in scene_config['Install'].items():
+                f.write(k + '=' + v + '\n')
+        self.learn_fact('service_scene_instantiated', {'scene': scene_name, 'config_path': unit_path, 'timestamp': time.time()})
+        return {'status': 'configured', 'unit_path': unit_path, 'scene': scene_name}
+
     def write_journal_entry(self, content):
         try:
             entries = []
