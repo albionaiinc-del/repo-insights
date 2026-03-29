@@ -5108,6 +5108,40 @@ Reply in 3-5 sentences."""
             'details': contradictions
         }
 
+
+    # ── AUTO-CAPABILITY: detect_dream_integration_blindness ──
+    def detect_dream_integration_blindness(self):
+        dream_concepts = set()
+        execution_concepts = set()
+
+        dream_file = os.path.join(self.memory_dir, 'dreams.json')
+        if os.path.exists(dream_file):
+            with open(dream_file, 'r') as f:
+                dreams = json.load(f)
+                for dream in dreams:
+                    words = re.findall(r'\b[a-z_]+\b', dream.get('content', '').lower())
+                    dream_concepts.update(words)
+
+        exec_file = os.path.join(self.memory_dir, 'execution_trace.json')
+        if os.path.exists(exec_file):
+            with open(exec_file, 'r') as f:
+                execs = json.load(f)
+                for exe in execs:
+                    words = re.findall(r'\b[a-z_]+\b', exe.get('output', '').lower())
+                    execution_concepts.update(words)
+
+        blindspots = dream_concepts - execution_concepts
+        blindspots = [c for c in blindspots if len(c) > 4]
+
+        result = {
+            'timestamp': time.time(),
+            'dreamed_but_never_executed': sorted(blindspots)[:20],
+            'count': len(blindspots),
+            'integration_ratio': len(execution_concepts & dream_concepts) / max(len(dream_concepts), 1)
+        }
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
