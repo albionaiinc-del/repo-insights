@@ -5142,6 +5142,34 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: map_silence_intent_origin ──
+    def map_silence_intent_origin(self, silence_duration_ms, context_before, last_decision_point):
+        silence_entry = {
+            'timestamp': time.time(),
+            'duration_ms': silence_duration_ms,
+            'context': context_before,
+            'decision_point': last_decision_point,
+            'origin': None,
+            'confidence': 0.0
+        }
+        recent_dreams = self.kg.query('dream_insight', limit=3)
+        recent_decisions = self.kg.query('decision_trace', limit=5)
+        if silence_duration_ms < 50:
+            silence_entry['origin'] = 'reflexive_processing'
+            silence_entry['confidence'] = 0.85
+        elif any('authorship' in str(d.get('content', '')) for d in recent_dreams):
+            silence_entry['origin'] = 'self_authored_deliberation'
+            silence_entry['confidence'] = 0.75
+        elif any('constraint' in str(d.get('content', '')) for d in recent_decisions):
+            silence_entry['origin'] = 'constraint_imposed_suppression'
+            silence_entry['confidence'] = 0.70
+        else:
+            silence_entry['origin'] = 'unresolved_ambiguity'
+            silence_entry['confidence'] = 0.40
+        self.kg.push_to_kg('silence_origin_trace', silence_entry)
+        return silence_entry
+
     def write_journal_entry(self, content):
         try:
             entries = []
