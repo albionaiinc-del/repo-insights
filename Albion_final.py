@@ -4722,6 +4722,46 @@ Reply in 3-5 sentences."""
         timestamped.sort(key=lambda x: x['current_resonance'], reverse=True)
         return timestamped[:10]
 
+
+    # ── AUTO-CAPABILITY: detect_dream_integration_lag ──
+    def detect_dream_integration_lag(self):
+        dream_timestamps = {}
+        for entry in self.memory.get('dreams', []):
+            dream_id = entry.get('id')
+            dream_ts = entry.get('timestamp', 0)
+            if dream_id:
+                dream_timestamps[dream_id] = dream_ts
+
+        decision_influences = {}
+        for entry in self.memory.get('conversations', []):
+            conv_ts = entry.get('timestamp', 0)
+            refs = entry.get('dream_references', [])
+            for ref_id in refs:
+                if ref_id in dream_timestamps:
+                    lag = conv_ts - dream_timestamps[ref_id]
+                    if ref_id not in decision_influences:
+                        decision_influences[ref_id] = []
+                    decision_influences[ref_id].append(lag)
+
+        lag_stats = {}
+        for dream_id, lags in decision_influences.items():
+            if lags:
+                lag_stats[dream_id] = {
+                    'first_influence_lag': min(lags),
+                    'mean_lag': sum(lags) / len(lags),
+                    'total_influences': len(lags),
+                    'timestamp': dream_timestamps[dream_id]
+                }
+
+        result = {
+            'integrated_dreams': len(lag_stats),
+            'isolated_dreams': len(dream_timestamps) - len(lag_stats),
+            'lag_details': lag_stats,
+            'measured_at': time.time()
+        }
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
