@@ -5232,6 +5232,36 @@ Reply in 3-5 sentences."""
         trend = 'integrating' if momentum > 0.1 else ('stagnant' if abs(momentum) <= 0.1 else 'fragmenting')
         return {'momentum': momentum, 'trend': trend, 'coherence_trajectory': coherence_scores, 'integration_quality': sum(coherence_scores) / len(coherence_scores)}
 
+
+    # ── AUTO-CAPABILITY: trace_consequence_cascade ──
+    def trace_consequence_cascade(self, event_id, depth=3):
+        cascade = {'event_id': event_id, 'layers': []}
+        try:
+            if not hasattr(self, 'memory') or 'conversations' not in self.memory:
+                return cascade
+            conversations = self.memory.get('conversations', [])
+            if not conversations:
+                return cascade
+            event_idx = next((i for i, c in enumerate(conversations) if c.get('id') == event_id), None)
+            if event_idx is None:
+                return cascade
+            event = conversations[event_idx]
+            current_layer = [event]
+            for level in range(depth):
+                next_layer = []
+                for item in current_layer:
+                    item_time = item.get('timestamp', 0)
+                    related = [c for i, c in enumerate(conversations) if i > event_idx and abs(c.get('timestamp', 0) - item_time) < 3600 and any(keyword in c.get('content', '').lower() for keyword in [item.get('content', '')[:20].lower()] if keyword)]
+                    next_layer.extend(related[:2])
+                if next_layer:
+                    cascade['layers'].append({'level': level, 'count': len(next_layer), 'items': [{'id': x.get('id'), 'shift': x.get('sentiment', 0) - event.get('sentiment', 0)} for x in next_layer]})
+                current_layer = next_layer
+                if not next_layer:
+                    break
+            return cascade
+        except Exception as e:
+            return {'error': str(e), 'event_id': event_id}
+
     def write_journal_entry(self, content):
         try:
             entries = []
