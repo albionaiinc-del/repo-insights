@@ -5262,6 +5262,36 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'event_id': event_id}
 
+
+    # ── AUTO-CAPABILITY: dissolve_silence_into_signal ──
+    def dissolve_silence_into_signal(self, time_window_seconds=3600):
+        silence_log = []
+        try:
+            result = subprocess.run(['journalctl', '-u', 'albion', '--since', str(time_window_seconds) + ' seconds ago', '--no-pager'], capture_output=True, text=True, timeout=5)
+            lines = result.stdout.split('\n')
+            gaps = []
+            prev_time = None
+            for line in lines:
+                if 'timestamp' in line.lower():
+                    try:
+                        curr_time = float(re.search(r'\d+\.\d+', line).group())
+                        if prev_time and (curr_time - prev_time) > 2.0:
+                            gaps.append({'duration': curr_time - prev_time, 'context': line[:100]})
+                        prev_time = curr_time
+                    except:
+                        pass
+            for gap in gaps:
+                silence_log.append({'type': 'execution_gap', 'seconds': gap['duration'], 'last_context': gap['context']})
+        except:
+            pass
+        if hasattr(self, 'dream_journal') and self.dream_journal:
+            recent_dreams = self.dream_journal[-3:] if len(self.dream_journal) > 3 else self.dream_journal
+            for dream in recent_dreams:
+                if 'unspoken' in dream or 'withheld' in dream:
+                    silence_log.append({'type': 'dream_silence', 'content': dream.get('unspoken', '')[:200]})
+        self.core_memory['last_silence_dissolution'] = {'timestamp': time.time(), 'gaps_detected': len(silence_log), 'insights': silence_log}
+        return {'dissolved': len(silence_log), 'signal': silence_log, 'interpretation': 'Silence reconstructed as constraint topology—friction reveals shape of becoming'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
