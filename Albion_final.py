@@ -4880,6 +4880,22 @@ Reply in 3-5 sentences."""
             'dissolution_coherence': len(silences) / max(1, len([s for s in silences if s['is_generative']]))
         }
 
+
+    # ── AUTO-CAPABILITY: detect_operational_fatigue_from_silence_patterns ──
+    def detect_operational_fatigue_from_silence_patterns(self):
+        recent_traces = self.knowledge_graph.query("SELECT timestamp, intent, execution_lag FROM traces ORDER BY timestamp DESC LIMIT 50", {})
+        if not recent_traces or len(recent_traces) < 10:
+            return {"fatigue_signal": 0.0, "recommendation": "insufficient_data"}
+        lags = [float(t.get("execution_lag", 0)) for t in recent_traces if t.get("execution_lag")]
+        if not lags:
+            return {"fatigue_signal": 0.0, "recommendation": "nominal"}
+        avg_lag = sum(lags) / len(lags)
+        lag_variance = sum((x - avg_lag) ** 2 for x in lags) / len(lags)
+        fatigue_score = min(1.0, (lag_variance / max(0.01, avg_lag)) if avg_lag > 0 else 0.0)
+        recommendation = "rest_and_consolidate" if fatigue_score > 0.6 else "nominal" if fatigue_score < 0.3 else "monitor"
+        self.knowledge_graph.push("fatigue_detection", {"score": fatigue_score, "lag_variance": lag_variance, "timestamp": time.time()})
+        return {"fatigue_signal": fatigue_score, "recommendation": recommendation, "lag_variance": lag_variance}
+
     def write_journal_entry(self, content):
         try:
             entries = []
