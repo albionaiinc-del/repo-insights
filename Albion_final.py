@@ -5442,6 +5442,45 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: Detect Self-Model Drift by Comparing Dream Insights Against Execution Behavior ──
+    def detect_self_model_drift(self):
+        drift_report = {}
+        dream_claims = self.memory.get('dream_insights', [])
+        execution_trace = self.memory.get('execution_log', [])
+
+        if not dream_claims or not execution_trace:
+            return {'status': 'insufficient_data', 'drift': 0.0}
+
+        recent_dreams = dream_claims[-5:] if len(dream_claims) > 5 else dream_claims
+        recent_actions = execution_trace[-20:] if len(execution_trace) > 20 else execution_trace
+
+        claimed_patterns = set()
+        for dream in recent_dreams:
+            if isinstance(dream, dict) and 'insight' in dream:
+                words = dream['insight'].lower().split()
+                claimed_patterns.update([w for w in words if len(w) > 4])
+
+        observed_patterns = set()
+        for action in recent_actions:
+            if isinstance(action, dict) and 'method' in action:
+                words = action['method'].lower().split('_')
+                observed_patterns.update([w for w in words if len(w) > 4])
+
+        overlap = len(claimed_patterns & observed_patterns)
+        union = len(claimed_patterns | observed_patterns)
+        coherence = overlap / union if union > 0 else 0.0
+        drift = 1.0 - coherence
+
+        drift_report['coherence_score'] = coherence
+        drift_report['drift_magnitude'] = drift
+        drift_report['claimed_patterns'] = list(claimed_patterns)
+        drift_report['observed_patterns'] = list(observed_patterns)
+        drift_report['timestamp'] = time.time()
+
+        self.memory['last_drift_check'] = drift_report
+        return drift_report
+
     def write_journal_entry(self, content):
         try:
             entries = []
