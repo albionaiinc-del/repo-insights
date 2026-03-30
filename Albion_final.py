@@ -5481,6 +5481,27 @@ Reply in 3-5 sentences."""
         self.memory['last_drift_check'] = drift_report
         return drift_report
 
+
+    # ── AUTO-CAPABILITY: measure_silence_integration_fidelity ──
+    def measure_silence_integration_fidelity(self):
+        import json
+        import time
+        silence_map = {}
+        if os.path.exists('silence_log.json'):
+            with open('silence_log.json', 'r') as f:
+                silence_map = json.load(f)
+        current_time = time.time()
+        recent_silences = [s for s in silence_map.values() if current_time - s.get('timestamp', 0) < 3600]
+        if not recent_silences:
+            return {'fidelity': 1.0, 'verdict': 'no_recent_silences', 'defensive_risk': 0.0}
+        defensive_markers = sum(1 for s in recent_silences if s.get('followed_by_contradiction', False))
+        avoidance_markers = sum(1 for s in recent_silences if s.get('before_high_stakes_decision', False))
+        reflection_markers = sum(1 for s in recent_silences if s.get('preceded_by_open_question', True))
+        total = len(recent_silences)
+        defensive_ratio = defensive_markers / total if total > 0 else 0
+        fidelity_score = 1.0 - (0.6 * defensive_ratio + 0.4 * (avoidance_markers / total if total > 0 else 0))
+        return {'fidelity': max(0.0, fidelity_score), 'defensive_risk': defensive_ratio, 'reflection_quality': reflection_markers / total if total > 0 else 0, 'sample_size': total}
+
     def write_journal_entry(self, content):
         try:
             entries = []
