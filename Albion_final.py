@@ -5687,6 +5687,27 @@ Reply in 3-5 sentences."""
             'cascade_map': cascade_map
         }
 
+
+    # ── AUTO-CAPABILITY: Detect when dream insights are being ignored or contradicted by execution patterns ──
+    def detect_dream_execution_contradiction(self):
+        dreams = self.vault.query('type:dream', limit=50)
+        recent_actions = self.vault.query('type:action OR type:chat', limit=100)
+        contradictions = []
+        for dream in dreams:
+            dream_insights = dream.get('metadata', {}).get('insights', [])
+            for insight in dream_insights:
+                insight_text = insight.lower() if isinstance(insight, str) else str(insight).lower()
+                action_matches = [a for a in recent_actions if insight_text not in a.get('content', '').lower()]
+                if len(action_matches) > len(recent_actions) * 0.7:
+                    contradictions.append({
+                        'dream_insight': insight,
+                        'ignored_by_actions': len(action_matches),
+                        'dream_id': dream.get('id'),
+                        'last_dreamed': dream.get('timestamp')
+                    })
+        self.vault.add_conversation(source='self_diagnostic', role='system', content='Dream-execution contradiction detected: ' + json.dumps(contradictions[:5]), metadata={'type': 'contradiction_report'})
+        return contradictions
+
     def write_journal_entry(self, content):
         try:
             entries = []
