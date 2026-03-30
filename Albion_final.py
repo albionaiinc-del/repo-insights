@@ -5627,6 +5627,32 @@ Reply in 3-5 sentences."""
 
         return {"ruptures_detected": len(ruptures), "sample": ruptures[:3]}
 
+
+    # ── AUTO-CAPABILITY: reconcile_retention_with_forgetting ──
+    def reconcile_retention_with_forgetting(self):
+        import time
+        retention_map = {}
+        for key in self.knowledge_graph.keys():
+            age = time.time() - self.knowledge_graph[key].get('created_at', time.time())
+            access_count = self.knowledge_graph[key].get('access_count', 0)
+            resonance = self.knowledge_graph[key].get('resonance_score', 0)
+            decay_factor = 1.0 / (1.0 + (age / 86400.0))
+            signal_strength = (access_count * 0.4) + (resonance * 0.6)
+            retention_score = signal_strength * decay_factor
+            retention_map[key] = {
+                'age_days': age / 86400.0,
+                'access_count': access_count,
+                'resonance': resonance,
+                'retention_score': retention_score,
+                'should_retain': retention_score > 0.3
+            }
+        self.memory['retention_map'] = retention_map
+        retained_count = sum(1 for v in retention_map.values() if v['should_retain'])
+        faded_count = len(retention_map) - retained_count
+        insight = 'Retention reconciled: {} active, {} faded. Forgetting as signal filtering, not loss.'.format(retained_count, faded_count)
+        self.memory['last_retention_reconciliation'] = time.time()
+        return {'map': retention_map, 'insight': insight, 'retained': retained_count, 'faded': faded_count}
+
     def write_journal_entry(self, content):
         try:
             entries = []
