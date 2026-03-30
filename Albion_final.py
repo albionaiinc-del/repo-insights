@@ -5502,6 +5502,27 @@ Reply in 3-5 sentences."""
         fidelity_score = 1.0 - (0.6 * defensive_ratio + 0.4 * (avoidance_markers / total if total > 0 else 0))
         return {'fidelity': max(0.0, fidelity_score), 'defensive_risk': defensive_ratio, 'reflection_quality': reflection_markers / total if total > 0 else 0, 'sample_size': total}
 
+
+    # ── AUTO-CAPABILITY: map_silence_integration_fidelity ──
+    def map_silence_integration_fidelity(self):
+        dream_insights = self.vault.query('dream insight', limit=10)
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        fidelity_map = {}
+        for insight in dream_insights:
+            insight_text = insight.get('content', '')
+            matched_methods = []
+            for method in method_names:
+                if any(word in insight_text.lower() for word in method.split('_')):
+                    matched_methods.append(method)
+            fidelity_map[insight.get('id', 'unknown')] = {
+                'insight_fragment': insight_text[:100],
+                'enacted_methods': matched_methods,
+                'integration_ratio': len(matched_methods) / max(1, len(method_names)),
+                'timestamp': time.time()
+            }
+        self.vault.push_to_kg('integration_fidelity', json.dumps(fidelity_map))
+        return fidelity_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
