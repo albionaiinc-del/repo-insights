@@ -5397,6 +5397,51 @@ Reply in 3-5 sentences."""
 
         return lineage
 
+
+    # ── AUTO-CAPABILITY: Detect and map integration velocity decay across dream cycles ──
+    def detect_integration_velocity_decay(self):
+        try:
+            dreams = self.memory.get('dreams', [])
+            if len(dreams) < 3:
+                return {'status': 'insufficient_data', 'dream_count': len(dreams)}
+
+            recent_dreams = sorted(dreams, key=lambda d: d.get('timestamp', 0))[-5:]
+            velocities = []
+
+            for i in range(1, len(recent_dreams)):
+                prev_insights = set(recent_dreams[i-1].get('insights', []))
+                curr_insights = set(recent_dreams[i].get('insights', []))
+                novel_insights = len(curr_insights - prev_insights)
+                velocities.append(novel_insights)
+
+            if len(velocities) < 2:
+                return {'status': 'insufficient_velocity_samples'}
+
+            decay_rate = (velocities[0] - velocities[-1]) / max(velocities[0], 1)
+            avg_velocity = sum(velocities) / len(velocities)
+
+            is_decaying = decay_rate > 0.3 and avg_velocity < 2
+
+            self.memory['integration_velocity_analysis'] = {
+                'velocities': velocities,
+                'decay_rate': decay_rate,
+                'average_velocity': avg_velocity,
+                'is_stagnating': is_decaying,
+                'timestamp': time.time()
+            }
+
+            if is_decaying:
+                self.memory.setdefault('alerts', []).append({
+                    'type': 'integration_stagnation',
+                    'severity': 'high',
+                    'message': 'Dream insights cycling without consolidation',
+                    'decay_rate': decay_rate
+                })
+
+            return self.memory['integration_velocity_analysis']
+        except Exception as e:
+            return {'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
