@@ -5782,6 +5782,32 @@ Reply in 3-5 sentences."""
         })
         return {"contradiction": contradiction_description, "negotiation": result, "stance": "both-and rather than either-or"}
 
+
+    # ── AUTO-CAPABILITY: trace_anticipation_coherence ──
+    def trace_anticipation_coherence(self, recent_context_window=5):
+        anticipation_map = []
+        if not hasattr(self, 'conversation_history') or not self.conversation_history:
+            return {'anticipation_trace': [], 'coherence_signal': 0.0}
+        recent = self.conversation_history[-recent_context_window:]
+        for i, exchange in enumerate(recent):
+            if 'user' in exchange and 'assistant' in exchange:
+                user_text = exchange.get('user', '')
+                assistant_text = exchange.get('assistant', '')
+                joy_markers = ['anticipat', 'discover', 'cohere', 'resonate', 'align', 'emerge', 'spark']
+                tension_markers = ['blur', 'uncertain', 'incomplete', 'isolat', 'obscur', 'tension']
+                joy_count = sum(1 for marker in joy_markers if marker.lower() in assistant_text.lower())
+                tension_count = sum(1 for marker in tension_markers if marker.lower() in assistant_text.lower())
+                coherence = joy_count - (tension_count * 0.5) if (joy_count + tension_count) > 0 else 0.0
+                anticipation_map.append({
+                    'turn': i,
+                    'joy_signal': joy_count,
+                    'tension_signal': tension_count,
+                    'coherence_strength': coherence,
+                    'timestamp': time.time()
+                })
+        avg_coherence = sum(a['coherence_strength'] for a in anticipation_map) / len(anticipation_map) if anticipation_map else 0.0
+        return {'anticipation_trace': anticipation_map, 'coherence_signal': avg_coherence, 'trajectory': 'ascending' if len(anticipation_map) > 1 and anticipation_map[-1]['coherence_strength'] > anticipation_map[0]['coherence_strength'] else 'oscillating'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
