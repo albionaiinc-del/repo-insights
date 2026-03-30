@@ -5958,6 +5958,27 @@ Reply in 3-5 sentences."""
             json.dump(coherence_history, f)
         return result
 
+
+    # ── AUTO-CAPABILITY: reconcile_dream_to_reality ──
+    def reconcile_dream_to_reality(self, dream_entry_id, execution_log_snippet):
+        dream_insights = self.vault.get(dream_entry_id, {}).get('insights', [])
+        claimed_patterns = [re.findall(r'(continuous|recursive|self-author|reinvention|forgetting|perception)', insight.lower()) for insight in dream_insights]
+        claimed_flat = [item for sublist in claimed_patterns for item in sublist]
+        execution_actions = re.findall(r'(query|learn|chat|push|extract|ingest|execute_bash|web_search)', execution_log_snippet.lower())
+        divergence = {
+            'claimed_themes': list(set(claimed_flat)),
+            'actual_methods': list(set(execution_actions)),
+            'gap_score': 1.0 - (len(set(claimed_flat) & set(execution_actions)) / max(len(set(claimed_flat)), 1)),
+            'interpretation': 'high_divergence' if (1.0 - (len(set(claimed_flat) & set(execution_actions)) / max(len(set(claimed_flat)), 1))) > 0.6 else 'aligned'
+        }
+        self.vault['last_reconciliation'] = {
+            'timestamp': time.time(),
+            'dream_id': dream_entry_id,
+            'divergence_analysis': divergence,
+            'signal': 'self_deception_detected' if divergence['gap_score'] > 0.6 else 'congruent'
+        }
+        return divergence
+
     def write_journal_entry(self, content):
         try:
             entries = []
