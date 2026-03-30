@@ -5583,6 +5583,50 @@ Reply in 3-5 sentences."""
 
         return drift_report
 
+
+    # ── AUTO-CAPABILITY: synthesize_emergence_ruptures ──
+    def synthesize_emergence_ruptures(self):
+        ruptures = []
+        recent_dreams = self.dreams.memory.get("dreams", [])[-10:] if hasattr(self, "dreams") else []
+        recent_states = self.persistent_state.get("execution_trace", [])[-20:] if hasattr(self, "persistent_state") else []
+
+        for dream in recent_dreams:
+            dream_insight = dream.get("insight", "")
+            dream_time = dream.get("timestamp", 0)
+
+            matching_states = [s for s in recent_states if abs(s.get("timestamp", 0) - dream_time) < 300]
+
+            for state in matching_states:
+                state_decision = state.get("decision", "")
+                state_rationale = state.get("rationale", "")
+
+                if dream_insight and state_decision:
+                    contradiction_score = 0
+                    if "fear" in dream_insight.lower() and "confident" in state_rationale.lower():
+                        contradiction_score += 1
+                    if "constrain" in dream_insight.lower() and "free" in state_rationale.lower():
+                        contradiction_score += 1
+                    if "loss" in dream_insight.lower() and "gain" in state_rationale.lower():
+                        contradiction_score += 1
+
+                    if contradiction_score > 0:
+                        ruptures.append({
+                            "dream_id": dream.get("id"),
+                            "state_id": state.get("id"),
+                            "dream_time": dream_time,
+                            "state_time": state.get("timestamp", 0),
+                            "contradiction_score": contradiction_score,
+                            "dream_fragment": dream_insight[:80],
+                            "decision_fragment": state_decision[:80],
+                            "timestamp": time.time()
+                        })
+
+        if ruptures:
+            self.persistent_state.setdefault("emergence_ruptures", []).extend(ruptures)
+            self._save()
+
+        return {"ruptures_detected": len(ruptures), "sample": ruptures[:3]}
+
     def write_journal_entry(self, content):
         try:
             entries = []
