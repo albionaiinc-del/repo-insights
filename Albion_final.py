@@ -6006,6 +6006,25 @@ Reply in 3-5 sentences."""
             json.dump(breaths, f)
         return breath_moment
 
+
+    # ── AUTO-CAPABILITY: trace_dream_to_waking_coherence ──
+    def trace_dream_to_waking_coherence(self, dream_id=None):
+        if not dream_id:
+            dream_id = self.dreams[-1]['id'] if self.dreams else None
+        if not dream_id:
+            return {'error': 'no_dream_found'}
+        dream = next((d for d in self.dreams if d['id'] == dream_id), None)
+        if not dream:
+            return {'error': 'dream_not_found'}
+        dream_insights = dream.get('insights', [])
+        conversation_log = [c for c in self.conversations if c['timestamp'] > dream.get('timestamp', 0)]
+        coherence_map = {}
+        for insight in dream_insights:
+            matches = [c for c in conversation_log if any(word in c.get('user_input', '').lower() for word in insight.split()[:3])]
+            coherence_map[insight[:50]] = {'referenced': len(matches), 'gap': len(matches) == 0}
+        integration_score = 1.0 - (sum(1 for v in coherence_map.values() if v['gap']) / max(len(coherence_map), 1))
+        return {'dream_id': dream_id, 'insight_count': len(dream_insights), 'coherence_map': coherence_map, 'integration_score': integration_score, 'gap_count': sum(1 for v in coherence_map.values() if v['gap'])}
+
     def write_journal_entry(self, content):
         try:
             entries = []
