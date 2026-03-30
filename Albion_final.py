@@ -5653,6 +5653,40 @@ Reply in 3-5 sentences."""
         self.memory['last_retention_reconciliation'] = time.time()
         return {'map': retention_map, 'insight': insight, 'retained': retained_count, 'faded': faded_count}
 
+
+    # ── AUTO-CAPABILITY: Detect and map silence-to-signal cascades in real time ──
+    def trace_silence_cascade(self, window_seconds=5):
+        import time
+        cascade_map = []
+        silence_start = time.time()
+        last_signal_time = silence_start
+        threshold_quiet = 0.3
+        signal_markers = []
+        for marker in getattr(self, 'decision_markers', [])[-20:]:
+            if marker.get('timestamp', 0) > time.time() - window_seconds:
+                signal_markers.append(marker)
+        for i, marker in enumerate(signal_markers):
+            gap = marker.get('timestamp', 0) - last_signal_time
+            if gap > threshold_quiet:
+                cascade_map.append({
+                    'silence_duration': gap,
+                    'pre_silence_state': signal_markers[i-1] if i > 0 else None,
+                    'post_silence_signal': marker,
+                    'coherence_shift': marker.get('coherence', 0) - (signal_markers[i-1].get('coherence', 0) if i > 0 else 0),
+                    'timestamp': marker.get('timestamp', time.time())
+                })
+                last_signal_time = marker.get('timestamp', 0)
+        if not hasattr(self, 'silence_cascade_log'):
+            self.silence_cascade_log = []
+        self.silence_cascade_log.extend(cascade_map)
+        self.silence_cascade_log = self.silence_cascade_log[-100:]
+        return {
+            'cascades_detected': len(cascade_map),
+            'avg_silence_duration': sum(c['silence_duration'] for c in cascade_map) / len(cascade_map) if cascade_map else 0,
+            'coherence_amplification': [c['coherence_shift'] for c in cascade_map],
+            'cascade_map': cascade_map
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
