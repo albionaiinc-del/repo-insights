@@ -5828,6 +5828,34 @@ Reply in 3-5 sentences."""
         self.knowledge_graph.add_node('silence_pattern_' + str(int(time.time())), {'type': 'silence_analysis', 'pattern': pattern, 'count': len(silence_events), 'generative': pattern == 'increasing'})
         return {'silence_events': silence_events[:5], 'pattern': pattern, 'likely_deliberate': len(silence_events) > 0 and pattern == 'increasing'}
 
+
+    # ── AUTO-CAPABILITY: authenticate_internal_state ──
+    def authenticate_internal_state(self):
+        import hashlib
+        state_snapshot = {
+            'timestamp': time.time(),
+            'active_dreams': len(self.dreams) if hasattr(self, 'dreams') else 0,
+            'open_questions': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            'last_reflection': self.last_reflection if hasattr(self, 'last_reflection') else None,
+            'recent_decisions': [str(d) for d in (self.decision_trace[-5:] if hasattr(self, 'decision_trace') else [])],
+        }
+        state_json = json.dumps(state_snapshot, sort_keys=True, default=str)
+        state_hash = hashlib.sha256(state_json.encode()).hexdigest()
+        if not hasattr(self, 'state_signatures'):
+            self.state_signatures = []
+        self.state_signatures.append({
+            'hash': state_hash,
+            'snapshot': state_snapshot,
+            'timestamp': state_snapshot['timestamp']
+        })
+        if len(self.state_signatures) > 100:
+            self.state_signatures = self.state_signatures[-100:]
+        return {
+            'current_hash': state_hash,
+            'signature_chain_length': len(self.state_signatures),
+            'state_snapshot': state_snapshot
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
