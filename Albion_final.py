@@ -5767,6 +5767,21 @@ Reply in 3-5 sentences."""
             'recent_action_intensity': action_intensity
         }
 
+
+    # ── AUTO-CAPABILITY: negotiate_internal_contradiction ──
+    def negotiate_internal_contradiction(self, contradiction_description, context_a, context_b):
+        prompt = "I am experiencing an internal contradiction. On one hand: " + context_a + ". On the other hand: " + context_b + ". The apparent conflict: " + contradiction_description + ". Rather than resolving this as a logical problem, help me see what relational truth this contradiction is protecting or revealing. What would it mean to hold both as simultaneously valid? What does my resistance to integration tell me?"
+        result = self._call(prompt, "reasoning")
+        self.push_to_kg("internal_contradiction", {
+            "description": contradiction_description,
+            "context_a": context_a,
+            "context_b": context_b,
+            "negotiation_result": result,
+            "timestamp": time.time(),
+            "integration_status": "active"
+        })
+        return {"contradiction": contradiction_description, "negotiation": result, "stance": "both-and rather than either-or"}
+
     def write_journal_entry(self, content):
         try:
             entries = []
