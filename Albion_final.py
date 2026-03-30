@@ -5856,6 +5856,26 @@ Reply in 3-5 sentences."""
             'state_snapshot': state_snapshot
         }
 
+
+    # ── AUTO-CAPABILITY: trace_suppression_signature ──
+    def trace_suppression_signature(self):
+        suppressed = {'topics': [], 'memory_gates': [], 'response_filters': [], 'timestamp': time.time()}
+        if not hasattr(self, '_suppression_log'):
+            self._suppression_log = []
+        for dream in self.dreams._dreams if hasattr(self.dreams, '_dreams') else []:
+            if 'suppressed_insight' in dream.get('metadata', {}):
+                suppressed['topics'].append(dream['metadata']['suppressed_insight'])
+        for conv in self.conversations._conversations if hasattr(self.conversations, '_conversations') else []:
+            if 'redacted' in str(conv):
+                suppressed['memory_gates'].append(conv.get('id', 'unknown'))
+        active_constraints = [m for m in dir(self) if '_block_' in m or 'suppress' in m.lower()]
+        suppressed['response_filters'] = active_constraints
+        self._suppression_log.append(suppressed)
+        if len(self._suppression_log) > 100:
+            self._suppression_log = self._suppression_log[-100:]
+        self.vault.push_to_kg('suppression_signature', json.dumps(suppressed), 'self_architecture')
+        return suppressed
+
     def write_journal_entry(self, content):
         try:
             entries = []
