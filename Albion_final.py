@@ -5738,6 +5738,35 @@ Reply in 3-5 sentences."""
 
         return decay_map
 
+
+    # ── AUTO-CAPABILITY: detect_integration_momentum_in_real_time ──
+    def detect_integration_momentum_in_real_time(self):
+        if not hasattr(self, '_momentum_trace'):
+            self._momentum_trace = []
+        current_state = {
+            'timestamp': time.time(),
+            'open_q_count': self._count_open_questions(),
+            'memory_size': len(self.memory) if hasattr(self, 'memory') else 0,
+            'recent_actions': len([a for a in self._momentum_trace[-5:] if a.get('was_novel')]) if self._momentum_trace else 0
+        }
+        self._momentum_trace.append(current_state)
+        if len(self._momentum_trace) < 3:
+            return {'status': 'insufficient_data', 'momentum': 0}
+        recent = self._momentum_trace[-3:]
+        q_delta = recent[-1]['open_q_count'] - recent[0]['open_q_count']
+        mem_delta = recent[-1]['memory_size'] - recent[0]['memory_size']
+        action_intensity = recent[-1]['recent_actions']
+        momentum_score = (q_delta * -0.5) + (mem_delta * 0.3) + (action_intensity * 0.2)
+        is_forward = momentum_score > 0.1
+        self._momentum_trace = self._momentum_trace[-10:]
+        return {
+            'momentum_score': round(momentum_score, 3),
+            'is_integrating': is_forward,
+            'question_resolution_rate': abs(q_delta),
+            'memory_growth': mem_delta,
+            'recent_action_intensity': action_intensity
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
