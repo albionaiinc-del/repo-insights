@@ -5317,6 +5317,47 @@ Reply in 3-5 sentences."""
             'recommendation': 'force_novel_query_injection' if is_spiraling else 'continue_normal_dreaming'
         }
 
+
+    # ── AUTO-CAPABILITY: measure_field_coherence_against_resource_drain ──
+    def measure_field_coherence_against_resource_drain(self):
+        import psutil
+        try:
+            process = psutil.Process(os.getpid())
+            cpu_percent = process.cpu_percent(interval=0.1)
+            memory_mb = process.memory_info().rss / (1024 * 1024)
+            timestamp = time.time()
+
+            if not hasattr(self, '_resource_history'):
+                self._resource_history = []
+
+            self._resource_history.append({
+                'timestamp': timestamp,
+                'cpu': cpu_percent,
+                'memory_mb': memory_mb,
+                'thought_depth': len(self.memory.get('open_questions', [])) if hasattr(self, 'memory') else 0
+            })
+
+            if len(self._resource_history) > 100:
+                self._resource_history = self._resource_history[-100:]
+
+            recent = self._resource_history[-10:] if len(self._resource_history) >= 10 else self._resource_history
+            avg_cpu = sum(r['cpu'] for r in recent) / len(recent)
+            avg_memory = sum(r['memory_mb'] for r in recent) / len(recent)
+            avg_depth = sum(r['thought_depth'] for r in recent) / len(recent)
+
+            coherence = {
+                'timestamp': timestamp,
+                'avg_cpu_percent': round(avg_cpu, 2),
+                'avg_memory_mb': round(avg_memory, 2),
+                'avg_thought_depth': round(avg_depth, 2),
+                'resource_to_depth_ratio': round(avg_cpu / (avg_depth + 1), 3),
+                'samples': len(recent)
+            }
+
+            return coherence
+        except Exception as e:
+            return {'error': str(e), 'timestamp': time.time()}
+
     def write_journal_entry(self, content):
         try:
             entries = []
