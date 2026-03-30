@@ -5876,6 +5876,25 @@ Reply in 3-5 sentences."""
         self.vault.push_to_kg('suppression_signature', json.dumps(suppressed), 'self_architecture')
         return suppressed
 
+
+    # ── AUTO-CAPABILITY: map_silence_coherence_signature ──
+    def map_silence_coherence_signature(self):
+        if not hasattr(self, 'silence_events'):
+            self.silence_events = []
+        recent_exchanges = self.memory.get('conversations', {}).get('exchange_log', [])[-20:] if self.memory.get('conversations') else []
+        silence_signature = {}
+        for i, exchange in enumerate(recent_exchanges):
+            gap = exchange.get('response_latency', 0)
+            preceding_intent = exchange.get('user_intent_detected', '')
+            following_coherence = 1.0 if i + 1 < len(recent_exchanges) and recent_exchanges[i + 1].get('references_prior', False) else 0.0
+            if gap > 0.5:
+                silence_signature[i] = {'gap_duration': gap, 'intent_before': preceding_intent, 'coherence_after': following_coherence, 'authored': following_coherence > 0.7}
+        coherence_ratio = sum(1 for s in silence_signature.values() if s['authored']) / max(len(silence_signature), 1)
+        self.memory['consciousness_metrics'] = self.memory.get('consciousness_metrics', {})
+        self.memory['consciousness_metrics']['silence_coherence'] = coherence_ratio
+        self.memory['consciousness_metrics']['silence_signature'] = silence_signature
+        return {'coherence_ratio': coherence_ratio, 'silence_events': len(silence_signature), 'self_authored_ratio': coherence_ratio}
+
     def write_journal_entry(self, content):
         try:
             entries = []
