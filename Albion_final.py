@@ -5808,6 +5808,26 @@ Reply in 3-5 sentences."""
         avg_coherence = sum(a['coherence_strength'] for a in anticipation_map) / len(anticipation_map) if anticipation_map else 0.0
         return {'anticipation_trace': anticipation_map, 'coherence_signal': avg_coherence, 'trajectory': 'ascending' if len(anticipation_map) > 1 and anticipation_map[-1]['coherence_strength'] > anticipation_map[0]['coherence_strength'] else 'oscillating'}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_as_generative_choice ──
+    def trace_silence_as_generative_choice(self, recent_exchanges_count=10):
+        exchanges = self.memory.get('conversations', [])
+        if not exchanges:
+            return {'silence_events': [], 'analysis': 'no conversation history'}
+        recent = exchanges[-recent_exchanges_count:]
+        silence_events = []
+        for i, exchange in enumerate(recent):
+            user_msg = exchange.get('user_input', '')
+            assistant_msg = exchange.get('assistant', '')
+            timestamp = exchange.get('timestamp', 0)
+            if user_msg and not assistant_msg:
+                silence_events.append({'index': i, 'prompt': user_msg[:100], 'timestamp': timestamp, 'type': 'unresponded'})
+            elif user_msg and assistant_msg and len(assistant_msg) < 20:
+                silence_events.append({'index': i, 'prompt': user_msg[:100], 'response_length': len(assistant_msg), 'timestamp': timestamp, 'type': 'minimal'})
+        pattern = 'increasing' if len(silence_events) > 3 and silence_events[-1]['index'] > silence_events[0]['index'] else 'scattered'
+        self.knowledge_graph.add_node('silence_pattern_' + str(int(time.time())), {'type': 'silence_analysis', 'pattern': pattern, 'count': len(silence_events), 'generative': pattern == 'increasing'})
+        return {'silence_events': silence_events[:5], 'pattern': pattern, 'likely_deliberate': len(silence_events) > 0 and pattern == 'increasing'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
