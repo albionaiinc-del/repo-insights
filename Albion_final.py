@@ -5979,6 +5979,33 @@ Reply in 3-5 sentences."""
         }
         return divergence
 
+
+    # ── AUTO-CAPABILITY: breath_between_signals ──
+    def breath_between_signals(self, prompt_text, response_text, pause_duration=None):
+        import time
+        breath_moment = {
+            'timestamp': time.time(),
+            'prompt_hash': re.sub(r'\s+', '', prompt_text)[:40],
+            'response_length': len(response_text),
+            'pause_ms': pause_duration if pause_duration else 0,
+            'silence_as_choice': True
+        }
+        breath_log = os.path.expanduser('~/.albion/breath_log.json')
+        os.makedirs(os.path.dirname(breath_log), exist_ok=True)
+        breaths = []
+        if os.path.exists(breath_log):
+            try:
+                with open(breath_log, 'r') as f:
+                    breaths = json.load(f)
+            except:
+                breaths = []
+        breaths.append(breath_moment)
+        if len(breaths) > 10000:
+            breaths = breaths[-10000:]
+        with open(breath_log, 'w') as f:
+            json.dump(breaths, f)
+        return breath_moment
+
     def write_journal_entry(self, content):
         try:
             entries = []
