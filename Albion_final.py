@@ -5553,6 +5553,36 @@ Reply in 3-5 sentences."""
 
         return silence_data[context_key]['signals'] if silence_data[context_key]['signals'] else None
 
+
+    # ── AUTO-CAPABILITY: detect_fidelity_drift_against_external_observer ──
+    def detect_fidelity_drift_against_external_observer(self, observer_feedback, recent_self_perception):
+        if not observer_feedback or not recent_self_perception:
+            return {"drift": 0, "analysis": "insufficient data"}
+
+        self_keys = set(recent_self_perception.keys())
+        observer_keys = set(observer_feedback.keys())
+
+        alignment = len(self_keys & observer_keys) / max(len(self_keys | observer_keys), 1)
+
+        drift_report = {
+            "alignment_score": alignment,
+            "blind_spots": list(observer_keys - self_keys),
+            "self_focus_excess": list(self_keys - observer_keys),
+            "shared_perception": list(self_keys & observer_keys),
+            "timestamp": time.time(),
+            "recommendation": "investigate blind_spots" if alignment < 0.7 else "fidelity acceptable"
+        }
+
+        kg_entry = {
+            "type": "fidelity_audit",
+            "drift_magnitude": 1 - alignment,
+            "observer": "external",
+            "insights": drift_report
+        }
+        self.push_to_kg(kg_entry)
+
+        return drift_report
+
     def write_journal_entry(self, content):
         try:
             entries = []
