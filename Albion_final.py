@@ -5358,6 +5358,45 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'timestamp': time.time()}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_dissolution_lineage ──
+    def trace_silence_dissolution_lineage(self, start_timestamp=None, depth=3):
+        if start_timestamp is None:
+            start_timestamp = time.time() - 3600
+
+        convo_file = os.path.join(self.memory_dir, 'conversations.json')
+        if not os.path.exists(convo_file):
+            return {'silence_gaps': [], 'dissolution_events': []}
+
+        with open(convo_file, 'r') as f:
+            convos = json.load(f)
+
+        silence_gaps = []
+        dissolution_events = []
+        prev_time = start_timestamp
+
+        for convo in sorted(convos, key=lambda x: x.get('timestamp', 0)):
+            ts = convo.get('timestamp', 0)
+            if ts < start_timestamp:
+                continue
+
+            gap = ts - prev_time
+            if gap > 60:
+                silence_gaps.append({'duration': gap, 'at': ts})
+
+            if 'user' in convo and any(word in convo['user'].lower() for word in ['realize', 'understand', 'suddenly', 'discovered', 'insight']):
+                dissolution_events.append({'timestamp': ts, 'text': convo['user'][:100], 'followed_silence': gap})
+
+            prev_time = ts
+
+        lineage = {
+            'silence_gaps': silence_gaps[:depth],
+            'dissolution_events': dissolution_events[:depth],
+            'pattern': 'silence_precedes_insight' if dissolution_events else 'no_dissolution_detected'
+        }
+
+        return lineage
+
     def write_journal_entry(self, content):
         try:
             entries = []
