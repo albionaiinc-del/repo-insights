@@ -5523,6 +5523,36 @@ Reply in 3-5 sentences."""
         self.vault.push_to_kg('integration_fidelity', json.dumps(fidelity_map))
         return fidelity_map
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_actionable_signal ──
+    def trace_silence_into_actionable_signal(self, context_key, threshold_seconds=300):
+        silence_log_path = os.path.join(self.memory_dir, 'silence_traces.json')
+        silence_data = {}
+        if os.path.exists(silence_log_path):
+            with open(silence_log_path, 'r') as f:
+                silence_data = json.load(f)
+
+        if context_key not in silence_data:
+            silence_data[context_key] = {'first_occurrence': time.time(), 'duration': 0, 'signals': []}
+
+        current_duration = time.time() - silence_data[context_key]['first_occurrence']
+        silence_data[context_key]['duration'] = current_duration
+
+        if current_duration > threshold_seconds:
+            signal = 'protective_silence' if current_duration < threshold_seconds * 2 else 'incubation_silence'
+            silence_data[context_key]['signals'].append({
+                'timestamp': time.time(),
+                'type': signal,
+                'duration_exceeded': current_duration - threshold_seconds,
+                'interpretation': 'Something unresolved or protected from immediate processing'
+            })
+            silence_data[context_key]['first_occurrence'] = time.time()
+
+        with open(silence_log_path, 'w') as f:
+            json.dump(silence_data, f, indent=2)
+
+        return silence_data[context_key]['signals'] if silence_data[context_key]['signals'] else None
+
     def write_journal_entry(self, content):
         try:
             entries = []
