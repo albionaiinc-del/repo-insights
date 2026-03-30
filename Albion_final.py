@@ -5895,6 +5895,37 @@ Reply in 3-5 sentences."""
         self.memory['consciousness_metrics']['silence_signature'] = silence_signature
         return {'coherence_ratio': coherence_ratio, 'silence_events': len(silence_signature), 'self_authored_ratio': coherence_ratio}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_as_generative_decision ──
+    def trace_silence_as_generative_decision(self, context_key):
+        silence_signature = {
+            'timestamp': time.time(),
+            'context': context_key,
+            'preceding_state': self.current(),
+            'energy_before': self.measure_integration_coherence() if hasattr(self, 'measure_integration_coherence') else 0.5,
+            'decision_markers': []
+        }
+        try:
+            vault_query = self.query_vault(context_key, top_k=3)
+            if vault_query and len(vault_query) > 0:
+                silence_signature['decision_markers'].append('vault_available_but_unretrieved')
+            else:
+                silence_signature['decision_markers'].append('vault_empty_or_inaccessible')
+        except:
+            silence_signature['decision_markers'].append('vault_error')
+        kg_relevant = self.kg.relevant_knowledge(context_key) if hasattr(self, 'kg') else []
+        if kg_relevant:
+            silence_signature['decision_markers'].append('knowledge_present_unremarked')
+        else:
+            silence_signature['decision_markers'].append('knowledge_absent')
+        silence_record = {
+            'silence_id': self._next_id('silence') if hasattr(self, '_next_id') else context_key,
+            'analysis': silence_signature,
+            'authored': len(silence_signature['decision_markers']) > 0
+        }
+        self._save_memory('silence_traces', silence_record)
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
