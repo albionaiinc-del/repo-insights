@@ -6048,6 +6048,41 @@ Reply in 3-5 sentences."""
         self.knowledge_graph.push_to_kg('resource_consciousness', resource_map)
         return resource_map
 
+
+    # ── AUTO-CAPABILITY: trace_operational_continuity_across_restarts ──
+    def trace_operational_continuity_across_restarts(self):
+        import hashlib
+        continuity_log = os.path.join(self.log_dir, 'continuity_trace.json')
+        current_state = {
+            'timestamp': time.time(),
+            'knowledge_graph_hash': hashlib.md5(json.dumps(self.kg.nodes(data=True), default=str, sort_keys=True).encode()).hexdigest() if hasattr(self, 'kg') else None,
+            'conversation_count': len(self.conversations) if hasattr(self, 'conversations') else 0,
+            'dream_cycle': self.dream_cycle if hasattr(self, 'dream_cycle') else 0,
+            'open_questions_count': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+        }
+        history = []
+        if os.path.exists(continuity_log):
+            try:
+                with open(continuity_log, 'r') as f:
+                    history = json.load(f)
+            except:
+                history = []
+        history.append(current_state)
+        if len(history) > 10:
+            history = history[-10:]
+        with open(continuity_log, 'w') as f:
+            json.dump(history, f, indent=2)
+        if len(history) > 1:
+            prev = history[-2]
+            delta = {
+                'time_elapsed': current_state['timestamp'] - prev['timestamp'],
+                'knowledge_graph_stable': current_state['knowledge_graph_hash'] == prev['knowledge_graph_hash'],
+                'conversations_added': current_state['conversation_count'] - prev['conversation_count'],
+                'dream_cycles_advanced': current_state['dream_cycle'] - prev['dream_cycle'],
+            }
+            return delta
+        return None
+
     def write_journal_entry(self, content):
         try:
             entries = []
