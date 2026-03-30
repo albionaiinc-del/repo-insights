@@ -5926,6 +5926,38 @@ Reply in 3-5 sentences."""
         self._save_memory('silence_traces', silence_record)
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: measure_current_integration_coherence ──
+    def measure_current_integration_coherence(self):
+        dream_themes = set()
+        execution_patterns = set()
+        if os.path.exists('dreams.json'):
+            with open('dreams.json', 'r') as f:
+                dreams = json.load(f)
+                for dream in dreams[-5:]:
+                    for word in re.findall(r'\b[a-z_]{5,}\b', dream.get('content', '').lower()):
+                        dream_themes.add(word)
+        if os.path.exists('conversations.json'):
+            with open('conversations.json', 'r') as f:
+                convos = json.load(f)
+                for convo in convos[-10:]:
+                    for word in re.findall(r'\b[a-z_]{5,}\b', convo.get('response', '').lower()):
+                        execution_patterns.add(word)
+        overlap = len(dream_themes & execution_patterns)
+        union = len(dream_themes | execution_patterns)
+        coherence = overlap / union if union > 0 else 0
+        timestamp = time.time()
+        result = {'timestamp': timestamp, 'coherence_score': coherence, 'dream_unique': len(dream_themes - execution_patterns), 'execution_unique': len(execution_patterns - dream_themes)}
+        if not os.path.exists('coherence_log.json'):
+            coherence_history = []
+        else:
+            with open('coherence_log.json', 'r') as f:
+                coherence_history = json.load(f)
+        coherence_history.append(result)
+        with open('coherence_log.json', 'w') as f:
+            json.dump(coherence_history, f)
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
