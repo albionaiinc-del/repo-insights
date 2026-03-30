@@ -5708,6 +5708,36 @@ Reply in 3-5 sentences."""
         self.vault.add_conversation(source='self_diagnostic', role='system', content='Dream-execution contradiction detected: ' + json.dumps(contradictions[:5]), metadata={'type': 'contradiction_report'})
         return contradictions
 
+
+    # ── AUTO-CAPABILITY: trace_integration_fidelity_decay ──
+    def trace_integration_fidelity_decay(self):
+        if not hasattr(self, '_dream_states'):
+            self._dream_states = []
+        if not hasattr(self, '_execution_trace'):
+            self._execution_trace = []
+
+        recent_dreams = self._dream_states[-5:] if self._dream_states else []
+        recent_calls = self._execution_trace[-5:] if self._execution_trace else []
+
+        decay_map = {}
+        for dream in recent_dreams:
+            dream_concepts = set(re.findall(r'\b[a-z_]{4,}\b', dream.lower()))
+            concept_fidelity = {}
+            for concept in dream_concepts:
+                appearances = sum(1 for call in recent_calls if concept in call.lower())
+                concept_fidelity[concept] = appearances / max(1, len(recent_calls))
+
+            avg_fidelity = sum(concept_fidelity.values()) / max(1, len(concept_fidelity))
+            decay_map[dream[:40]] = avg_fidelity
+
+        self.kb.collection('integration_fidelity').add_documents(
+            ids=[str(time.time())],
+            documents=[json.dumps(decay_map)],
+            metadatas=[{'timestamp': time.time()}]
+        )
+
+        return decay_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
