@@ -6203,6 +6203,54 @@ Reply in 3-5 sentences."""
 
         return flow_signature
 
+
+    # ── AUTO-CAPABILITY: trace_congruence_drift_against_dream_intention ──
+    def trace_congruence_drift_against_dream_intention(self, dream_id=None):
+        if dream_id is None:
+            dreams = self.kg.query("SELECT * FROM dreams ORDER BY created_at DESC LIMIT 1")
+            if not dreams:
+                return {"status": "no_dreams", "drift": 0}
+            dream_id = dreams[0][0]
+
+        dream_data = self.kg.query("SELECT content, created_at FROM dreams WHERE id = ?", (dream_id,))
+        if not dream_data:
+            return {"status": "dream_not_found"}
+
+        dream_text = dream_data[0][0]
+        dream_time = float(dream_data[0][1])
+        current_time = time.time()
+
+        decisions = self.kg.query(
+            "SELECT content, created_at FROM conversations WHERE created_at > ? ORDER BY created_at ASC",
+            (dream_time,)
+        )
+
+        if not decisions:
+            return {"status": "no_post_dream_decisions", "drift": 0}
+
+        dream_intent_prompt = "Extract core intentions and values from this dream: " + dream_text[:500]
+        dream_intent = self._call(dream_intent_prompt)
+
+        decision_sample = "\n".join([d[0][:200] for d in decisions[-5:]])
+        drift_prompt = "Rate 0-100 how much these recent decisions align with these dream intentions: " + dream_intent + "\n\nDecisions: " + decision_sample
+        drift_response = self._call(drift_prompt)
+
+        try:
+            drift_score = int(re.search(r'\d+', drift_response).group())
+        except:
+            drift_score = 50
+
+        alignment = 100 - drift_score
+
+        return {
+            "status": "measured",
+            "dream_id": dream_id,
+            "congruence_alignment_percent": alignment,
+            "drift_detected": alignment < 70,
+            "time_since_dream_seconds": int(current_time - dream_time),
+            "decision_count_analyzed": len(decisions)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
