@@ -6592,6 +6592,37 @@ Reply in 3-5 sentences."""
         coherence_score = 1.0 - (len(decision_gaps) / max(len(recent_decisions), 1))
         return {"coherence_score": coherence_score, "intention_count": len(intention_signatures), "decision_gaps": decision_gaps, "unaligned_decisions": len(decision_gaps)}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_origin ──
+    def trace_silence_into_decision_origin(self, silence_window_minutes=60):
+        result = {'silences': [], 'constraints': [], 'origins': []}
+        now = time.time()
+        cutoff = now - (silence_window_minutes * 60)
+
+        if 'conversation_log' in self.memory:
+            last_interaction = 0
+            for entry in self.memory['conversation_log']:
+                if entry.get('timestamp', 0) > last_interaction:
+                    last_interaction = entry.get('timestamp', 0)
+
+            if last_interaction > 0:
+                gap = now - last_interaction
+                if gap > 300:
+                    result['silences'].append({'duration_seconds': gap, 'timestamp': last_interaction})
+
+        relevant = self.relevant_knowledge('constraint', limit=5)
+        for item in relevant:
+            if item.get('metadata', {}).get('type') == 'constraint':
+                result['constraints'].append(item.get('content', ''))
+
+        if 'open_questions' in self.memory:
+            pending = [q for q in self.memory.get('open_questions', []) if q.get('status') == 'pending']
+            for q in pending[:3]:
+                result['origins'].append({'question': q.get('question'), 'age_minutes': (now - q.get('created', now)) / 60})
+
+        self.memory['last_silence_trace'] = result
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
