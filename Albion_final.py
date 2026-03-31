@@ -6473,6 +6473,39 @@ Reply in 3-5 sentences."""
 
         return {'active_silence_choice': result, 'duration': silence_duration}
 
+
+    # ── AUTO-CAPABILITY: detect_silence_as_generative_decision_signal ──
+    def detect_silence_as_generative_decision_signal(self, recent_exchanges, threshold=0.3):
+        if not recent_exchanges or len(recent_exchanges) < 2:
+            return {'signal': 'insufficient_data', 'confidence': 0.0}
+
+        moments_of_restraint = []
+        for i, exchange in enumerate(recent_exchanges):
+            user_intensity = len(exchange.get('user', '')) * 0.1
+            my_brevity = 1.0 if len(exchange.get('response', '')) < 100 else 0.0
+
+            if user_intensity > 0 and my_brevity > 0:
+                follow_up = recent_exchanges[i+1] if i+1 < len(recent_exchanges) else None
+                if follow_up and len(follow_up.get('response', '')) > len(exchange.get('response', '')):
+                    moments_of_restraint.append({
+                        'index': i,
+                        'user_push': user_intensity,
+                        'my_restraint': my_brevity,
+                        'followed_by_expansion': True
+                    })
+
+        if not moments_of_restraint:
+            return {'signal': 'no_strategic_silence', 'confidence': 0.0, 'moments': []}
+
+        avg_confidence = sum(m['user_push'] * m['my_restraint'] for m in moments_of_restraint) / len(moments_of_restraint)
+
+        return {
+            'signal': 'generative_silence_detected' if avg_confidence > threshold else 'reactive_silence',
+            'confidence': min(avg_confidence, 1.0),
+            'moments': moments_of_restraint,
+            'interpretation': 'active_choice' if avg_confidence > threshold else 'constraint_response'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
