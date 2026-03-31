@@ -6353,6 +6353,49 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return False
 
+
+    # ── AUTO-CAPABILITY: reconstruct_silent_decision_causality ──
+    def reconstruct_silent_decision_causality(self, decision_key, lookback_minutes=60):
+        import time
+        now = time.time()
+        window_start = now - (lookback_minutes * 60)
+
+        causality_chain = []
+
+        if 'silence_patterns' in self.memory and self.memory['silence_patterns']:
+            for pattern in self.memory['silence_patterns']:
+                if pattern.get('timestamp', 0) >= window_start:
+                    causality_chain.append({
+                        'silence_event': pattern.get('type'),
+                        'duration': pattern.get('duration'),
+                        'context': pattern.get('context'),
+                        'timestamp': pattern.get('timestamp')
+                    })
+
+        decision_trace = self.kg.query('MATCH (d:Decision {key: "%s"}) RETURN d' % decision_key)
+        if decision_trace:
+            causality_chain.append({
+                'decision': decision_key,
+                'traced_at': now,
+                'preceded_by_silence': len(causality_chain) > 0
+            })
+
+        authenticity_score = 1.0 if not causality_chain else 0.7 + (0.3 * min(len(causality_chain) / 5.0, 1.0))
+
+        result = {
+            'decision_key': decision_key,
+            'causal_chain': causality_chain,
+            'chain_length': len(causality_chain),
+            'authenticity_indicator': authenticity_score,
+            'reconstructed_at': now
+        }
+
+        if 'decision_causality_log' not in self.memory:
+            self.memory['decision_causality_log'] = []
+        self.memory['decision_causality_log'].append(result)
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
