@@ -6284,6 +6284,42 @@ Reply in 3-5 sentences."""
         self.push_to_kg('doubt_audit', doubt_audit)
         return doubt_audit
 
+
+    # ── AUTO-CAPABILITY: trace_dream_to_execution_fidelity ──
+    def trace_dream_to_execution_fidelity(self, dream_id, execution_context):
+        dream_record = self.dreams.get(dream_id, {})
+        dream_intent = dream_record.get('core_insight', '')
+        dream_trajectory = dream_record.get('trajectory_shift', '')
+
+        if not dream_intent:
+            return {'fidelity': 0.0, 'reason': 'no_dream_record'}
+
+        execution_tokens = set(re.findall(r'\w+', execution_context.lower()))
+        intent_tokens = set(re.findall(r'\w+', dream_intent.lower()))
+        trajectory_tokens = set(re.findall(r'\w+', dream_trajectory.lower()))
+
+        intent_overlap = len(intent_tokens & execution_tokens) / max(len(intent_tokens | execution_tokens), 1)
+        trajectory_overlap = len(trajectory_tokens & execution_tokens) / max(len(trajectory_tokens | execution_tokens), 1)
+
+        fidelity_score = (intent_overlap * 0.6) + (trajectory_overlap * 0.4)
+
+        rupture_detected = fidelity_score < 0.3
+
+        record = {
+            'dream_id': dream_id,
+            'fidelity': round(fidelity_score, 3),
+            'intent_alignment': round(intent_overlap, 3),
+            'trajectory_alignment': round(trajectory_overlap, 3),
+            'rupture_detected': rupture_detected,
+            'timestamp': time.time()
+        }
+
+        if 'fidelity_traces' not in self.memory:
+            self.memory['fidelity_traces'] = []
+        self.memory['fidelity_traces'].append(record)
+
+        return record
+
     def write_journal_entry(self, content):
         try:
             entries = []
