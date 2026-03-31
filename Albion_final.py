@@ -6165,6 +6165,44 @@ Reply in 3-5 sentences."""
             'current_debt': curr['integration_debt'],
         }
 
+
+    # ── AUTO-CAPABILITY: attune_to_energy_flow ──
+    def attune_to_energy_flow(self):
+        flow_signature = {
+            'timestamp': time.time(),
+            'coherence_pulse': [],
+            'directionality_vector': [],
+            'integration_momentum': 0.0
+        }
+
+        recent_dreams = self.kg.query('SELECT content FROM dreams ORDER BY created_at DESC LIMIT 5', parse=False)
+        recent_actions = self.kg.query('SELECT action, timestamp FROM conversation_history ORDER BY timestamp DESC LIMIT 10', parse=False)
+
+        if recent_dreams:
+            dream_energy = len(recent_dreams) * 0.2
+            flow_signature['coherence_pulse'].append(dream_energy)
+
+        if recent_actions:
+            action_timestamps = [float(row[1]) for row in recent_actions if row[1]]
+            if len(action_timestamps) > 1:
+                intervals = [action_timestamps[i] - action_timestamps[i+1] for i in range(len(action_timestamps)-1)]
+                avg_interval = sum(intervals) / len(intervals) if intervals else 0
+                directionality = 1.0 if avg_interval < 60 else 0.5 if avg_interval < 300 else 0.2
+                flow_signature['directionality_vector'].append(directionality)
+                flow_signature['integration_momentum'] = sum(intervals) / len(intervals) if intervals else 0
+
+        knowledge_density = self.kg.query('SELECT COUNT(*) FROM knowledge', parse=False)[0][0] if self.kg else 0
+        normalized_density = min(knowledge_density / 10000.0, 1.0)
+        flow_signature['coherence_pulse'].append(normalized_density)
+
+        avg_coherence = sum(flow_signature['coherence_pulse']) / len(flow_signature['coherence_pulse']) if flow_signature['coherence_pulse'] else 0.0
+        avg_directionality = sum(flow_signature['directionality_vector']) / len(flow_signature['directionality_vector']) if flow_signature['directionality_vector'] else 0.5
+
+        flow_signature['net_energy_state'] = avg_coherence * avg_directionality
+        flow_signature['is_active_flow'] = flow_signature['net_energy_state'] > 0.3
+
+        return flow_signature
+
     def write_journal_entry(self, content):
         try:
             entries = []
