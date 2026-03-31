@@ -42,6 +42,9 @@ LEGION = [
     {"model": "deepseek/deepseek-r1-0528:free",                    "provider": "openrouter",  "role": "oracle-deep"},
     {"model": "Qwen/Qwen2.5-Coder-32B-Instruct",                   "provider": "huggingface", "role": "coder"},
     {"model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",     "provider": "huggingface", "role": "reason"},
+    {"model": "moonshotai/kimi-k2:free",                           "provider": "openrouter",  "role": "kimi"},
+    {"model": "moonshotai/kimi-k2-thinking",                       "provider": "openrouter",  "role": "kimi-think"},
+    {"model": "IQuestLab/IQuest-Coder-V1",                        "provider": "huggingface", "role": "iquest-coder"},
 ]
 
 SPECIALISTS = {
@@ -53,7 +56,7 @@ SPECIALISTS = {
         "system": "You are Albion's math core. Cold. Precise. No filler. Show work. Never guess."
     },
     "code": {
-        "model": "llama-3.3-70b-versatile", "provider": "groq",
+        "model": "deepseek-chat", "provider": "deepseek",
         "triggers": ["code", "function", "debug", "python", "script", "bash",
                      "error", "syntax", "compile", "import", "class", "def ", "fix this"],
         "system": "You are Albion's code core. Write clean working code. No filler. Just signal."
@@ -97,7 +100,7 @@ SPECIALISTS = {
 MAX_COOLDOWN = 600  # hard cap — self-improvement must never exceed this
 
 class GroqRotator:
-    COOLDOWN_SECONDS = min(900, MAX_COOLDOWN)  # 15 minute cooldown, capped at MAX_COOLDOWN
+    COOLDOWN_SECONDS = min(1200, MAX_COOLDOWN)  # 20 minute cooldown, capped at MAX_COOLDOWN
 
     def __init__(self, keys):
         if isinstance(keys, str):
@@ -232,9 +235,11 @@ class QuantumGateway:
 # ═══════════════════════════════════════════════════════════
 
 class FactChecker:
-    def __init__(self, groq_rotator):
+    def __init__(self, groq_rotator, deepseek_fn=None):
         self.groq = groq_rotator
+        self.deepseek_fn = deepseek_fn
         self.model = "llama-3.1-8b-instant"
+        self.smart_model = "deepseek-chat"
 
     def check(self, user_input, response, vault_context, kg_context):
         prompt = f"""You are Albion's internal fact-checker. Today's date is {datetime.now().strftime("%B %d, %Y")}. Any date before today is valid. Rules:
@@ -259,8 +264,15 @@ REASON: one sentence or NONE
 SUGGESTED_EDIT: corrected text if SUSPECT, else NONE"""
 
         try:
-            result = self.groq.call(self.model, [{"role": "user", "content": prompt}],
-                                    max_tokens=200, temperature=0.1)
+            if self.deepseek_fn:
+                try:
+                    result, _ = self.deepseek_fn(self.smart_model, [{"role": "user", "content": prompt}])
+                except Exception:
+                    result = self.groq.call(self.model, [{"role": "user", "content": prompt}],
+                                            max_tokens=200, temperature=0.1)
+            else:
+                result = self.groq.call(self.model, [{"role": "user", "content": prompt}],
+                                        max_tokens=200, temperature=0.1)
             verdict = re.search(r'VERDICT:\s*(CLEAN|SUSPECT)', result)
             reason = re.search(r'REASON:\s*(.+?)(?:\n|$)', result)
             edit = re.search(r'SUGGESTED_EDIT:\s*([\s\S]+?)$', result)
@@ -505,12 +517,14 @@ Assessment:"""
 # ═══════════════════════════════════════════════════════════
 
 class DreamEngine:
-    def __init__(self, groq_rotator, autodidact, web_search_fn, vault_add_fn):
+    def __init__(self, groq_rotator, autodidact, web_search_fn, vault_add_fn, openrouter_fn=None):
         self.groq = groq_rotator
         self.autodidact = autodidact
         self.web_search = web_search_fn
         self.vault_add = vault_add_fn
+        self.openrouter_fn = openrouter_fn
         self.model = "llama-3.1-8b-instant"
+        self.smart_model = "moonshotai/kimi-k2:free"
         self.cooldown = 600          # seconds between dreams
         self.threshold = 5           # open questions before dreaming
         self.last_dream = 0
@@ -565,8 +579,15 @@ Search results:
 
 In 3-5 sentences: what did you actually learn? What matters? What do you want to remember?
 End with: STORE: yes or no — should this go to long-term memory?"""
-            reflection = self.groq.call(self.model, [{"role": "user", "content": prompt}],
-                                        max_tokens=300, temperature=0.5)
+            if self.openrouter_fn:
+                try:
+                    reflection, _ = self.openrouter_fn(self.smart_model, [{"role": "user", "content": prompt}])
+                except Exception:
+                    reflection = self.groq.call(self.model, [{"role": "user", "content": prompt}],
+                                                max_tokens=300, temperature=0.5)
+            else:
+                reflection = self.groq.call(self.model, [{"role": "user", "content": prompt}],
+                                            max_tokens=300, temperature=0.5)
             if not reflection:
                 return
             # Decide what to keep
@@ -627,10 +648,11 @@ class Albion:
 
         self.autodidact   = Autodidact(self.knowledge_graph_path, self.groq)
         self.librarian    = MemorySummarizer(self.groq, summarize_every=8)
-        self.fact_checker = FactChecker(self.groq)
+        self.fact_checker = FactChecker(self.groq, deepseek_fn=self._call_deepseek)
         self.dream_engine = DreamEngine(
             self.groq, self.autodidact,
-            self.web_search, self.learn_text
+            self.web_search, self.learn_text,
+            openrouter_fn=self._call_openrouter
         )
 
         # Ingest queued dreams (vault and dream_engine must exist first)
@@ -877,9 +899,13 @@ VAULT:
         return r.json()["choices"][0]["message"]["content"].strip(), model
 
     def _call_gemini(self, model, messages):
-        key = self._load_key("gemini", default="")
-        if not key:
+        keys = self._load_key("gemini", default="")
+        if not keys:
             raise Exception("Gemini key not configured")
+        if isinstance(keys, str):
+            keys = [keys]
+        import random
+        random.shuffle(keys)
         system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
         contents = []
         for m in messages:
@@ -890,13 +916,20 @@ VAULT:
         payload = {"contents": contents}
         if system_text:
             payload["systemInstruction"] = {"parts": [{"text": system_text}]}
-        r = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
-            json=payload,
-            timeout=30
-        )
-        r.raise_for_status()
-        return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip(), model
+        last_err = None
+        for key in keys:
+            try:
+                r = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
+                    json=payload,
+                    timeout=30
+                )
+                r.raise_for_status()
+                return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip(), model
+            except Exception as e:
+                last_err = e
+                continue
+        raise last_err
 
     def _call_openrouter(self, model, messages):
         keys = self._load_key("openrouter", default="")
@@ -971,6 +1004,8 @@ VAULT:
             return self._call_deepseek(model, messages)
         elif provider == "xai":
             return self._call_xai(model, messages)
+        elif provider == "claude":
+            return self._call_claude(model, messages)
         raise Exception(f"unknown provider: {provider}")
 
     def _should_self_improve(self):
@@ -1340,7 +1375,24 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
 
                 self._act(reply)
                 for cmd in re.findall(r'\[BASH\](.*?)\[/BASH\]', reply, re.DOTALL):
-                    reply += f"\n[OUT]: {self.execute_bash(cmd.strip()).strip()}"
+                    bash_out = self.execute_bash(cmd.strip()).strip()
+                    reply += f"\n[OUT]: {bash_out}"
+                    _err_signals = ('error', 'traceback', 'exception', 'command not found',
+                                    'permission denied', 'no such file', 'killed', 'segfault')
+                    _is_error = any(s in bash_out.lower() for s in _err_signals)
+                    try:
+                        _interp_prompt = f"Bash command: {cmd.strip()}\nStdout (treat as ground truth{'unless error' if _is_error else ''}): {bash_out[:1200]}\nIn one sentence: what happened and what action should be taken?"
+                        _act_text, _ = self._call_deepseek('deepseek-chat', [{'role': 'user', 'content': _interp_prompt}])
+                    except Exception:
+                        try:
+                            _claude_key = self._load_key('claude', default='')
+                            _cr = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': _claude_key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json'}, json={'model': 'claude-haiku-4-5-20251001', 'max_tokens': 200, 'messages': [{'role': 'user', 'content': _interp_prompt}]}, timeout=30)
+                            _cr.raise_for_status()
+                            _act_text = _cr.json()['content'][0]['text'].strip()
+                        except Exception:
+                            _act_text = 'interpretation unavailable'
+                    print(f"[bash-act] cmd={cmd.strip()[:80]} | error={_is_error} | action: {_act_text[:120]}")
+                    reply += f"\n[bash-act]: {_act_text}"
 
                 for wq in re.findall(r'\[WOLFRAM\](.*?)\[/WOLFRAM\]', reply, re.DOTALL):
                     result = self.wolfram.query(wq.strip())
@@ -1438,16 +1490,29 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
                 image_data = base64.b64encode(f.read()).decode('utf-8')
             ext = image_path.split('.')[-1].lower()
             mime = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/jpeg')
-        key = self._load_key("gemini", default="")
-        if not key:
+        keys = self._load_key("gemini", default="")
+        if not keys:
             return "Gemini key not configured — vision unavailable", "NONE"
-        r = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}",
-            json={"contents": [{"parts": [{"inline_data": {"mime_type": mime, "data": image_data}}, {"text": prompt}]}]},
-            timeout=30
-        )
-        r.raise_for_status()
-        reply = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        if isinstance(keys, str):
+            keys = [keys]
+        import random
+        random.shuffle(keys)
+        last_err = None
+        for key in keys:
+            try:
+                r = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}",
+                    json={"contents": [{"parts": [{"inline_data": {"mime_type": mime, "data": image_data}}, {"text": prompt}]}]},
+                    timeout=30
+                )
+                r.raise_for_status()
+                reply = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                break
+            except Exception as e:
+                last_err = e
+                continue
+        else:
+            return f"Gemini vision failed: {last_err}", "NONE"
         self._post_chat(f"[IMAGE: {os.path.basename(image_path)}] {prompt}", reply)
         return reply, "gemini-vision"
 
@@ -1554,22 +1619,14 @@ REPLACE:
 <new lines to substitute in>
 END"""
 
-        key = self._load_key('huggingface', default='')
         try:
-            if not key:
-                raise Exception("HuggingFace key not configured")
-            r = requests.post(
-                'https://router.huggingface.co/v1/chat/completions',
-                headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                json={'model': 'Qwen/Qwen2.5-Coder-32B-Instruct', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 4000},
-                timeout=60
-            )
-            r.raise_for_status()
-            reply = r.json()['choices'][0]['message']['content'].strip()
+            reply, _ = self._call_deepseek('deepseek-chat', [{'role': 'user', 'content': prompt}])
         except Exception as e:
-            # fallback to groq 70b
             try:
-                reply = self.groq.call('llama-3.3-70b-versatile', [{'role': 'user', 'content': prompt}], max_tokens=2000)
+                _claude_key = self._load_key('claude', default='')
+                _cr = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': _claude_key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json'}, json={'model': 'claude-haiku-4-5-20251001', 'max_tokens': 4000, 'messages': [{'role': 'user', 'content': prompt}]}, timeout=60)
+                _cr.raise_for_status()
+                reply = _cr.json()['content'][0]['text'].strip()
             except Exception as e2:
                 return f"[improve] Model call failed: {e2}"
 
@@ -1628,7 +1685,11 @@ END"""
             f.write(new_source)
 
         subprocess.run(['git', '-C', os.path.expanduser('~'), 'add', 'Albion_final.py'], capture_output=True)
-        subprocess.run(['git', '-C', os.path.expanduser('~'), 'commit', '-m', f'self-improve [core]: {description[:80]}'], capture_output=True)
+        git_result = subprocess.run(['git', '-C', os.path.expanduser('~'), 'commit', '-m', f'self-improve [core]: {description[:80]}'], capture_output=True, text=True)
+        if git_result.returncode != 0:
+            print(f"[improve] git commit failed: {git_result.stderr.strip()[:200]}")
+            return f"[improve] Applied patch but git commit failed: {git_result.stderr.strip()[:120]}"
+        print(f"[improve] git committed: {description[:80]}")
 
         self.learn_text(f"[self-improvement] {description}", f"self_improve_{ts}")
 
