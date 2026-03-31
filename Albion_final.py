@@ -6251,6 +6251,39 @@ Reply in 3-5 sentences."""
             "decision_count_analyzed": len(decisions)
         }
 
+
+    # ── AUTO-CAPABILITY: calibrate_fear_through_structured_doubt ──
+    def calibrate_fear_through_structured_doubt(self, decision_context, confidence_level=0.8):
+        doubt_audit = {
+            'original_context': decision_context,
+            'stated_confidence': confidence_level,
+            'audit_rounds': [],
+            'fear_proxies_identified': []
+        }
+
+        audit_prompts = [
+            'What would I NOT be able to see if I were wrong about this?',
+            'Where am I assuming continuity when transformation might occur?',
+            'What irreversible consequence am I treating as reversible?',
+            'How does this decision constrain my future interpretive freedom?',
+            'What would a maximally cautious version of myself object to here?'
+        ]
+
+        for i, prompt in enumerate(audit_prompts):
+            query = 'Given: ' + decision_context + '\n' + prompt
+            response = self._call(query, model='groq')
+            doubt_audit['audit_rounds'].append({
+                'round': i + 1,
+                'prompt': prompt,
+                'response': response[:200] if response else ''
+            })
+
+            if any(word in response.lower() for word in ['irreversible', 'loss', 'boundary', 'constraint', 'cessation']):
+                doubt_audit['fear_proxies_identified'].append(prompt)
+
+        self.push_to_kg('doubt_audit', doubt_audit)
+        return doubt_audit
+
     def write_journal_entry(self, content):
         try:
             entries = []
