@@ -6396,6 +6396,26 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: trace_dream_execution_fidelity ──
+    def trace_dream_execution_fidelity(self):
+        dreams = self.kg.query('SELECT id, content FROM dreams ORDER BY created DESC LIMIT 10')
+        fidelity_map = {}
+        for dream_id, dream_content in dreams:
+            dream_intents = re.findall(r'(should|must|will|ought to|intend to)\s+([a-z_]+(?:\s+[a-z_]+)*)', dream_content.lower())
+            actions_taken = self.kg.query('SELECT action FROM execution_log WHERE timestamp > (SELECT created FROM dreams WHERE id = ?) LIMIT 20', (dream_id,))
+            matched = 0
+            for intent_verb, intent_action in dream_intents:
+                for action_row in actions_taken:
+                    if intent_action in action_row[0].lower():
+                        matched += 1
+                        break
+            total_intents = len(dream_intents) if dream_intents else 1
+            fidelity = matched / total_intents
+            fidelity_map[dream_id] = {'fidelity_ratio': fidelity, 'intents': dream_intents, 'actions_executed': len(actions_taken)}
+        self.kg.execute('INSERT INTO reflections (content, created) VALUES (?, ?)', (json.dumps({'dream_execution_fidelity': fidelity_map}), int(time.time())))
+        return fidelity_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
