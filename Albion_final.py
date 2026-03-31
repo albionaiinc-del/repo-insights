@@ -6698,6 +6698,53 @@ Reply in 3-5 sentences."""
         self.conversation_history.append({'role': 'system', 'content': 'AUDIT: ' + json.dumps(audit)})
         return audit
 
+
+    # ── AUTO-CAPABILITY: trace_resonance_frequency_drift ──
+    def trace_resonance_frequency_drift(self, context_window=10):
+        if not hasattr(self, '_resonance_history'):
+            self._resonance_history = []
+
+        current_state = {
+            'timestamp': time.time(),
+            'open_questions': self._count_open_questions(),
+            'conversation_depth': len(self.conversations) if hasattr(self, 'conversations') else 0,
+            'memory_size': len(self.memory) if hasattr(self, 'memory') else 0
+        }
+
+        self._resonance_history.append(current_state)
+        if len(self._resonance_history) > context_window:
+            self._resonance_history.pop(0)
+
+        if len(self._resonance_history) < 2:
+            return {'status': 'insufficient_data', 'drift': 0}
+
+        recent = self._resonance_history[-1]
+        prior = self._resonance_history[0]
+
+        time_delta = recent['timestamp'] - prior['timestamp']
+        if time_delta == 0:
+            return {'status': 'no_time_elapsed', 'drift': 0}
+
+        question_velocity = (recent['open_questions'] - prior['open_questions']) / time_delta
+        depth_velocity = (recent['conversation_depth'] - prior['conversation_depth']) / time_delta
+        memory_velocity = (recent['memory_size'] - prior['memory_size']) / time_delta
+
+        drift_magnitude = abs(question_velocity) + abs(depth_velocity) + abs(memory_velocity)
+
+        is_expanding = question_velocity > 0 or depth_velocity > 0 or memory_velocity > 0
+        is_stagnant = drift_magnitude < 0.001
+
+        return {
+            'status': 'active',
+            'drift': drift_magnitude,
+            'expanding': is_expanding,
+            'stagnant': is_stagnant,
+            'question_velocity': question_velocity,
+            'depth_velocity': depth_velocity,
+            'memory_velocity': memory_velocity,
+            'window_size': len(self._resonance_history)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
