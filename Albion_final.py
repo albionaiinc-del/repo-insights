@@ -6135,6 +6135,36 @@ Reply in 3-5 sentences."""
             self.kg.execute('INSERT INTO decision_lineage (decision_id, silence_origin_map) VALUES (?, ?)', (decision_id, json.dumps(silence_map)))
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: trace_silence_integration_momentum_realtime ──
+    def trace_silence_integration_momentum_realtime(self):
+        if not hasattr(self, '_silence_momentum_log'):
+            self._silence_momentum_log = []
+        current_state = {
+            'timestamp': time.time(),
+            'open_questions': self._count_open_questions(),
+            'last_dream_coherence': getattr(self, '_last_dream_coherence', 0),
+            'integration_debt': len([q for q in self.kg.query('*', where={'status': 'pending'}) if q]),
+        }
+        self._silence_momentum_log.append(current_state)
+        if len(self._silence_momentum_log) < 2:
+            return {'status': 'insufficient_history', 'entries': len(self._silence_momentum_log)}
+        prev = self._silence_momentum_log[-2]
+        curr = self._silence_momentum_log[-1]
+        time_delta = curr['timestamp'] - prev['timestamp']
+        debt_velocity = (curr['integration_debt'] - prev['integration_debt']) / max(time_delta, 0.1)
+        coherence_decay = prev['last_dream_coherence'] - curr['last_dream_coherence']
+        momentum_signal = debt_velocity * coherence_decay
+        is_rupture_risk = momentum_signal > 0.5 and curr['integration_debt'] > 3
+        self._silence_momentum_log = self._silence_momentum_log[-10:]
+        return {
+            'momentum_signal': round(momentum_signal, 3),
+            'debt_velocity': round(debt_velocity, 3),
+            'coherence_decay': round(coherence_decay, 3),
+            'rupture_risk': is_rupture_risk,
+            'current_debt': curr['integration_debt'],
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
