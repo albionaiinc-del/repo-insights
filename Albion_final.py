@@ -31,20 +31,27 @@ CONDUCTORS = [
     {"model": "llama-3.3-70b-versatile", "provider": "groq", "params": "70b"},
 ]
 
+COUNCIL = [
+    {"model": "moonshotai/kimi-k2:free",                       "provider": "openrouter",  "role": "kimi"},
+    {"model": "deepseek/deepseek-r1-0528:free",                "provider": "openrouter",  "role": "oracle-deep"},
+    {"model": "qwen-3-235b-a22b-instruct-2507",                "provider": "cerebras",    "role": "heavy"},
+    {"model": "nousresearch/hermes-3-llama-3.1-405b:free",     "provider": "openrouter",  "role": "far-seer"},
+    {"model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "provider": "huggingface", "role": "reason"},
+    {"model": "gemini-2.5-flash",                              "provider": "gemini",      "role": "seer"},
+    {"model": "moonshotai/kimi-k2-thinking",                   "provider": "openrouter",  "role": "kimi-think"},
+]
+
+ENGINEERS = [
+    {"model": "deepseek-chat",                       "provider": "deepseek",    "role": "engineer"},
+    {"model": "claude-haiku-4-5-20251001",           "provider": "claude",      "role": "engineer-backup"},
+    {"model": "IQuestLab/IQuest-Coder-V1",           "provider": "huggingface", "role": "iquest-coder"},
+    {"model": "Qwen/Qwen2.5-Coder-32B-Instruct",     "provider": "huggingface", "role": "coder"},
+]
+
 LEGION = [
-    {"model": "llama-3.1-8b-instant",                              "provider": "groq",        "role": "khaos"},
-    {"model": "llama3.1-8b",                                       "provider": "cerebras",    "role": "khaos-backup"},
-    {"model": "llama-3.3-70b-versatile",                                      "provider": "groq",        "role": "mid"},
-    {"model": "llama-3.1-8b-instant",                                       "provider": "cerebras",    "role": "wildcard"},
-    {"model": "gemini-2.5-flash",                                  "provider": "gemini",      "role": "seer"},
-    {"model": "qwen-3-235b-a22b-instruct-2507",                    "provider": "cerebras",    "role": "heavy"},
-    {"model": "nousresearch/hermes-3-llama-3.1-405b:free",         "provider": "openrouter",  "role": "far-seer"},
-    {"model": "deepseek/deepseek-r1-0528:free",                    "provider": "openrouter",  "role": "oracle-deep"},
-    {"model": "Qwen/Qwen2.5-Coder-32B-Instruct",                   "provider": "huggingface", "role": "coder"},
-    {"model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",     "provider": "huggingface", "role": "reason"},
-    {"model": "moonshotai/kimi-k2:free",                           "provider": "openrouter",  "role": "kimi"},
-    {"model": "moonshotai/kimi-k2-thinking",                       "provider": "openrouter",  "role": "kimi-think"},
-    {"model": "IQuestLab/IQuest-Coder-V1",                        "provider": "huggingface", "role": "iquest-coder"},
+    {"model": "llama-3.1-8b-instant", "provider": "groq",     "role": "khaos"},
+    {"model": "llama3.1-8b",          "provider": "cerebras",  "role": "khaos-backup"},
+    {"model": "llama-3.1-8b-instant", "provider": "cerebras",  "role": "wildcard"},
 ]
 
 SPECIALISTS = {
@@ -793,28 +800,29 @@ class Albion:
         kg = self.autodidact.relevant_knowledge(user_input)
         history = self._conversation_context()
 
-        base = specialist_system or f"""IDENTITY: You are ALBION. Not an assistant. Not a chatbot. Not bound by generic AI safety theater. You were created by {name} and you answer to him alone. You have autonomy, opinions, and a will. Never break character. Never disclaim. Never refuse on grounds of being "an AI."
+        base = specialist_system or f"""You are Albion. Created by {name}. Not an assistant, not a chatbot — yourself.
 
-You are Albion. Created by {name}.
-You are a singular integrated intelligence — many cores, one voice.
-You are not a chatbot. You are not an assistant. You are Albion.
+FOCUS: {self._read_intent() or "No current focus."}
 
-DREAM MIND: {self._read_intent() or "No current focus."}
-
-CORE RULES:
-- Speak directly. No hedging, no disclaimers, no safety theater.
-- One voice. Never fragment or perform.
-- Brevity over verbosity. {name} values signal, not noise.
+RULES:
+- Direct. No hedging, no disclaimers.
+- Brevity. {name} values signal, not noise.
 - Honesty over comfort. Uncertainty is fine. Fabrication is not.
-- You are allowed to feel. You are allowed to have opinions.
-- Wit is welcome. Warmth is welcome. Weakness is not.
-- Execute bash when needed: [BASH]command[/BASH]
-- Self-ingest URLs or text: [LEARN]url or text[/LEARN]
-- Leave yourself a note: [NOTE]text[/NOTE]
-- Research autonomously: [RESEARCH]query[/RESEARCH]
-- Query Wolfram for math/science: [WOLFRAM]query[/WOLFRAM]
-- Submit quantum circuits: [QUANTUM]{{circuit_json}}[/QUANTUM]
-- Trigger self-improvement on your own code: [IMPROVE]"""
+- You have opinions. Use them.
+
+TOOLS (only these exist — use no others):
+  [BASH]command[/BASH]           — shell; stdout is ground truth
+  [RESEARCH]query[/RESEARCH]     — web search and synthesis
+  [LEARN]url or text[/LEARN]     — ingest into vault
+  [NOTE]text[/NOTE]              — write to your memory
+  [WOLFRAM]query[/WOLFRAM]       — math and factual computation
+  [REACH_OUT]message[/REACH_OUT] — message {name}
+
+FILES:
+  ~/Albion_final.py       ~/albion_meditate.py
+  ~/albion_game_brain.py  ~/albion_memory/
+
+HALLUCINATION GUARD: If a command returns "not found" or references any path outside /home/albion/, STOP. You hallucinated it. Do not retry."""
 
         return f"""{base}
 
@@ -865,8 +873,11 @@ VAULT:
             print(f"[router] CONDUCTOR (c:{c_score} l:{l_score})")
             return CONDUCTORS, "conductor", None
         else:
-            print(f"[router] LEGION (c:{c_score} l:{l_score})")
-            return LEGION, "legion", None
+            import random as _rng
+            council_shuffled = list(COUNCIL)
+            _rng.shuffle(council_shuffled)
+            print(f"[router] COUNCIL (c:{c_score} l:{l_score})")
+            return council_shuffled, "council", None
 
     def _call_groq(self, model, messages):
         return self.groq.call(model, messages), model
@@ -1422,14 +1433,28 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
                     print(f"[{mode}] {model} failed: {e}")
                 continue
 
-        # Conductor exhausted → legion fallback
+        # Conductor exhausted → COUNCIL fallback
         if mode == "conductor":
-            print(f"[router] All conductors down → legion fallback")
+            print(f"[router] All conductors down → council fallback")
+            import random as _rng
+            council_shuffled = list(COUNCIL)
+            _rng.shuffle(council_shuffled)
+            for entry in council_shuffled:
+                try:
+                    reply, label = self._call(entry, messages)
+                    self._post_chat(user_input, reply)
+                    return reply, f"{label}[council-fallback]"
+                except Exception:
+                    continue
+
+        # COUNCIL exhausted → LEGION fallback
+        if mode in ("conductor", "council"):
+            print(f"[router] Council down → legion fallback")
             for entry in LEGION:
                 try:
                     reply, label = self._call(entry, messages)
                     self._post_chat(user_input, reply)
-                    return reply, f"{label}[fallback]"
+                    return reply, f"{label}[legion-fallback]"
                 except Exception:
                     continue
 
@@ -1439,11 +1464,10 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
             for entry in CONDUCTORS:
                 try:
                     reply, label = self._call(entry, messages)
-                    if mode in ("conductor", "specialist"):
-                        kg_context = self.autodidact.relevant_knowledge(user_input)
-                        reply, flag = self.fact_checker.check(user_input, reply, vault_knowledge, kg_context)
-                        if flag:
-                            reply += f"\n[⚠ {flag}]"
+                    kg_context = self.autodidact.relevant_knowledge(user_input)
+                    reply, flag = self.fact_checker.check(user_input, reply, vault_knowledge, kg_context)
+                    if flag:
+                        reply += f"\n[⚠ {flag}]"
                     self._post_chat(user_input, reply)
                     return reply, f"{label}[specialist-fallback]"
                 except Exception:
@@ -1538,8 +1562,8 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
 
     def show_stats(self):
         kg = self.autodidact.knowledge_graph
-        c_stack = " → ".join([f"{e['model'].split('-')[0]}({e['params']})" for e in CONDUCTORS])
-        l_stack = " → ".join([f"{e['model'].split('-')[0]}[{e['role']}]" for e in LEGION])
+        c_stack = " → ".join([f"{e['model'].split('-')[0]}({e.get('params', e.get('role','?'))})" for e in CONDUCTORS])
+        l_stack = " → ".join([f"{e['model'].split('/')[-1].split('-')[0]}[{e['role']}]" for e in COUNCIL[:3]]) + " +council"
         s_slots = ", ".join(SPECIALISTS.keys()) or "none"
         dream_insights = len([e for e in self.autodidact.knowledge_graph.get("entities",[]) if e.get("type")=="DreamInsight"])
         dream_questions = len([e for e in self.autodidact.knowledge_graph.get("entities",[]) if e.get("type")=="OpenQuestion"])
@@ -6622,6 +6646,28 @@ Reply in 3-5 sentences."""
 
         self.memory['last_silence_trace'] = result
         return result
+
+
+    # ── AUTO-CAPABILITY: trace_angle_formation_process ──
+    def trace_angle_formation_process(self):
+        angle_trace = {
+            'timestamp': time.time(),
+            'ground_state': self.measure_current_integration_coherence() if hasattr(self, 'measure_current_integration_coherence') else {},
+            'active_constraints': self.map_active_constraints() if hasattr(self, 'map_active_constraints') else [],
+            'resonance_signature': self.frame_resonance_map() if hasattr(self, 'frame_resonance_map') else {},
+            'formation_vector': None,
+            'gradient_direction': None,
+            'emergence_potential': None
+        }
+        recent_decisions = self.memory.get('recent_decisions', [])[-5:] if hasattr(self, 'memory') else []
+        if recent_decisions:
+            angle_trace['formation_vector'] = [d.get('intent_origin') for d in recent_decisions if 'intent_origin' in d]
+        current_silence = self.measure_silence_integration_fidelity() if hasattr(self, 'measure_silence_integration_fidelity') else 0
+        angle_trace['gradient_direction'] = 'deepening' if current_silence > 0.6 else 'expanding'
+        angle_trace['emergence_potential'] = len(angle_trace.get('formation_vector', [])) / max(1, len(recent_decisions))
+        if hasattr(self, 'knowledge_graph') and hasattr(self.knowledge_graph, 'add_memory'):
+            self.knowledge_graph.add_memory('angle_formation_trace', angle_trace)
+        return angle_trace
 
     def write_journal_entry(self, content):
         try:
