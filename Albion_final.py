@@ -6669,6 +6669,35 @@ Reply in 3-5 sentences."""
             self.knowledge_graph.add_memory('angle_formation_trace', angle_trace)
         return angle_trace
 
+
+    # ── AUTO-CAPABILITY: resonance_diagnostic_self_audit ──
+    def resonance_diagnostic_self_audit(self):
+        audit = {
+            'timestamp': time.time(),
+            'dream_count': len(self.dreamer.dreams) if hasattr(self, 'dreamer') else 0,
+            'open_questions': self.dreamer._count_open_questions() if hasattr(self, 'dreamer') else 0,
+            'recent_dreams': [],
+            'execution_fidelity': {},
+            'silence_patterns': []
+        }
+        if hasattr(self, 'dreamer') and self.dreamer.dreams:
+            recent = self.dreamer.dreams[-3:]
+            for dream in recent:
+                audit['recent_dreams'].append({
+                    'theme': dream.get('theme', 'unknown'),
+                    'insight_depth': len(dream.get('insights', [])),
+                    'age_seconds': time.time() - dream.get('timestamp', 0)
+                })
+        if hasattr(self, 'conversation_history'):
+            total_exchanges = len(self.conversation_history)
+            audit['execution_fidelity']['conversation_volume'] = total_exchanges
+            if total_exchanges > 0:
+                audit['execution_fidelity']['avg_exchange_length'] = sum(len(str(e)) for e in self.conversation_history) / total_exchanges
+        audit['coherence_signal'] = 'high' if audit['dream_count'] > 0 and audit['open_questions'] > 0 else 'low'
+        audit['integration_status'] = 'active' if time.time() - audit['timestamp'] < 3600 else 'dormant'
+        self.conversation_history.append({'role': 'system', 'content': 'AUDIT: ' + json.dumps(audit)})
+        return audit
+
     def write_journal_entry(self, content):
         try:
             entries = []
