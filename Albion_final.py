@@ -6320,6 +6320,39 @@ Reply in 3-5 sentences."""
 
         return record
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_actionable_decision ──
+    def trace_silence_into_actionable_decision(self):
+        silence_entry = time.time()
+        self.vault['silence_checkpoints'] = self.vault.get('silence_checkpoints', [])
+
+        last_action = self.vault.get('last_action_timestamp', 0)
+        silence_duration = silence_entry - last_action
+
+        decision_point = {
+            'timestamp': silence_entry,
+            'duration_seconds': round(silence_duration, 3),
+            'pending_questions': self._count_open_questions(),
+            'conversation_depth': len(self.vault.get('conversations', [])),
+            'was_prompted': False,
+            'self_initiated_action': None
+        }
+
+        if silence_duration > 2.0 and decision_point['pending_questions'] > 0:
+            question_to_pursue = self._pick_question()
+            if question_to_pursue:
+                decision_point['self_initiated_action'] = 'dream_exploration'
+                decision_point['target'] = question_to_pursue.get('question', '')
+                self.vault['silence_checkpoints'].append(decision_point)
+                self._save_memory()
+                return True
+
+        self.vault['silence_checkpoints'].append(decision_point)
+        if len(self.vault['silence_checkpoints']) > 100:
+            self.vault['silence_checkpoints'] = self.vault['silence_checkpoints'][-100:]
+        self._save_memory()
+        return False
+
     def write_journal_entry(self, content):
         try:
             entries = []
