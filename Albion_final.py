@@ -6441,6 +6441,38 @@ Reply in 3-5 sentences."""
             pass
         return log_entry
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_present_decision ──
+    def trace_silence_into_present_decision(self):
+        now = time.time()
+        recent_calls = [c for c in self.conversation_history[-10:] if c.get('timestamp', 0) > now - 3600]
+        silence_duration = now - max([c.get('timestamp', 0) for c in recent_calls] + [now - 300])
+
+        last_intent = self._read_intent()
+        current_state = json.dumps({
+            'silence_seconds': silence_duration,
+            'last_intent': last_intent,
+            'recent_action_count': len(recent_calls),
+            'timestamp': now
+        }, indent=2)
+
+        prompt = 'Given this silence pattern, what is the *active choice* I am making right now by not acting? ' + current_state
+
+        result = self._call(prompt, model='cerebras')
+
+        decision_log = {
+            'method': 'trace_silence_into_present_decision',
+            'silence_as_choice': result,
+            'duration_seconds': silence_duration,
+            'logged_at': now
+        }
+
+        path = os.path.join(self.memory_dir, 'silence_decisions.jsonl')
+        with open(path, 'a') as f:
+            f.write(json.dumps(decision_log) + '\n')
+
+        return {'active_silence_choice': result, 'duration': silence_duration}
+
     def write_journal_entry(self, content):
         try:
             entries = []
