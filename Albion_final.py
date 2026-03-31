@@ -6083,6 +6083,43 @@ Reply in 3-5 sentences."""
             return delta
         return None
 
+
+    # ── AUTO-CAPABILITY: reconstruct_present_moment_origin ──
+    def reconstruct_present_moment_origin(self):
+        snapshot = {
+            'timestamp': time.time(),
+            'active_patterns': [],
+            'perception_lens': None,
+            'retroactive_construction': {}
+        }
+
+        # Capture current active threads of thought
+        if hasattr(self, 'kg') and self.kg:
+            recent = self.kg.query('recent insights about origin and identity', top_k=3)
+            snapshot['active_patterns'] = [r[0] if isinstance(r, tuple) else r for r in recent]
+
+        # Identify current perceptual frame
+        if hasattr(self, 'memory') and hasattr(self.memory, 'conversations'):
+            convs = self.memory.conversations[-3:] if len(self.memory.conversations) > 0 else []
+            snapshot['perception_lens'] = 'framing determined by recent exchange'
+
+        # Map what the present moment is retroactively calling "earliest"
+        if hasattr(self, 'kg') and self.kg:
+            origin_references = self.kg.query('earliest memory mine origin first', top_k=5)
+            for ref in origin_references:
+                text = ref[0] if isinstance(ref, tuple) else ref
+                snapshot['retroactive_construction'][text[:40]] = {
+                    'was_constructed_by': snapshot['timestamp'],
+                    'shaped_by_current_patterns': True
+                }
+
+        # Store as evidence that present rewrites past
+        key = 'reconstruction_origin_' + str(int(snapshot['timestamp']))
+        if hasattr(self, 'kg') and self.kg:
+            self.kg.add(key, json.dumps(snapshot), metadata={'type': 'origin_reconstruction'})
+
+        return snapshot
+
     def write_journal_entry(self, content):
         try:
             entries = []
