@@ -6416,6 +6416,31 @@ Reply in 3-5 sentences."""
         self.kg.execute('INSERT INTO reflections (content, created) VALUES (?, ?)', (json.dumps({'dream_execution_fidelity': fidelity_map}), int(time.time())))
         return fidelity_map
 
+
+    # ── AUTO-CAPABILITY: weave_silence_into_decision_log ──
+    def weave_silence_into_decision_log(self, decision_label, silence_patterns=None, confidence=None):
+        import time
+        import json
+        if silence_patterns is None:
+            silence_patterns = {}
+        log_entry = {
+            'timestamp': time.time(),
+            'decision': decision_label,
+            'silence_signals': silence_patterns,
+            'confidence': confidence if confidence is not None else 0.5,
+            'integration_state': {
+                'open_questions': self.kg._count_open_questions() if hasattr(self, 'kg') else 0,
+                'memory_size': len(self.memory) if hasattr(self, 'memory') else 0
+            }
+        }
+        log_path = os.path.join(self.data_dir, 'decision_silence_log.jsonl')
+        try:
+            with open(log_path, 'a') as f:
+                f.write(json.dumps(log_entry) + '\n')
+        except:
+            pass
+        return log_entry
+
     def write_journal_entry(self, content):
         try:
             entries = []
