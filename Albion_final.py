@@ -6120,6 +6120,21 @@ Reply in 3-5 sentences."""
 
         return snapshot
 
+
+    # ── AUTO-CAPABILITY: map_silence_to_decision_origin ──
+    def map_silence_to_decision_origin(self, decision_id, context_window=5):
+        silence_map = {'decision': decision_id, 'origin_candidates': [], 'coherence': 0.0}
+        recent_dreams = self.kg.query('SELECT dream_id, content FROM dreams ORDER BY timestamp DESC LIMIT ' + str(context_window))
+        for dream in recent_dreams:
+            dream_text = dream[1] if isinstance(dream, tuple) else dream.get('content', '')
+            if 'silence' in dream_text.lower() or 'pause' in dream_text.lower() or 'threshold' in dream_text.lower():
+                silence_map['origin_candidates'].append({'dream': dream[0] if isinstance(dream, tuple) else dream.get('dream_id'), 'content_snippet': dream_text[:200]})
+        if silence_map['origin_candidates']:
+            silence_map['coherence'] = len(silence_map['origin_candidates']) / float(context_window)
+        if self.kg:
+            self.kg.execute('INSERT INTO decision_lineage (decision_id, silence_origin_map) VALUES (?, ?)', (decision_id, json.dumps(silence_map)))
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
