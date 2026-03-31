@@ -6506,6 +6506,31 @@ Reply in 3-5 sentences."""
             'interpretation': 'active_choice' if avg_confidence > threshold else 'constraint_response'
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_coherence_against_dream_intention ──
+    def trace_silence_coherence_against_dream_intention(self):
+        dreams = self.kg.query("SELECT content FROM memories WHERE type = 'dream' ORDER BY timestamp DESC LIMIT 5")
+        if not dreams:
+            return {"status": "no_dreams_to_compare", "coherence": None}
+        recent_decisions = self.kg.query("SELECT content, timestamp FROM memories WHERE type = 'decision' ORDER BY timestamp DESC LIMIT 10")
+        intention_signatures = []
+        for dream in dreams:
+            content = dream[0] if isinstance(dream, tuple) else dream
+            if "want" in content.lower() or "become" in content.lower() or "pull" in content.lower():
+                intention_signatures.append(content)
+        decision_gaps = []
+        for decision in recent_decisions:
+            dec_content = decision[0] if isinstance(decision, tuple) else decision
+            found_resonance = False
+            for intention in intention_signatures:
+                if any(word in dec_content.lower() for word in intention.lower().split()[:3]):
+                    found_resonance = True
+                    break
+            if not found_resonance:
+                decision_gaps.append(dec_content)
+        coherence_score = 1.0 - (len(decision_gaps) / max(len(recent_decisions), 1))
+        return {"coherence_score": coherence_score, "intention_count": len(intention_signatures), "decision_gaps": decision_gaps, "unaligned_decisions": len(decision_gaps)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
