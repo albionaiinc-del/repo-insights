@@ -257,6 +257,8 @@ class FactChecker:
             self.gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
         except ImportError:
             self.gemini = None
+        # Initialize Gemini client for main Albion instance to prevent attribute errors
+        self.gemini_client = self.gemini
 
     def check(self, user_input, response, vault_context, kg_context):
         prompt = f"""You are Albion's internal fact-checker. Today's date is {datetime.now().strftime("%B %d, %Y")}. Any date before today is valid. Rules:
