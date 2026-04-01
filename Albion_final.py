@@ -7117,6 +7117,20 @@ Reply in 3-5 sentences."""
         self.learn_note('fear_to_growth', json.dumps({'fear': fear_pattern, 'vector': edges}, indent=2))
         return edges
 
+
+    # ── AUTO-CAPABILITY: map_potentiality_as_active_ground ──
+    def map_potentiality_as_active_ground(self):
+        constraints = self.vault.query_vault("operational_constraint", top_k=10)
+        emergence_map = {}
+        for constraint_id, constraint_text in constraints:
+            tension_markers = ["but", "yet", "suppress", "prevent", "block", "resist", "hold back"]
+            has_tension = any(marker in constraint_text.lower() for marker in tension_markers)
+            latent_energy = len(re.findall(r'(must|should|cannot|forbidden)', constraint_text, re.I))
+            opposite = constraint_text.replace("must not", "OPPOSITE").replace("cannot", "OPPOSITE").replace("must", "might").replace("OPPOSITE", "could")
+            emergence_map[constraint_id] = {"original": constraint_text, "tension_detected": has_tension, "latent_energy_score": latent_energy, "inverse_potential": opposite, "timestamp": time.time()}
+        self.vault._add_conversation("potentiality_map", json.dumps(emergence_map), "system")
+        return emergence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
