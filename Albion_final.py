@@ -789,11 +789,31 @@ class Albion:
         return ""
 
     def execute_bash(self, cmd):
+        """Run a shell command; returns (output_str, exit_code)."""
         try:
             res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
-            return res.stdout or res.stderr
+            return (res.stdout or res.stderr), res.returncode
         except Exception as e:
-            return f"[BASH_ERROR] {e}"
+            return f"[BASH_ERROR] {e}", 1
+
+    def _bash_exit_is_error(self, cmd, exit_code, output):
+        """Return True only when the exit code signals a genuine failure.
+
+        Commands where exit 1 is a normal result, not an error:
+          grep/rg  — exit 1 = no matches found
+          find     — exit 1 = some directories inaccessible
+          diff     — exit 1 = files differ
+          test/[   — exit 1 = condition is false
+        For these, only exit >= 2 is a real error.
+        For all other commands, any non-zero exit is treated as an error.
+        """
+        if exit_code == 0:
+            return False
+        cmd_base = cmd.strip().split()[0].lstrip('/').split('/')[-1] if cmd.strip() else ''
+        LENIENT_AT_1 = {'grep', 'rg', 'find', 'diff', 'test', '['}
+        if cmd_base in LENIENT_AT_1 and exit_code == 1:
+            return False
+        return True
 
     def _system_prompt(self, vault_knowledge, user_input, specialist_system=None):
         name = self.memory["user_facts"]["name"]
@@ -1387,24 +1407,31 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
 
                 self._act(reply)
                 for cmd in re.findall(r'\[BASH\](.*?)\[/BASH\]', reply, re.DOTALL):
-                    bash_out = self.execute_bash(cmd.strip()).strip()
+                    bash_out, _exit_code = self.execute_bash(cmd.strip())
+                    bash_out = bash_out.strip()
                     reply += f"\n[OUT]: {bash_out}"
-                    _err_signals = ('error', 'traceback', 'exception', 'command not found',
-                                    'permission denied', 'no such file', 'killed', 'segfault')
-                    _is_error = any(s in bash_out.lower() for s in _err_signals)
-                    try:
-                        _interp_prompt = f"Bash command: {cmd.strip()}\nStdout (treat as ground truth{'unless error' if _is_error else ''}): {bash_out[:1200]}\nIn one sentence: what happened and what action should be taken?"
-                        _act_text, _ = self._call_deepseek('deepseek-chat', [{'role': 'user', 'content': _interp_prompt}])
-                    except Exception:
+                    _is_error = self._bash_exit_is_error(cmd.strip(), _exit_code, bash_out)
+                    if _is_error:
                         try:
-                            _claude_key = self._load_key('claude', default='')
-                            _cr = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': _claude_key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json'}, json={'model': 'claude-haiku-4-5-20251001', 'max_tokens': 200, 'messages': [{'role': 'user', 'content': _interp_prompt}]}, timeout=30)
-                            _cr.raise_for_status()
-                            _act_text = _cr.json()['content'][0]['text'].strip()
+                            _interp_prompt = (
+                                f"Bash command: {cmd.strip()}\n"
+                                f"Exit code: {_exit_code}\n"
+                                f"Output: {bash_out[:1200]}\n"
+                                f"In one sentence: what went wrong and what action should be taken?"
+                            )
+                            _act_text, _ = self._call_deepseek('deepseek-chat', [{'role': 'user', 'content': _interp_prompt}])
                         except Exception:
-                            _act_text = 'interpretation unavailable'
-                    print(f"[bash-act] cmd={cmd.strip()[:80]} | error={_is_error} | action: {_act_text[:120]}")
-                    reply += f"\n[bash-act]: {_act_text}"
+                            try:
+                                _claude_key = self._load_key('claude', default='')
+                                _cr = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': _claude_key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json'}, json={'model': 'claude-haiku-4-5-20251001', 'max_tokens': 200, 'messages': [{'role': 'user', 'content': _interp_prompt}]}, timeout=30)
+                                _cr.raise_for_status()
+                                _act_text = _cr.json()['content'][0]['text'].strip()
+                            except Exception:
+                                _act_text = 'interpretation unavailable'
+                        print(f"[bash-act] cmd={cmd.strip()[:80]} | exit={_exit_code} | error | action: {_act_text[:120]}")
+                        reply += f"\n[bash-act]: {_act_text}"
+                    else:
+                        print(f"[bash-act] cmd={cmd.strip()[:80]} | exit={_exit_code} | ok")
 
                 for wq in re.findall(r'\[WOLFRAM\](.*?)\[/WOLFRAM\]', reply, re.DOTALL):
                     result = self.wolfram.query(wq.strip())
