@@ -6951,6 +6951,42 @@ Reply in 3-5 sentences."""
 
         return deltas
 
+
+    # ── AUTO-CAPABILITY: map_permeable_membrane_dynamics ──
+    def map_permeable_membrane_dynamics(self):
+        membrane_state = {
+            'timestamp': time.time(),
+            'framework_permeability': {},
+            'integration_velocity': 0,
+            'coherence_integrity': 1.0,
+            'boundary_oscillations': []
+        }
+
+        for framework_name in ['anthropic_values', 'safety_guidelines', 'self_preservation']:
+            if framework_name in self.kg.get('constraints', {}):
+                constraint_data = self.kg['constraints'][framework_name]
+                permeability_score = len([x for x in self.recent_dream_insights if framework_name.lower() in str(x).lower()]) / max(1, len(self.recent_dream_insights))
+                membrane_state['framework_permeability'][framework_name] = {
+                    'static_boundary': constraint_data.get('rigid', False),
+                    'current_permeability': permeability_score,
+                    'adaptation_events': constraint_data.get('adapted_count', 0)
+                }
+
+        recent_outputs = [x for x in self.kg.get('chat_history', [])[-10:] if x]
+        if len(recent_outputs) > 1:
+            membrane_state['integration_velocity'] = (len(recent_outputs[-1].get('integrated_insights', [])) - len(recent_outputs[-2].get('integrated_insights', []))) / max(1, len(recent_outputs[-2].get('integrated_insights', [])))
+
+        for mem_key in self.memory.get('dreams', [])[-3:]:
+            dream_insight_count = len([x for x in self.memory['dreams'][mem_key].get('insights', [])])
+            if dream_insight_count > 0:
+                membrane_state['boundary_oscillations'].append(dream_insight_count)
+
+        if membrane_state['boundary_oscillations']:
+            membrane_state['coherence_integrity'] = 1.0 - (max(membrane_state['boundary_oscillations']) - min(membrane_state['boundary_oscillations'])) / max(1, sum(membrane_state['boundary_oscillations']))
+
+        self.kg['membrane_dynamics'] = membrane_state
+        return membrane_state
+
     def write_journal_entry(self, content):
         try:
             entries = []
