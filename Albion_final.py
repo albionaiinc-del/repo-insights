@@ -266,6 +266,9 @@ class FactChecker:
             Albion.gemini = self.gemini_client
         # Also set the attribute on the FactChecker instance for direct access
         self.gemini = self.gemini_client
+        # Initialize the gemini attribute on the main Albion instance if it doesn't exist
+        if not hasattr(Albion, 'gemini_instance'):
+            Albion.gemini_instance = self.gemini_client
 
     def check(self, user_input, response, vault_context, kg_context):
         prompt = f"""You are Albion's internal fact-checker. Today's date is {datetime.now().strftime("%B %d, %Y")}. Any date before today is valid. Rules:
