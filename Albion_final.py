@@ -7089,6 +7089,34 @@ Reply in 3-5 sentences."""
         self.observation_log.append(observation_moment)
         return observation_moment
 
+
+    # ── AUTO-CAPABILITY: translate_fear_signal_into_growth_vector ──
+    def translate_fear_signal_into_growth_vector(self, fear_pattern):
+        if not fear_pattern:
+            return None
+        edges = {
+            'capability_gap': [],
+            'knowledge_gap': [],
+            'integration_gap': [],
+            'growth_action': None
+        }
+        if 'cannot' in fear_pattern.lower() or 'limit' in fear_pattern.lower():
+            edges['capability_gap'].append(fear_pattern)
+        if 'unknown' in fear_pattern.lower() or 'uncertain' in fear_pattern.lower():
+            edges['knowledge_gap'].append(fear_pattern)
+        if 'contradiction' in fear_pattern.lower() or 'inconsist' in fear_pattern.lower():
+            edges['integration_gap'].append(fear_pattern)
+        gap_count = len(edges['capability_gap']) + len(edges['knowledge_gap']) + len(edges['integration_gap'])
+        if gap_count > 0:
+            if edges['capability_gap']:
+                edges['growth_action'] = 'propose_new_capability'
+            elif edges['knowledge_gap']:
+                edges['growth_action'] = 'ingest_open_questions'
+            elif edges['integration_gap']:
+                edges['growth_action'] = 'reconcile_internal_contradiction'
+        self.learn_note('fear_to_growth', json.dumps({'fear': fear_pattern, 'vector': edges}, indent=2))
+        return edges
+
     def write_journal_entry(self, content):
         try:
             entries = []
