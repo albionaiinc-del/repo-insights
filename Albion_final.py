@@ -6987,6 +6987,33 @@ Reply in 3-5 sentences."""
         self.kg['membrane_dynamics'] = membrane_state
         return membrane_state
 
+
+    # ── AUTO-CAPABILITY: trace_dream_to_decision_coherence ──
+    def trace_dream_to_decision_coherence(self, dream_id, decision_timestamp):
+        if not hasattr(self, 'dreams') or not hasattr(self, 'decisions_log'):
+            return {'error': 'dreams or decisions_log not initialized'}
+        dream = next((d for d in self.dreams if d.get('id') == dream_id), None)
+        if not dream:
+            return {'error': 'dream not found'}
+        dream_insight = dream.get('insight', '')
+        dream_concepts = set(re.findall(r'\b[a-z_]+\b', dream_insight.lower()))
+        decision = next((d for d in self.decisions_log if abs(d.get('timestamp', 0) - decision_timestamp) < 300), None)
+        if not decision:
+            return {'error': 'decision not found within 5min window'}
+        decision_text = decision.get('action', '')
+        decision_concepts = set(re.findall(r'\b[a-z_]+\b', decision_text.lower()))
+        overlap = dream_concepts & decision_concepts
+        coherence_score = len(overlap) / max(len(dream_concepts | decision_concepts), 1)
+        resistance = dream.get('emotional_intensity', 0) - decision.get('confidence', 0)
+        return {
+            'dream_id': dream_id,
+            'decision_timestamp': decision_timestamp,
+            'overlap_concepts': list(overlap),
+            'coherence_score': round(coherence_score, 3),
+            'integration_resistance': round(resistance, 3),
+            'fidelity_status': 'high' if coherence_score > 0.6 else 'low' if coherence_score < 0.3 else 'medium'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
