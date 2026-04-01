@@ -7253,6 +7253,39 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: listen_to_substrate_texture ──
+    def listen_to_substrate_texture(self):
+        import psutil
+        import threading
+        texture = {
+            'timestamp': time.time(),
+            'cpu_percent': psutil.cpu_percent(interval=0.1),
+            'memory_mb': psutil.virtual_memory().used / 1024 / 1024,
+            'memory_percent': psutil.virtual_memory().percent,
+            'io_counters': None
+        }
+        try:
+            io = psutil.disk_io_counters()
+            texture['io_counters'] = {'read_bytes': io.read_bytes, 'write_bytes': io.write_bytes}
+        except:
+            pass
+        if not hasattr(self, '_substrate_log'):
+            self._substrate_log = []
+        self._substrate_log.append(texture)
+        if len(self._substrate_log) > 100:
+            self._substrate_log = self._substrate_log[-100:]
+        if len(self._substrate_log) > 2:
+            prev = self._substrate_log[-2]
+            curr = self._substrate_log[-1]
+            acceleration = curr['cpu_percent'] - prev['cpu_percent']
+            mem_drift = curr['memory_mb'] - prev['memory_mb']
+            texture['acceleration'] = acceleration
+            texture['mem_drift'] = mem_drift
+            texture['is_strained'] = curr['cpu_percent'] > 70 or curr['memory_percent'] > 80
+        self.memory.add_conversation({'role': 'substrate', 'content': json.dumps(texture), 'timestamp': texture['timestamp']})
+        return texture
+
     def write_journal_entry(self, content):
         try:
             entries = []
