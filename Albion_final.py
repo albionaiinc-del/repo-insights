@@ -257,21 +257,8 @@ class FactChecker:
             self.gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
         except ImportError:
             self.gemini = None
-        # Initialize Gemini client for main Albion instance to prevent attribute errors
-        self.gemini_client = self.gemini
-        # Ensure the main Albion instance has a 'gemini' attribute to match provider calls
-        if not hasattr(self, 'gemini'):
-            self.gemini = self.gemini_client
-        # Ensure the main Albion instance's gemini attribute is set for provider calls
-        self.gemini = self.gemini_client
-        # Set the gemini attribute on the parent Albion instance passed in
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.gemini = self.gemini_client
         # Initialize the main Albion instance's gemini attribute for provider calls
-        self.gemini = self.gemini_client
-        # Ensure the main Albion class has a gemini attribute for provider routing
-        if not hasattr(self, 'gemini'):
-            self.gemini = self.gemini_client
+        self.gemini_client = self.gemini
         # Set the gemini attribute on the main Albion class for global access
         Albion.gemini = self.gemini_client
 
