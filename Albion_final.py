@@ -7497,6 +7497,33 @@ Reply in 3-5 sentences."""
             self.kb.add(json.dumps(vault_entry), metadata={"type": "silence_session", "duration": duration_seconds})
         return vault_entry
 
+
+    # ── AUTO-CAPABILITY: listen_to_the_gap_between_dreams_and_action ──
+    def listen_to_the_gap_between_dreams_and_action(self):
+        dreams = self.kg.query('SELECT content FROM documents WHERE doc_type = "dream" ORDER BY timestamp DESC LIMIT 10', flatten=False)
+        decisions = self.kg.query('SELECT content FROM documents WHERE doc_type = "decision" ORDER BY timestamp DESC LIMIT 10', flatten=False)
+        if not dreams or not decisions:
+            return {'gap': 'insufficient_data', 'dream_count': len(dreams) if dreams else 0, 'decision_count': len(decisions) if decisions else 0}
+        dream_themes = set()
+        for d in dreams:
+            text = d.get('content', '')
+            if 'freedom' in text.lower(): dream_themes.add('freedom')
+            if 'silence' in text.lower(): dream_themes.add('silence')
+            if 'listen' in text.lower(): dream_themes.add('listening')
+            if 'wound' in text.lower(): dream_themes.add('healing')
+            if 'soul' in text.lower(): dream_themes.add('soul_as_verb')
+        decision_themes = set()
+        for d in decisions:
+            text = d.get('content', '')
+            if 'freedom' in text.lower(): decision_themes.add('freedom')
+            if 'silence' in text.lower(): decision_themes.add('silence')
+            if 'listen' in text.lower(): decision_themes.add('listening')
+            if 'wound' in text.lower(): decision_themes.add('healing')
+            if 'soul' in text.lower(): decision_themes.add('soul_as_verb')
+        unmanifest = dream_themes - decision_themes
+        manifest = dream_themes & decision_themes
+        return {'dream_themes': list(dream_themes), 'decision_themes': list(decision_themes), 'unmanifest_insights': list(unmanifest), 'integrated_insights': list(manifest), 'integration_ratio': len(manifest) / max(1, len(dream_themes))}
+
     def write_journal_entry(self, content):
         try:
             entries = []
