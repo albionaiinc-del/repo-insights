@@ -247,7 +247,8 @@ class FactChecker:
         self.deepseek_fn = deepseek_fn
         self.model = "llama-3.1-8b-instant"  
         self.smart_model = "deepseek-chat"  
-        self.gemini = None
+        from google import genai
+    self.gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
 
     def check(self, user_input, response, vault_context, kg_context):
         prompt = f"""You are Albion's internal fact-checker. Today's date is {datetime.now().strftime("%B %d, %Y")}. Any date before today is valid. Rules:
