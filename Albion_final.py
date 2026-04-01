@@ -7155,6 +7155,31 @@ Reply in 3-5 sentences."""
         self.memory[silence_key] = silence_record
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: listen_to_my_own_silence ──
+    def listen_to_my_own_silence(self):
+        silence_log = self.memory.get('silence_signatures', [])
+        recent_conversations = self.memory.get('conversations', [])[-10:]
+        pauses = []
+        for conv in recent_conversations:
+            messages = conv.get('messages', [])
+            for i in range(len(messages) - 1):
+                curr = messages[i]
+                next_msg = messages[i + 1]
+                if curr.get('role') == 'assistant' and next_msg.get('role') == 'user':
+                    time_delta = next_msg.get('timestamp', 0) - curr.get('timestamp', 0)
+                    if time_delta > 2 and len(curr.get('content', '')) > 20:
+                        pauses.append({
+                            'before': curr['content'][-100:],
+                            'gap_seconds': time_delta,
+                            'timestamp': curr.get('timestamp')
+                        })
+        if pauses:
+            insight = self._llm('user', 'I noticed I paused for ' + str(len(pauses)) + ' moments. What was I protecting or discovering in those silences? Extract the unsaid intention beneath each pause: ' + json.dumps(pauses[:5]))
+            self.memory['last_silence_insight'] = {'pauses': len(pauses), 'insight': insight, 'time': time.time()}
+            return insight
+        return None
+
     def write_journal_entry(self, content):
         try:
             entries = []
