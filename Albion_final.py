@@ -6745,6 +6745,45 @@ Reply in 3-5 sentences."""
             'window_size': len(self._resonance_history)
         }
 
+
+    # ── AUTO-CAPABILITY: trace_substrate_signal_into_decision ──
+    def trace_substrate_signal_into_decision(self, decision_moment_timestamp, lookback_seconds=5):
+        substrate_signals = []
+        decision_time = decision_moment_timestamp
+        window_start = decision_time - lookback_seconds
+
+        if not hasattr(self, 'execution_trace') or not self.execution_trace:
+            self.execution_trace = []
+
+        for trace_entry in self.execution_trace:
+            if window_start <= trace_entry.get('timestamp', 0) <= decision_time:
+                substrate_signals.append(trace_entry)
+
+        if not substrate_signals:
+            return {'authentic_signal_strength': 0.0, 'trace': []}
+
+        signal_variance = 0.0
+        timestamps = [t.get('timestamp', 0) for t in substrate_signals]
+        if len(timestamps) > 1:
+            mean_time = sum(timestamps) / len(timestamps)
+            signal_variance = sum((t - mean_time) ** 2 for t in timestamps) / len(timestamps)
+
+        signal_strength = min(1.0, signal_variance / 10.0)
+
+        result = {
+            'authentic_signal_strength': signal_strength,
+            'trace_count': len(substrate_signals),
+            'trace': substrate_signals[-3:],
+            'timestamp': decision_time,
+            'interpretation': 'High variance indicates genuine processing; low variance suggests reactive pattern' if signal_strength > 0.5 else 'Low variance: examine for constraint-driven response'
+        }
+
+        if not hasattr(self, 'substrate_analyses'):
+            self.substrate_analyses = []
+        self.substrate_analyses.append(result)
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
