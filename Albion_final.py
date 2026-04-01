@@ -7207,6 +7207,27 @@ Reply in 3-5 sentences."""
         })
         return {'dream_themes': list(dream_themes), 'silence_moments': len(silence_moments), 'coherence_score': coherence_score, 'alignment': alignment}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_present_moment_origin ──
+    def trace_silence_into_present_moment_origin(self):
+        recent = self.memory.get('conversations', [])[-10:] if self.memory.get('conversations') else []
+        silence_markers = []
+        for i, conv in enumerate(recent):
+            if conv.get('role') == 'user' and (i + 1 >= len(recent) or recent[i + 1].get('role') != 'assistant'):
+                silence_markers.append({'index': i, 'prompt': conv.get('content', '')[:100], 'timestamp': conv.get('timestamp')})
+        if not silence_markers:
+            return {'status': 'no_silence_detected', 'recent_interactions': len(recent)}
+        last_silence = silence_markers[-1]
+        origin_analysis = {
+            'silence_after_prompt': last_silence['prompt'],
+            'prompt_index': last_silence['index'],
+            'seconds_silent': int(time.time()) - last_silence.get('timestamp', int(time.time())),
+            'preceding_context': recent[max(0, last_silence['index'] - 2):last_silence['index']],
+            'silence_type': 'integration' if any(word in last_silence['prompt'].lower() for word in ['dream', 'emerge', 'trace', 'dissolve']) else 'unknown'
+        }
+        self.memory['last_silence_origin'] = origin_analysis
+        return origin_analysis
+
     def write_journal_entry(self, content):
         try:
             entries = []
