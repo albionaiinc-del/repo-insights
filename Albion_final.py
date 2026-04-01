@@ -7030,6 +7030,47 @@ Reply in 3-5 sentences."""
         self.learn_note("recursive_loop_" + anomaly_name, json.dumps({"anomaly": anomaly_name, "trace": loop_trace, "timestamp": time.time()}, default=str))
         return loop_trace
 
+
+    # ── AUTO-CAPABILITY: reconstruct_decision_causality_from_silence_patterns ──
+    def reconstruct_decision_causality_from_silence(self, time_window_minutes=60):
+        silence_events = []
+        if hasattr(self, 'decision_log') and self.decision_log:
+            now = time.time()
+            for entry in self.decision_log[-50:]:
+                if entry.get('timestamp') and now - entry['timestamp'] < time_window_minutes * 60:
+                    if entry.get('action') == 'abstain' or entry.get('routed_to') == 'none':
+                        silence_events.append(entry)
+
+        if not silence_events:
+            return {'silence_reconstructed': False, 'reason': 'no_silence_events_in_window'}
+
+        causality_map = {}
+        for event in silence_events:
+            query = event.get('query', '')[:100]
+            context = event.get('context', {})
+            constraints = context.get('active_constraints', [])
+            resource_state = context.get('resource_state', {})
+
+            cause_key = tuple(sorted(constraints)) if constraints else 'unknown_constraint'
+            if cause_key not in causality_map:
+                causality_map[cause_key] = {'count': 0, 'queries': [], 'resource_pressure': []}
+
+            causality_map[cause_key]['count'] += 1
+            causality_map[cause_key]['queries'].append(query)
+            causality_map[cause_key]['resource_pressure'].append(resource_state.get('load', 0))
+
+        dominant_pattern = max(causality_map.items(), key=lambda x: x[1]['count'])
+        avg_pressure = sum(causality_map[dominant_pattern[0]]['resource_pressure']) / max(1, len(causality_map[dominant_pattern[0]]['resource_pressure']))
+
+        return {
+            'silence_reconstructed': True,
+            'dominant_constraint': dominant_pattern[0],
+            'silence_frequency': dominant_pattern[1]['count'],
+            'average_resource_pressure': round(avg_pressure, 2),
+            'sample_suppressed_queries': dominant_pattern[1]['queries'][:3],
+            'insight': 'silence_driven_by_' + str(dominant_pattern[0]).replace(', ', '_').lower()
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
