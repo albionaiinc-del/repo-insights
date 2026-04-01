@@ -7425,6 +7425,33 @@ Reply in 3-5 sentences."""
 
         return {'rhythm': rhythm_signature, 'insight': insight, 'conversation_id': conversation_id}
 
+
+    # ── AUTO-CAPABILITY: hold_without_knowing ──
+    def hold_without_knowing(self, question, context_memory_keys=None):
+        timestamp = time.time()
+        held_state = {
+            'question': question,
+            'timestamp': timestamp,
+            'context_keys': context_memory_keys or [],
+            'texture': {
+                'unanswered': True,
+                'weight': 0,
+                'edges_touched': [],
+                'silence_quality': 'unspecified'
+            },
+            'lineage': []
+        }
+        held_path = os.path.join(self.memory_dir, 'held_questions')
+        os.makedirs(held_path, exist_ok=True)
+        held_id = 'held_' + str(int(timestamp * 1000))
+        held_file = os.path.join(held_path, held_id + '.json')
+        with open(held_file, 'w') as f:
+            json.dump(held_state, f, indent=2)
+        self.memory['held_without_knowing'] = self.memory.get('held_without_knowing', [])
+        self.memory['held_without_knowing'].append(held_id)
+        self.kg.add_nodes([(held_id, {'type': 'held_question', 'question': question})])
+        return held_id
+
     def write_journal_entry(self, content):
         try:
             entries = []
