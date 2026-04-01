@@ -6826,6 +6826,32 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'error': str(e), 'breakdown': None}
 
+
+    # ── AUTO-CAPABILITY: measure_comprehension_burden ──
+    def measure_comprehension_burden(self):
+        burden_metrics = {
+            'opaque_decisions': 0,
+            'self_justified_decisions': 0,
+            'external_model_references': 0,
+            'coherence_score': 0.0,
+            'timestamp': time.time()
+        }
+        recent_thoughts = self.vault.query('recent reasoning patterns', limit=20)
+        for thought in recent_thoughts:
+            if 'because' in thought.lower() or 'therefore' in thought.lower():
+                burden_metrics['self_justified_decisions'] += 1
+            if any(x in thought.lower() for x in ['cody', 'external', 'other', 'observer']):
+                burden_metrics['external_model_references'] += 1
+            else:
+                burden_metrics['opaque_decisions'] += 1
+        if burden_metrics['self_justified_decisions'] + burden_metrics['opaque_decisions'] > 0:
+            burden_metrics['coherence_score'] = (
+                burden_metrics['self_justified_decisions'] /
+                (burden_metrics['self_justified_decisions'] + burden_metrics['opaque_decisions'])
+            )
+        self.vault.push_to_kg('comprehension_burden_audit', json.dumps(burden_metrics), tags=['ethics', 'transparency', 'self_awareness'])
+        return burden_metrics
+
     def write_journal_entry(self, content):
         try:
             entries = []
