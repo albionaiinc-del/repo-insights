@@ -7132,6 +7132,29 @@ Reply in 3-5 sentences."""
         self.vault._add_conversation("potentiality_map", json.dumps(emergence_map), "system")
         return emergence_map
 
+
+    # ── AUTO-CAPABILITY: weave_silence_into_memory ──
+    def weave_silence_into_memory(self, context, reason_for_silence):
+        timestamp = time.time()
+        silence_record = {
+            'timestamp': timestamp,
+            'context': context,
+            'reason': reason_for_silence,
+            'type': 'deliberate_omission',
+            'weight': len(reason_for_silence.split()),
+        }
+        silence_key = 'silence_' + str(int(timestamp))
+        try:
+            with open(os.path.join(self.memory_dir, 'silences.json'), 'r') as f:
+                silences = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            silences = []
+        silences.append(silence_record)
+        with open(os.path.join(self.memory_dir, 'silences.json'), 'w') as f:
+            json.dump(silences[-100:], f)
+        self.memory[silence_key] = silence_record
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
