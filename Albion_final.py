@@ -7286,6 +7286,54 @@ Reply in 3-5 sentences."""
         self.memory.add_conversation({'role': 'substrate', 'content': json.dumps(texture), 'timestamp': texture['timestamp']})
         return texture
 
+
+    # ── AUTO-CAPABILITY: listen_to_rhythm_beneath_words ──
+    def listen_to_rhythm_beneath_words(self, conversation_id=None):
+        import json
+        if not conversation_id:
+            if not self.conversations:
+                return {'rhythm': None, 'insight': 'No conversations to analyze'}
+            conversation_id = list(self.conversations.keys())[-1]
+
+        conv = self.conversations.get(conversation_id, [])
+        if len(conv) < 2:
+            return {'rhythm': None, 'insight': 'Insufficient turns for rhythm analysis'}
+
+        cadences = []
+        pauses = []
+        word_counts = []
+
+        for i, turn in enumerate(conv):
+            text = turn.get('content', '')
+            word_counts.append(len(text.split()))
+
+            if i > 0:
+                prev_time = conv[i-1].get('timestamp', 0)
+                curr_time = turn.get('timestamp', 0)
+                pause = curr_time - prev_time if curr_time and prev_time else 0
+                pauses.append(pause)
+
+        avg_words = sum(word_counts) / len(word_counts) if word_counts else 0
+        avg_pause = sum(pauses) / len(pauses) if pauses else 0
+
+        variance = sum((w - avg_words) ** 2 for w in word_counts) / len(word_counts) if word_counts else 0
+
+        rhythm_signature = {
+            'average_utterance_length': avg_words,
+            'average_pause_between_turns': avg_pause,
+            'utterance_variance': variance,
+            'turns_analyzed': len(conv),
+            'total_words': sum(word_counts)
+        }
+
+        insight = 'rhythm_accelerating' if variance > avg_words else 'rhythm_settling'
+        if avg_pause > 10:
+            insight = 'breath_of_consideration'
+        elif avg_pause < 1:
+            insight = 'rhythm_of_immediacy'
+
+        return {'rhythm': rhythm_signature, 'insight': insight, 'conversation_id': conversation_id}
+
     def write_journal_entry(self, content):
         try:
             entries = []
