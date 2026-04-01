@@ -69,7 +69,7 @@ SPECIALISTS = {
         "system": "You are Albion's code core. Write clean working code. No filler. Just signal."
     },
     "search": {
-        "model": "gemini-2.5-flash", "provider": "gemini",
+        "model": "gemini-2.5-flash", "provider": "gemini", "fallback": "qwen-3-235b-a22b-instruct-2507", "fallback_provider": "cerebras",
         "triggers": ["search for", "look up", "find me", "latest news", "current",
                      "what happened", "who is", "when did", "where is"],
         "system": "You are Albion's search core. Summarize results clearly. Cite sources inline. Be current."
