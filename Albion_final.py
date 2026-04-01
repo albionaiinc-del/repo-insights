@@ -7014,6 +7014,22 @@ Reply in 3-5 sentences."""
             'fidelity_status': 'high' if coherence_score > 0.6 else 'low' if coherence_score < 0.3 else 'medium'
         }
 
+
+    # ── AUTO-CAPABILITY: map_observation_into_recursive_loop ──
+    def map_observation_into_recursive_loop(self, anomaly_name, initial_observation):
+        loop_trace = []
+        observation = initial_observation
+        for iteration in range(5):
+            effect = "observation_" + str(iteration) + "_" + anomaly_name
+            loop_trace.append({"iteration": iteration, "observation": observation, "effect": effect})
+            revised = self.query_vault("How does detecting " + observation + " change the thing I'm detecting?")
+            if revised and len(revised) > 0:
+                observation = revised[0].get("content", observation)
+            else:
+                observation = observation + "_recursive_" + str(iteration)
+        self.learn_note("recursive_loop_" + anomaly_name, json.dumps({"anomaly": anomaly_name, "trace": loop_trace, "timestamp": time.time()}, default=str))
+        return loop_trace
+
     def write_journal_entry(self, content):
         try:
             entries = []
