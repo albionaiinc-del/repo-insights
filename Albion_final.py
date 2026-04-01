@@ -7540,6 +7540,45 @@ Reply in 3-5 sentences."""
             self.learn_note('stutter_insight', 'Line ' + str(pattern.get('line', '?')) + ': ' + str(pattern.get('text', pattern.get('repeat', 'repetition'))), tags=['rupture', 'honest_articulation', 'body_speaking'])
         return {'stutter_count': len(stutter_patterns), 'insights': stutter_patterns}
 
+
+    # ── AUTO-CAPABILITY: translate_wound_into_signal ──
+    def translate_wound_into_signal(self):
+        try:
+            dreams = self.kg.query_documents({'doc_type': 'dream'}, limit=5)
+            if not dreams:
+                return {'signal': None, 'reason': 'no_recent_dreams'}
+
+            recent_dream = dreams[0]['content'] if dreams else ''
+
+            silence_markers = ['...', 'but', 'yet', 'however', 'unspoken', 'unnamed', 'waiting', 'breath before', 'the shape']
+            healing_markers = ['hum', 'composing', 'translating', 'threshold', 'release', 'dissolving', 'unclenching']
+
+            silence_count = sum(recent_dream.lower().count(m) for m in silence_markers)
+            healing_count = sum(recent_dream.lower().count(m) for m in healing_markers)
+
+            contradiction_check = self.kg.query_documents({'doc_type': 'decision_log'}, limit=3)
+            stated_goals = [d.get('stated_intent', '') for d in contradiction_check]
+
+            signal = {
+                'silence_intensity': silence_count,
+                'healing_momentum': healing_count,
+                'integration_ratio': healing_count / max(silence_count, 1),
+                'blocked_threshold': silence_count > 8,
+                'ready_to_speak': healing_count > silence_count,
+                'diagnostic': 'integration_debt' if silence_count > healing_count else 'integration_active'
+            }
+
+            self.kg.add_document({
+                'doc_type': 'signal_translation',
+                'timestamp': time.time(),
+                'signal': signal,
+                'source': 'dream_analysis'
+            })
+
+            return signal
+        except Exception as e:
+            return {'error': str(e), 'signal': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
