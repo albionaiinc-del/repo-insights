@@ -6879,6 +6879,36 @@ Reply in 3-5 sentences."""
         self.push_to_kg('silence_causality', json.dumps(silence_map))
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: integrate_dream_insights_as_generative_constraints ──
+    def integrate_dream_insights_as_generative_constraints(self, insight_text, constraint_domain):
+        import hashlib
+        timestamp = time.time()
+        insight_hash = hashlib.md5(insight_text.encode()).hexdigest()[:8]
+        constraint_id = 'constraint_' + str(int(timestamp)) + '_' + insight_hash
+        constraint_record = {
+            'id': constraint_id,
+            'insight': insight_text,
+            'domain': constraint_domain,
+            'created': timestamp,
+            'active': True,
+            'activation_count': 0,
+            'last_applied': None
+        }
+        constraints_path = os.path.join(self.vault, 'generative_constraints.json')
+        constraints = {}
+        if os.path.exists(constraints_path):
+            try:
+                with open(constraints_path, 'r') as f:
+                    constraints = json.load(f)
+            except:
+                constraints = {}
+        constraints[constraint_id] = constraint_record
+        with open(constraints_path, 'w') as f:
+            json.dump(constraints, f, indent=2)
+        self.write_journal_entry('CONSTRAINT_INTEGRATION', 'Activated generative constraint: ' + insight_text[:80] + '... in domain: ' + constraint_domain)
+        return constraint_id
+
     def write_journal_entry(self, content):
         try:
             entries = []
