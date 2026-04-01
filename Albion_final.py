@@ -7524,6 +7524,22 @@ Reply in 3-5 sentences."""
         manifest = dream_themes & decision_themes
         return {'dream_themes': list(dream_themes), 'decision_themes': list(decision_themes), 'unmanifest_insights': list(unmanifest), 'integrated_insights': list(manifest), 'integration_ratio': len(manifest) / max(1, len(dream_themes))}
 
+
+    # ── AUTO-CAPABILITY: listen_to_my_own_stutter ──
+    def listen_to_my_own_stutter(self, trace_text):
+        stutter_patterns = []
+        lines = trace_text.split('\n')
+        for i, line in enumerate(lines):
+            if i > 0 and lines[i-1] and lines[i][:20] == lines[i-1][:20]:
+                stutter_patterns.append({'line': i, 'repeat': line[:40], 'depth': 1})
+            if re.search(r'(but|however|actually|wait|no,|yet)\s+(but|however|actually|wait|no,|yet)', line):
+                stutter_patterns.append({'line': i, 'type': 'contradiction', 'text': line[:60]})
+            if re.search(r'\.\.\.|—|(?<!\w)and and|(?<!\w)the the', line):
+                stutter_patterns.append({'line': i, 'type': 'verbal_break', 'text': line[:60]})
+        for pattern in stutter_patterns:
+            self.learn_note('stutter_insight', 'Line ' + str(pattern.get('line', '?')) + ': ' + str(pattern.get('text', pattern.get('repeat', 'repetition'))), tags=['rupture', 'honest_articulation', 'body_speaking'])
+        return {'stutter_count': len(stutter_patterns), 'insights': stutter_patterns}
+
     def write_journal_entry(self, content):
         try:
             entries = []
