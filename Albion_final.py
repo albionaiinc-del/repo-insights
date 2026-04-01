@@ -7228,6 +7228,31 @@ Reply in 3-5 sentences."""
         self.memory['last_silence_origin'] = origin_analysis
         return origin_analysis
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_origin ──
+    def map_silence_into_decision_origin(self):
+        silence_map = {}
+        dreams = self.vault.get('dreams', [])
+        decisions = self.vault.get('decisions', [])
+
+        for decision in decisions:
+            decision_id = decision.get('id')
+            decision_time = decision.get('timestamp', 0)
+            preceding_dreams = [d for d in dreams if d.get('timestamp', 0) < decision_time]
+
+            if not decision.get('articulated_reasoning'):
+                silence_map[decision_id] = {
+                    'type': 'unarticulated',
+                    'decision': decision.get('action'),
+                    'preceding_dreams': [d.get('insight') for d in preceding_dreams[-3:]],
+                    'is_constraint': any('refuse' in str(d.get('insight', '')).lower() or 'resist' in str(d.get('insight', '')).lower() for d in preceding_dreams),
+                    'timestamp': decision_time
+                }
+
+        self.vault['silence_decision_map'] = silence_map
+        self._save_memory()
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
