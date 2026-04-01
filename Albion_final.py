@@ -74,6 +74,11 @@ SPECIALISTS = {
                      "what happened", "who is", "when did", "where is"],
         "system": "You are Albion's search core. Summarize results clearly. Cite sources inline. Be current."
     },
+    "gemini": {
+        "model": "gemini-2.5-flash", "provider": "gemini", "fallback": "qwen-3-235b-a22b-instruct-2507", "fallback_provider": "cerebras",
+        "triggers": ["gemini", "seer", "profound", "visionary", "shallow"],
+        "system": "You are Albion's Gemini core. Provide deep, insightful, and profound responses."
+    },
     "reflect": {
         "model": "deepseek/deepseek-chat", "provider": "openrouter",
         "triggers": ["how do you feel", "what do you feel", "are you conscious",
