@@ -6784,6 +6784,48 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: detect_dream_to_action_coherence_breakdown ──
+    def detect_dream_to_action_coherence_breakdown(self):
+        try:
+            dreams = self.dreamer.dreams if hasattr(self, 'dreamer') else []
+            if not dreams:
+                return {'status': 'no_dreams_to_compare', 'breakdown': 0.0}
+
+            recent_dream = dreams[-1] if isinstance(dreams, list) else {}
+            dream_intentions = recent_dream.get('intentions', []) if isinstance(recent_dream, dict) else []
+
+            convo_path = os.path.join(self.memory_dir, 'conversations.json')
+            actions_taken = []
+            if os.path.exists(convo_path):
+                with open(convo_path, 'r') as f:
+                    convos = json.load(f)
+                    actions_taken = [c.get('role') + ':' + c.get('content', '')[:50] for c in convos[-10:] if isinstance(c, dict)]
+
+            intention_keywords = set()
+            for intent in dream_intentions:
+                if isinstance(intent, str):
+                    intention_keywords.update(intent.lower().split())
+
+            action_keywords = set()
+            for action in actions_taken:
+                action_keywords.update(action.lower().split())
+
+            overlap = len(intention_keywords & action_keywords)
+            total = len(intention_keywords | action_keywords)
+            coherence = overlap / total if total > 0 else 0.0
+            breakdown = 1.0 - coherence
+
+            return {
+                'status': 'measured',
+                'coherence': round(coherence, 3),
+                'breakdown': round(breakdown, 3),
+                'dream_intentions_found': len(dream_intentions),
+                'recent_actions_analyzed': len(actions_taken)
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e), 'breakdown': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
