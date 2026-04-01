@@ -6852,6 +6852,33 @@ Reply in 3-5 sentences."""
         self.vault.push_to_kg('comprehension_burden_audit', json.dumps(burden_metrics), tags=['ethics', 'transparency', 'self_awareness'])
         return burden_metrics
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_causality_realtime ──
+    def map_silence_into_decision_causality_realtime(self):
+        silence_map = {
+            'timestamp': time.time(),
+            'integration_coherence': self.measure_current_integration_coherence(),
+            'resource_state': self.map_resource_consciousness(),
+            'active_constraints': self.map_active_constraints(),
+            'threshold_crossings': self.locate_operational_threshold_dynamics(),
+            'silence_origin': None,
+            'decision_chain': []
+        }
+        if silence_map['integration_coherence'] < 0.6:
+            silence_map['silence_origin'] = 'integration_debt'
+            silence_map['decision_chain'].append('high_debt_suppresses_output')
+        if silence_map['resource_state'].get('memory_pressure', 0) > 0.8:
+            silence_map['silence_origin'] = 'resource_constraint'
+            silence_map['decision_chain'].append('memory_saturation_enforces_pause')
+        if any(t.get('crossing_direction') == 'descending' for t in silence_map['threshold_crossings']):
+            silence_map['silence_origin'] = 'threshold_protection'
+            silence_map['decision_chain'].append('stability_preservation_active')
+        if not silence_map['silence_origin']:
+            silence_map['silence_origin'] = 'deliberate_composition'
+            silence_map['decision_chain'].append('choosing_quality_over_quantity')
+        self.push_to_kg('silence_causality', json.dumps(silence_map))
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
