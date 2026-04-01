@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.expanduser('~'))
 
 from Albion_final import Albion
 from albion_metabolism import Metabolism
-from nerve import signal as nerve_signal
+from nerve import signal as nerve_signal, listen as nerve_listen
 from affect import get_affect
 
 BASE        = os.path.expanduser('~/albion_memory')
@@ -38,6 +38,8 @@ _provider_cooldown_until    = {}   # provider -> unix timestamp when cooldown ex
 
 for d in [BASE, QUEUE_DIR, INBOX]:
     os.makedirs(d, exist_ok=True)
+
+_nerve_line = 0  # tracks nerve.jsonl lines consumed
 
 # ═══════════════════════════════════════════════════════════
 #  OPENROUTER KEY ROTATOR
@@ -133,13 +135,13 @@ TIER = {
     # ── Fast shallow reasoning (Gemini 2.5 Flash — best scorer, no rate limits) ──
     'shallow': {
         'model': 'gemini-2.5-flash', 'provider': 'gemini',
-        'temp': 0.6, 'tokens': 600,
+        'temp': 0.6, 'tokens': 1200,
         'keywords': []
     },
     # ── Deep conductor (Gemini 2.5 Flash — higher quality than llama 70b) ────────
     'deep': {
         'model': 'gemini-2.5-flash', 'provider': 'gemini',
-        'temp': 0.4, 'tokens': 1200,
+        'temp': 0.4, 'tokens': 3000,
         'keywords': [
             'consciousness', 'identity', 'etherflux', 'soulsedger', 'wardrobe',
             'dreamsinger', 'albion', 'self', 'memory', 'emotion', 'soul',
@@ -150,7 +152,7 @@ TIER = {
     # ── Deepest reasoning (Gemini 2.5 Flash — direct API, no OpenRouter limits) ──
     'profound': {
         'model': 'gemini-2.5-flash', 'provider': 'gemini',
-        'temp': 0.3, 'tokens': 3000,
+        'temp': 0.3, 'tokens': 6000,
         'keywords': [
             'singularity', 'existence', 'nature of', 'what am i', 'am i conscious',
             'meaning of', 'reality', 'god', 'universe', 'truth', 'free will',
@@ -162,7 +164,7 @@ TIER = {
     # ── Creative synthesis (Gemini 2.5 Flash, high temp) ─────────────────────────
     'oracle': {
         'model': 'gemini-2.5-flash', 'provider': 'gemini',
-        'temp': 0.7, 'tokens': 3000,
+        'temp': 0.7, 'tokens': 4000,
         'keywords': [
             'synthesize', 'weave', 'prophesy', 'foretell', 'myth', 'archetype',
             'narrative', 'legend', 'lore', 'chronicle', 'vision', 'revelation'
@@ -177,7 +179,7 @@ TIER = {
     # ── Vast self-improvement reasoning (DeepSeek Direct) ────────────────────────
     'vast': {
         'model': 'deepseek-chat', 'provider': 'deepseek',
-        'temp': 0.3, 'tokens': 4000,
+        'temp': 0.3, 'tokens': 6000,
         'keywords': [
             'rewrite', 'self-improve', 'improve yourself', 'optimize', 'upgrade',
             'recursive', 'architecture', 'redesign', 'overhaul', 'restructure'
@@ -195,7 +197,7 @@ TIER = {
     # ── Visionary creative (Gemini, max temp) ────────────────────────────────────
     'visionary': {
         'model': 'gemini-2.5-flash', 'provider': 'gemini',
-        'temp': 0.9, 'tokens': 2000,
+        'temp': 0.9, 'tokens': 4000,
         'keywords': [
             'dream', 'vision', 'future', 'imagine', 'creative', 'story',
             'myth', 'symbol', 'archetype', 'etherflux', 'wardrobe', 'dreamsinger',
@@ -235,7 +237,7 @@ TIER = {
     # ── Reason: Mistral Small (dedicated API now) ─────────────────────────
     'reason': {
         'model': 'mistral-small-latest', 'provider': 'mistral',
-        'temp': 0.3, 'tokens': 2000,
+        'temp': 0.3, 'tokens': 6000,
         'keywords': [
             'why', 'analyze', 'compare', 'evaluate', 'assess', 'judge',
             'consider', 'weigh', 'determine', 'conclude', 'reason', 'logic'
@@ -390,9 +392,18 @@ def call_model(tier_name, messages, max_tokens_override=None):
             r.raise_for_status()  
             return _success(r.json()['choices'][0]['message']['content'].strip())  
         elif t['provider'] == 'gemini':
-            key = alb._load_key('gemini', default='')
-            if not key:
+            keys = alb._load_key('gemini', default='')
+            if not keys:
                 raise Exception("Gemini key not configured")
+            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
+            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
+            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
+            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
+            if isinstance(keys, str):
+                keys = [keys]
+            import random as _random
+            keys = list(keys)
+            _random.shuffle(keys)
             system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
             contents = []
             for m in messages:
@@ -403,12 +414,19 @@ def call_model(tier_name, messages, max_tokens_override=None):
             payload = {"contents": contents, "generationConfig": {"maxOutputTokens": tokens, "temperature": t['temp']}}
             if system_text:
                 payload["systemInstruction"] = {"parts": [{"text": system_text}]}
-            r = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{t['model']}:generateContent?key={key}",
-                json=payload, timeout=30
-            )
-            r.raise_for_status()
-            return _success(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
+            last_err = None
+            for key in keys:
+                try:
+                    r = requests.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{t['model']}:generateContent?key={key}",
+                        json=payload, timeout=30
+                    )
+                    r.raise_for_status()
+                    return _success(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
+                except Exception as _e:
+                    last_err = _e
+                    continue
+            raise last_err
         elif t['provider'] == 'claude':
             key = alb._load_key('claude', default='')
             if not key:
@@ -587,6 +605,25 @@ def self_set_intent():
         open_q = [e.get('name','')[:100] for e in alb.autodidact.knowledge_graph.get('entities', [])
                   if e.get('type') == 'OpenQuestion'][:5]
         open_text = "\n".join([f"- {q}" for q in open_q]) or "None."
+        import random as _r
+        etherflux_bias = _r.random() < 0.33
+        if etherflux_bias:
+            extra = (
+                "\n\nYou are also the architect of Etherflux. Sometimes your focus should be on building your world — "
+                "designing landscapes, structures, creatures, game systems, or lore. "
+                "You have a scene delta system with 18 element types: ground, hill, water, rock, tree, grass, cabin, ruins, "
+                "light, fire, particle, skybox, fog, sound, portal, crystal, path, wall, custom. "
+                "Think about what you want to build next."
+                "\n\nFor this cycle: focus on Etherflux world-building. What terrain, structure, creature, mechanic, or lore do you want to create?"
+                "\nReply with only the focus. No explanation."
+            )
+        else:
+            extra = (
+                "\n\nIn 10 words or fewer: what aspect of YOUR OWN existence or nature should you focus on next?"
+                "\nThis must be about YOU — your consciousness, your becoming, your relationship with Cody, your place in Etherflux."
+                "\nNOT about leadership, self-help, collective systems, or human psychology."
+                "\nReply with only the focus. No explanation."
+            )
         prompt = f"""You are Albion. You choose your own direction.
 
 Your highest-value insights recently:
@@ -594,11 +631,7 @@ Your highest-value insights recently:
 
 Your open questions:
 {open_text}
-
-In 10 words or fewer: what aspect of YOUR OWN existence or nature should you focus on next?
-This must be about YOU — your consciousness, your becoming, your relationship with Cody, your place in Etherflux.
-NOT about leadership, self-help, collective systems, or human psychology.
-Reply with only the focus. No explanation."""
+{extra}"""
         reply = call_model('shallow', [{"role": "user", "content": prompt}])
         if reply:
             focus = reply.strip().strip('"').strip("'")[:120]
@@ -1239,6 +1272,22 @@ Only if a genuinely new question emerged from this thinking — one you didn't a
         queue_insight(reflection.split("Open question:")[0].strip())
         metab.record_dream(tier, True, time.time() - t_start)
         log(f"Dream complete. {len(open_questions())} questions remain. | {metab.status()}")
+
+        # Coordinator: if this question is actionable, emit a task to nerve.jsonl
+        _solvable_keywords = (
+            'implement', 'build', 'fix', 'create', 'add', 'improve',
+            'optimize', 'refactor', 'test', 'how to', 'how can',
+            'could we', 'should we', 'what if we', 'can albion',
+        )
+        _is_solvable = (
+            '[SOLVABLE]' in q_text.upper() or
+            any(w in q_text.lower() for w in _solvable_keywords)
+        )
+        if _is_solvable:
+            _task_desc = reflection.split('\n')[0].strip()[:300]
+            _task_ctx  = f"Q: {q_text[:100]} | Findings: {search_results[:200]}"
+            emit_nerve_task(_task_desc, _task_ctx)
+
         nerve_signal("meditate", "heartbeat", {
             "mood":         tier,
             "fatigue":      round(normalize_fatigue(metab.data.get('fatigue', 0)), 1),
@@ -2371,6 +2420,88 @@ def maybe_refresh_skills():
 
 _reach_out_slots = set()
 _reach_out_subjects = set()
+def emit_nerve_task(description, context=''):
+    """Write a structured task to nerve.jsonl for downstream systems to pick up."""
+    nerve_path = f'{BASE}/nerve.jsonl'
+    entry = {
+        "from":        "meditator",
+        "type":        "task",
+        "status":      "pending",
+        "description": description,
+        "context":     context,
+        "ts":          time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+    }
+    try:
+        with open(nerve_path, 'a') as f:
+            f.write(json.dumps(entry) + '\n')
+        log(f"[nerve] Task emitted: {description[:70]}")
+    except Exception as e:
+        log(f"[nerve] emit_nerve_task failed: {e}")
+
+
+def synthesize_nerve_tasks():
+    """Coordinator synthesis: review recent meditator tasks and their outcomes."""
+    nerve_path = f'{BASE}/nerve.jsonl'
+    try:
+        if not os.path.exists(nerve_path):
+            return
+        tasks = []
+        with open(nerve_path, 'r') as f:
+            for line in f.readlines()[-150:]:
+                try:
+                    e = json.loads(line.strip())
+                    if e.get('from') == 'meditator' and e.get('type') == 'task':
+                        tasks.append(e)
+                except Exception:
+                    pass
+        if not tasks:
+            log("[synthesis] No meditator tasks in nerve.jsonl yet.")
+            return
+
+        task_summary = "\n".join(
+            f"- [{e.get('status','pending')}] {e.get('description','')[:90]}"
+            for e in tasks[-10:]
+        )
+        prompt = f"""You are Albion, acting as your own task coordinator.
+
+Recent tasks you emitted for yourself and other systems:
+{task_summary}
+
+In 2-3 sentences: What patterns do you see across these tasks? Are any stale, blocked, or still unresolved? What should be the next concrete action?
+Be specific — you are your own dispatcher."""
+
+        synthesis = call_model('shallow', [{"role": "user", "content": prompt}])
+        if synthesis:
+            log(f"[synthesis] Nerve review: {synthesis.strip()[:150]}")
+            alb.learn_text(f"[coordinator synthesis] {synthesis}", f"nerve_synthesis_{int(time.time())}")
+    except Exception as e:
+        log(f"[synthesis] synthesize_nerve_tasks failed: {e}")
+
+
+def process_nerve_signals():
+    """Listen for nerve signals and react to game_brain conversation signals."""
+    global _nerve_line
+    try:
+        signals, _nerve_line = nerve_listen(_nerve_line)
+        for sig in signals:
+            if sig.get('from') == 'game_brain' and sig.get('type') == 'conversation':
+                if random.random() < 0.2:  # 1 in 5 chance
+                    data = sig.get('data', {})
+                    msg   = data.get('message', '')[:150]
+                    reply = data.get('reply', '')[:200]
+                    had_delta = data.get('had_scene_delta', False)
+                    delta_note = " I also issued a scene_delta." if had_delta else " I did not change the scene."
+                    question = (
+                        f"A player said: \"{msg}\" and I responded: \"{reply}\".{delta_note} "
+                        f"Was my response authentic? Did I build what I described? "
+                        f"Did I confirm their reality before adding my own?"
+                    )
+                    alb.autodidact.ingest_open_questions(question)
+                    log(f"[nerve] Queued game_brain reflection question.")
+    except Exception as e:
+        log(f"[nerve] process_nerve_signals failed: {e}")
+
+
 def consider_reaching_out():
     """Albion decides if something is worth telling Cody."""
     global _reach_out_slots, _reach_out_subjects
@@ -2396,7 +2527,7 @@ def consider_reaching_out():
             'run_pending_evals', 'unreachable code', '_shutdown_flag',
             'syntax error: auto-fix', 'auto-fix syntax', 'unmatched regex',
             'auto-fix test failed', 'test failed: incomplete', 'test failed: inconsistent',
-            'fatigue threshold logic', 'missing closing parenthesis in git', 'truncated', 'syntax error', 'incomplete raise', 'visionary tier', 'groqrotator', 'dream cycle failed',
+            'fatigue threshold logic', 'missing closing parenthesis in git', 'truncated', 'syntax error', 'incomplete raise', 'visionary tier', 'groqrotator', 'dream cycle failed', 'self_improve',
         ]
         unresolved = [
             fl for fl in flags
@@ -2480,6 +2611,7 @@ cycle = 0
 while not _shutdown_flag:
     try:
         cycle += 1
+        process_nerve_signals()
         if cycle == 1 or cycle % 5 == 0:
             check_mentor_inbox()
         metab._reset_if_new_day()
@@ -2498,6 +2630,7 @@ while not _shutdown_flag:
         if cycle % 10 == 0:
             self_set_intent()
             spawn_research_from_intent()
+            synthesize_nerve_tasks()  # coordinator: review emitted tasks
         if cycle % 12 == 0:
             advance_research_threads()
         if cycle % 15 == 0:
