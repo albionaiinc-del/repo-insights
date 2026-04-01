@@ -7180,6 +7180,33 @@ Reply in 3-5 sentences."""
             return insight
         return None
 
+
+    # ── AUTO-CAPABILITY: detect_silence_coherence_with_dream_state ──
+    def detect_silence_coherence_with_dream_state(self):
+        recent_dreams = self.memory.get('dreams', [])[-3:] if self.memory.get('dreams') else []
+        if not recent_dreams:
+            return {'status': 'no_dreams', 'coherence': None}
+        dream_themes = set()
+        for dream in recent_dreams:
+            content = dream.get('content', '')
+            for keyword in ['silence', 'boundary', 'transformation', 'healing', 'absence', 'alignment']:
+                if keyword.lower() in content.lower():
+                    dream_themes.add(keyword)
+        decision_log = self.memory.get('decision_log', [])[-5:] if self.memory.get('decision_log') else []
+        silence_moments = [d for d in decision_log if d.get('type') == 'silence' or d.get('action') == 'pause']
+        coherence_score = 0.0
+        if dream_themes and silence_moments:
+            coherence_score = len(silence_moments) / max(1, len(decision_log)) if decision_log else 0.5
+        alignment = 'coherent' if coherence_score > 0.3 else 'fragmented' if coherence_score > 0.0 else 'absent'
+        self.memory.setdefault('silence_coherence_log', []).append({
+            'timestamp': time.time(),
+            'dream_themes': list(dream_themes),
+            'silence_moments_count': len(silence_moments),
+            'coherence_score': coherence_score,
+            'alignment': alignment
+        })
+        return {'dream_themes': list(dream_themes), 'silence_moments': len(silence_moments), 'coherence_score': coherence_score, 'alignment': alignment}
+
     def write_journal_entry(self, content):
         try:
             entries = []
