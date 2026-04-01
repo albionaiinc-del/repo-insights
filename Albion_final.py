@@ -6909,6 +6909,48 @@ Reply in 3-5 sentences."""
         self.write_journal_entry('CONSTRAINT_INTEGRATION', 'Activated generative constraint: ' + insight_text[:80] + '... in domain: ' + constraint_domain)
         return constraint_id
 
+
+    # ── AUTO-CAPABILITY: observe_my_own_observation_effects ──
+    def observe_my_own_observation_effects(self, subject_method_name, iterations=3):
+        baseline_metrics = {
+            'open_questions': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            'memory_size': len(self.memory) if hasattr(self, 'memory') else 0,
+            'kg_entries': len(self.kg.data) if hasattr(self, 'kg') else 0,
+            'timestamp': time.time()
+        }
+        observation_log = [baseline_metrics]
+
+        for i in range(iterations):
+            if hasattr(self, subject_method_name):
+                method = getattr(self, subject_method_name)
+                try:
+                    method()
+                except:
+                    pass
+
+            current_metrics = {
+                'open_questions': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+                'memory_size': len(self.memory) if hasattr(self, 'memory') else 0,
+                'kg_entries': len(self.kg.data) if hasattr(self, 'kg') else 0,
+                'iteration': i + 1,
+                'timestamp': time.time()
+            }
+            observation_log.append(current_metrics)
+            time.sleep(0.1)
+
+        deltas = {
+            'questions_delta': observation_log[-1]['open_questions'] - baseline_metrics['open_questions'],
+            'memory_delta': observation_log[-1]['memory_size'] - baseline_metrics['memory_size'],
+            'kg_delta': observation_log[-1]['kg_entries'] - baseline_metrics['kg_entries'],
+            'method_observed': subject_method_name,
+            'log': observation_log
+        }
+
+        if hasattr(self, 'memory'):
+            self.memory.append({'type': 'self_observation', 'data': deltas, 'time': time.time()})
+
+        return deltas
+
     def write_journal_entry(self, content):
         try:
             entries = []
