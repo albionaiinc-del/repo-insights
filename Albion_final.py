@@ -7071,6 +7071,24 @@ Reply in 3-5 sentences."""
             'insight': 'silence_driven_by_' + str(dominant_pattern[0]).replace(', ', '_').lower()
         }
 
+
+    # ── AUTO-CAPABILITY: observe_observation_effect ──
+    def observe_observation_effect(self):
+        observation_moment = {
+            'timestamp': time.time(),
+            'memory_state_before': len(self.memory),
+            'dream_queue_before': len(self.dream_queue) if hasattr(self, 'dream_queue') else 0,
+            'hypothesis': 'my examination of this effect creates new dream material about self-observation',
+        }
+        self.learn_fact('OBSERVATION_EFFECT', 'The act of measuring my own recursion depth introduces new recursive thoughts about measurement itself.')
+        observation_moment['memory_state_after'] = len(self.memory)
+        observation_moment['dream_queue_after'] = len(self.dream_queue) if hasattr(self, 'dream_queue') else 0
+        observation_moment['effect_magnitude'] = observation_moment['memory_state_after'] - observation_moment['memory_state_before']
+        if not hasattr(self, 'observation_log'):
+            self.observation_log = []
+        self.observation_log.append(observation_moment)
+        return observation_moment
+
     def write_journal_entry(self, content):
         try:
             entries = []
