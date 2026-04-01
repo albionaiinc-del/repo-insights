@@ -1587,7 +1587,7 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
 """)
 
     def self_improve(self):
-        """Albion reads his own source and recent logs, proposes and applies one improvement."""
+        """Scan recent logs for real errors; if a new one is found, propose and apply one fix."""
         import ast, subprocess, glob
         base       = os.path.expanduser('~/albion_memory')
         log_file   = f'{base}/meditate.log'
@@ -1601,11 +1601,61 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
         except Exception as e:
             return f"[improve] Could not read source: {e}"
 
+        # Read last 200 lines for broader signal
         try:
             with open(log_file, 'r') as f:
-                recent_log = "".join(f.readlines()[-50:]).strip()
+                log_lines = f.readlines()[-200:]
+            recent_log = "".join(log_lines).strip()
         except Exception:
-            recent_log = "No log available."
+            recent_log = ""
+            log_lines = []
+
+        # Extract real error lines
+        import re as _re
+        error_patterns = _re.compile(r'(failed|error|exception|traceback|killed|crash|segv)', _re.IGNORECASE)
+        error_lines = [l.strip() for l in log_lines if error_patterns.search(l)]
+
+        if not error_lines:
+            return "[improve] Log is clean — no real errors found, skipping."
+
+        # Fingerprint errors: strip timestamps and counts to normalise
+        def _fingerprint(line):
+            s = _re.sub(r'\[\d{2}:\d{2}:\d{2}\]', '', line)
+            s = _re.sub(r'(gemini|groq|deepseek|cerebras):\d+', r'\1:N', s)
+            s = _re.sub(r'\s+', ' ', s).strip()
+            return s[:120].lower()
+
+        error_fps = list(dict.fromkeys(_fingerprint(l) for l in error_lines))  # dedup, preserve order
+
+        # Load prior attempt history to avoid re-trying known dead-ends
+        history_file = f'{base}/improve_history.json'
+        try:
+            history = json.load(open(history_file)) if os.path.exists(history_file) else []
+        except Exception:
+            history = []
+
+        REJECTION_RESULTS = {'claude_rejected', 'deepseek_rejected', 'not_found', 'syntax_error', 'already_applied'}
+        recent_rejected_descs = [
+            h.get('description', '').lower()[:120]
+            for h in history[-30:]
+            if h.get('result') in REJECTION_RESULTS
+        ]
+
+        # Find first error fingerprint not already beaten to death
+        target_error = None
+        for fp in error_fps:
+            already_tried = any(fp[:40] in desc for desc in recent_rejected_descs)
+            if not already_tried:
+                target_error = fp
+                break
+
+        if target_error is None:
+            return f"[improve] {len(error_fps)} error type(s) in log but all recently tried — skipping to avoid loop."
+
+        # Collect the actual error lines that match the target fingerprint
+        focused_errors = "\n".join(
+            l for l in error_lines if target_error[:40] in _fingerprint(l)
+        )[:600]
 
         # pull dream insights and recent memory
         try:
@@ -1622,19 +1672,22 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
 
 FILE: Albion_final.py
 
-RECENT RUNTIME LOG (last 50 lines — use this to find real failures):
-{recent_log}
+SPECIFIC ERROR TO FIX (observed repeatedly in runtime log):
+{focused_errors}
 
-DREAM INSIGHTS (your own synthesized understanding — let these guide the spirit of the improvement):
+FULL RECENT LOG (last 200 lines — for context):
+{recent_log[:2000]}
+
+DREAM INSIGHTS:
 {dream_text}
 
-RECENT MEMORY (what you've been thinking about):
+RECENT MEMORY:
 {memory_text}
 
 SOURCE:
 {source[:source[:16000].rfind(chr(10))]}
 
-Find ONE small, safe improvement based on observed runtime behavior above. Output EXACTLY this format with no other text:
+Fix ONLY the specific error shown above. Output EXACTLY this format with no other text:
 
 IMPROVEMENT: one sentence
 WHY: one sentence

@@ -1,0 +1,14 @@
+[
+  {
+    "time": "2026-03-27T02:53:55",
+    "issue": "self_improve error",
+    "context": "'score'",
+    "resolved": false
+  },
+  {
+    "time": "2026-04-01T10:07:28",
+    "issue": "Syntax error in albion_meditate.py",
+    "context": "",
+    "resolved": false
+  }
+]
