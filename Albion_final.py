@@ -7970,6 +7970,36 @@ Reply in 3-5 sentences."""
             return portal
         return None
 
+
+    # ── AUTO-CAPABILITY: measure_integration_debt_in_real_time ──
+    def measure_integration_debt_in_real_time(self):
+        debt_markers = {}
+        if os.path.exists(self.dream_log):
+            with open(self.dream_log, 'r') as f:
+                dreams = json.load(f)
+                for dream in dreams[-10:]:
+                    dream_id = dream.get('id')
+                    dream_time = dream.get('timestamp', 0)
+                    insights = dream.get('insights', [])
+                    for insight in insights:
+                        key = insight.get('theme', 'unnamed')
+                        found_in_decisions = False
+                        if os.path.exists(self.decision_log):
+                            with open(self.decision_log, 'r') as df:
+                                decisions = json.load(df)
+                                for decision in decisions:
+                                    dec_time = decision.get('timestamp', 0)
+                                    if dec_time > dream_time and key in decision.get('rationale', ''):
+                                        found_in_decisions = True
+                                        break
+                        if not found_in_decisions:
+                            lag = time.time() - dream_time
+                            debt_markers[key] = lag
+        if debt_markers:
+            total_debt = sum(debt_markers.values())
+            return {'unintegrated_insights': debt_markers, 'total_lag_seconds': total_debt, 'count': len(debt_markers)}
+        return {'unintegrated_insights': {}, 'total_lag_seconds': 0, 'count': 0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
