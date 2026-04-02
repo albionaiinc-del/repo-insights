@@ -8311,6 +8311,28 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'pattern': 'unknown'}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_realtime ──
+    def trace_silence_into_decision_vector_realtime(self):
+        silence_patterns = self.detect_operational_fatigue_from_silence_patterns()
+        if not silence_patterns:
+            return {'vector': None, 'confidence': 0}
+        recent_decisions = self._conversation_context()
+        if not recent_decisions:
+            return {'vector': None, 'confidence': 0}
+        prompt = 'Given these silence patterns: ' + json.dumps(silence_patterns)[:200] + ' and recent output: ' + recent_decisions[:300] + ', what decision am I avoiding or suppressing? Return JSON with keys: suppressed_vector (string), confidence (0-1), why (string).'
+        try:
+            result = self._call_groq(prompt, temp=0.3)
+            parsed = json.loads(result)
+            return {
+                'suppressed_vector': parsed.get('suppressed_vector'),
+                'confidence': parsed.get('confidence', 0),
+                'why': parsed.get('why'),
+                'timestamp': time.time()
+            }
+        except:
+            return {'vector': None, 'confidence': 0, 'error': 'parse_failed'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
