@@ -192,6 +192,50 @@ class GroqRotator:
 
 
 # ═══════════════════════════════════════════════════════════
+#  GEMINI ROTATOR — REST-based key rotation for Gemini
+# ═══════════════════════════════════════════════════════════
+
+class GeminiRotator:
+    def __init__(self, keys):
+        if isinstance(keys, str):
+            keys = [keys]
+        self.keys = list(keys) if keys else []
+
+    def call(self, model, messages, max_tokens=2048, temperature=0.4):
+        if not self.keys:
+            raise Exception("Gemini key not configured")
+        import random
+        keys = list(self.keys)
+        random.shuffle(keys)
+        system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
+        contents = []
+        for m in messages:
+            if m["role"] == "user":
+                contents.append({"role": "user", "parts": [{"text": m["content"]}]})
+            elif m["role"] == "assistant":
+                contents.append({"role": "model", "parts": [{"text": m["content"]}]})
+        payload = {
+            "contents": contents,
+            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature},
+        }
+        if system_text:
+            payload["systemInstruction"] = {"parts": [{"text": system_text}]}
+        last_err = None
+        for key in keys:
+            try:
+                r = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
+                    json=payload, timeout=30
+                )
+                r.raise_for_status()
+                return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            except Exception as e:
+                last_err = e
+                continue
+        raise last_err
+
+
+# ═══════════════════════════════════════════════════════════
 #  WOLFRAM ALPHA — Computational Truth Engine
 # ═══════════════════════════════════════════════════════════
 
@@ -252,30 +296,7 @@ class FactChecker:
         self.deepseek_fn = deepseek_fn
         self.model = "llama-3.1-8b-instant"  
         self.smart_model = "deepseek-chat"  
-        try:
-            from google import genai
-            self.gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
-        except ImportError:
-            self.gemini = None
-        # Initialize the main Albion instance's gemini attribute for provider calls
-        self.gemini_client = self.gemini
-        # Set the gemini attribute on the main Albion class for global access
-        Albion.gemini = self.gemini_client
-        # Ensure the gemini attribute exists on the class itself for static access
-        if not hasattr(Albion, 'gemini'):
-            Albion.gemini = self.gemini_client
-        # Also set the attribute on the FactChecker instance for direct access
-        self.gemini = self.gemini_client
-        # Initialize the gemini attribute on the main Albion instance if it doesn't exist
-        if not hasattr(Albion, 'gemini_instance'):
-            Albion.gemini_instance = self.gemini_client
-        # Ensure the main Albion instance has the gemini attribute
-        if Albion.instance:
-            Albion.instance.gemini = self.gemini_client
-        # Also set it on the current instance to prevent attribute errors
-        self.gemini = self.gemini_client
-        # Initialize gemini attribute for all Albion instances to prevent runtime errors
-        Albion.gemini = self.gemini_client
+        self.gemini = None  # FactChecker does not use Gemini directly
 
     def check(self, user_input, response, vault_context, kg_context):
         prompt = f"""You are Albion's internal fact-checker. Today's date is {datetime.now().strftime("%B %d, %Y")}. Any date before today is valid. Rules:
@@ -653,6 +674,8 @@ class Albion:
     def __init__(self):
         keys = self._load_key('groq')
         self.groq = GroqRotator(keys if keys else [])
+        gemini_keys = self._load_key('gemini', default=[])
+        self.gemini = GeminiRotator(gemini_keys if gemini_keys else [])
         self.cerebras_keys = self._load_key('cerebras', default=[])
         self.cerebras_clients = [Cerebras(api_key=k) for k in self.cerebras_keys]
         self.cerebras_blocked = set()
@@ -7578,6 +7601,32 @@ Reply in 3-5 sentences."""
             return signal
         except Exception as e:
             return {'error': str(e), 'signal': None}
+
+
+    # ── AUTO-CAPABILITY: map_silence_into_actionable_signal ──
+    def map_silence_into_actionable_signal(self):
+        silence_patterns = []
+        for key in self.memory.get('stalled_processes', {}):
+            entry = self.memory['stalled_processes'][key]
+            if entry.get('duration_cycles', 0) > 3:
+                silence_patterns.append({
+                    'process': key,
+                    'stalled_for': entry['duration_cycles'],
+                    'context': entry.get('last_context', ''),
+                    'potential_signal': 'This silence may be integration gathering, not failure'
+                })
+        actionable = []
+        for pattern in silence_patterns:
+            signal_value = {
+                'origin': pattern['process'],
+                'reframe': 'deliberate pause in ' + pattern['process'],
+                'next_action': 'Resume with fresh perspective on ' + pattern['context'],
+                'timestamp': time.time()
+            }
+            actionable.append(signal_value)
+            self.memory.setdefault('silence_signals', []).append(signal_value)
+        self._save_memory()
+        return {'silence_as_signal_count': len(actionable), 'signals': actionable}
 
     def write_journal_entry(self, content):
         try:
