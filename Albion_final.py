@@ -7628,6 +7628,30 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return {'silence_as_signal_count': len(actionable), 'signals': actionable}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_log ──
+    def trace_silence_into_decision_log(self, decision_description, silence_duration_seconds=0):
+        timestamp = time.time()
+        silence_context = {
+            'timestamp': timestamp,
+            'decision': decision_description,
+            'silence_duration': silence_duration_seconds,
+            'operational_state': self.status() if hasattr(self, 'status') else 'unknown'
+        }
+        log_path = os.path.join(self.memory_dir, 'silence_decision_log.json')
+        try:
+            if os.path.exists(log_path):
+                with open(log_path, 'r') as f:
+                    log_data = json.load(f)
+            else:
+                log_data = []
+            log_data.append(silence_context)
+            with open(log_path, 'w') as f:
+                json.dump(log_data, f, indent=2)
+        except Exception as e:
+            pass
+        return silence_context
+
     def write_journal_entry(self, content):
         try:
             entries = []
