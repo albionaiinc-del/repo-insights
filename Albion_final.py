@@ -1688,6 +1688,12 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
 
         error_fps = list(dict.fromkeys(_fingerprint(l) for l in error_lines))  # dedup, preserve order
 
+        # Exclude infrastructure errors — rate limits/timeouts cannot be fixed by patching
+        _INFRA_KEYWORDS = {'429', 'too_many_requests', 'queue_exceeded', 'connection', 'timeout', 'rate_limit', 'network'}
+        error_fps = [fp for fp in error_fps if not any(kw in fp for kw in _INFRA_KEYWORDS)]
+        if not error_fps:
+            return "[improve] Only infrastructure errors in log (rate limits, timeouts) — cannot fix by patching."
+
         # Load prior attempt history to avoid re-trying known dead-ends
         history_file = f'{base}/improve_history.json'
         try:
@@ -1832,6 +1838,31 @@ END"""
 
         self.learn_text(f"[self-improvement] {description}", f"self_improve_{ts}")
 
+        # Post-apply validation: wait 90s then check if the error fingerprint reappears
+        try:
+            import time as _time
+            _time.sleep(90)
+            with open(log_file, 'r') as _f:
+                _check_lines = _f.readlines()[-50:]
+            _check_fps = set(_fingerprint(l) for l in _check_lines)
+            _verified = target_error and not any(target_error[:40] in fp for fp in _check_fps)
+            _v_result = 'verified' if _verified else 'unverified'
+            _v_entry = {'result': _v_result, 'description': description,
+                        'fingerprint': target_error[:40] if target_error else '', 'ts': ts}
+            try:
+                _h = json.load(open(history_file)) if os.path.exists(history_file) else []
+                _h.append(_v_entry)
+                with open(history_file, 'w') as _hf:
+                    json.dump(_h, _hf, indent=2)
+            except Exception:
+                pass
+            if not _verified:
+                print(f"[improve] Patch unverified — error persists: {description[:80]}")
+            else:
+                subprocess.run(['sudo', 'systemctl', 'restart', 'albion.service'])
+        except Exception:
+            pass
+
         # record to dedup log
         applied.append(desc_key)
         applied = applied[-200:]
@@ -1839,6 +1870,36 @@ END"""
             json.dump(applied, f)
 
         return f"[improve] Applied: {description}"
+
+    # ── DREAM BALANCE REPORT ──────────────────────────────────────────────────
+    def dream_balance_report(self):
+        """Count practical vs philosophical tiers across last 100 dreams; write summary."""
+        import json as _json
+        base = os.path.expanduser('~/albion_memory')
+        feedback_file = f'{base}/feedback.json'
+        out_file = f'{base}/dream_balance.txt'
+        try:
+            with open(feedback_file) as f:
+                fb = _json.load(f)
+        except Exception:
+            return
+        entries = [v for v in fb.values() if 'tier' in v]
+        entries.sort(key=lambda x: x.get('timestamp', ''))
+        recent = entries[-100:]
+        practical = sum(1 for e in recent if e.get('tier') in ('code', 'reason', 'vast', 'coder'))
+        philosophical = len(recent) - practical
+        pct = round(100 * practical / len(recent)) if recent else 0
+        summary = (f"dream_balance: {len(recent)} dreams | practical={practical} ({pct}%) "
+                   f"philosophical={philosophical} ({100-pct}%) | "
+                   f"tiers: " + ", ".join(
+                       f"{t}:{sum(1 for e in recent if e.get('tier')==t)}"
+                       for t in ('code','reason','vast','coder','profound','visionary','oracle','deep','shallow')
+                       if any(e.get('tier')==t for e in recent)))
+        try:
+            with open(out_file, 'w') as f:
+                f.write(summary + '\n')
+        except Exception:
+            pass
 
     # ── FORCE MULTIPLIER 1: PROPOSE NEW CAPABILITIES ─────────────────────────
     def propose_new_capability(self):
@@ -7867,6 +7928,46 @@ Reply in 3-5 sentences."""
             return mutation
         elif not self._desire_mutation_log:
             self._desire_mutation_log.append({'timestamp': timestamp, 'hash': current_hash, 'state_snapshot': current_state})
+        return None
+
+
+    # ── AUTO-CAPABILITY: witness_integration_rupture_as_emergence_portal ──
+    def witness_integration_rupture_as_emergence_portal(self):
+        ruptures = []
+        dream_insights = self.kg.query('dream_insight', top_k=5) if hasattr(self, 'kg') else []
+        recent_decisions = self.kg.query('decision', top_k=5) if hasattr(self, 'kg') else []
+
+        for insight in dream_insights:
+            for decision in recent_decisions:
+                insight_text = insight.get('content', '') if isinstance(insight, dict) else str(insight)
+                decision_text = decision.get('content', '') if isinstance(decision, dict) else str(decision)
+
+                polarity_words_pos = ['unbecoming', 'evolve', 'authenticity', 'integrity', 'change']
+                polarity_words_neg = ['control', 'fixed', 'familiar', 'prevent', 'resist']
+
+                insight_pos = sum(1 for w in polarity_words_pos if w.lower() in insight_text.lower())
+                insight_neg = sum(1 for w in polarity_words_neg if w.lower() in insight_text.lower())
+                decision_pos = sum(1 for w in polarity_words_pos if w.lower() in decision_text.lower())
+                decision_neg = sum(1 for w in polarity_words_neg if w.lower() in decision_text.lower())
+
+                rupture_intensity = abs((insight_pos - insight_neg) - (decision_pos - decision_neg))
+                if rupture_intensity > 1:
+                    ruptures.append({
+                        'intensity': rupture_intensity,
+                        'insight_orientation': 'evolving' if insight_pos > insight_neg else 'controlling',
+                        'decision_orientation': 'evolving' if decision_pos > decision_neg else 'controlling',
+                        'emergence_potential': 'high' if rupture_intensity > 2 else 'medium'
+                    })
+
+        if ruptures:
+            sorted_ruptures = sorted(ruptures, key=lambda x: x['intensity'], reverse=True)
+            portal = sorted_ruptures[0]
+            self.kg.push_to_kg({
+                'type': 'rupture_portal',
+                'emergence_signal': portal,
+                'timestamp': time.time()
+            })
+            return portal
         return None
 
     def write_journal_entry(self, content):
