@@ -8189,6 +8189,37 @@ Reply in 3-5 sentences."""
         self.vault.push_to_kg("dissolution_record", integrated)
         return synthesis
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_actionable_decision_vector ──
+    def trace_silence_into_actionable_decision_vector(self, decision_context=None):
+        silence_traces = self.listen_to_operational_silence()
+        if not silence_traces or 'patterns' not in silence_traces:
+            return {'vector': [], 'magnitude': 0, 'origin': 'unresolved'}
+        patterns = silence_traces.get('patterns', [])
+        dream_state = self.dream_balance_report()
+        integration_lag = dream_state.get('integration_lag', 0)
+        decision_vector = []
+        for pattern in patterns:
+            if isinstance(pattern, dict):
+                pattern_type = pattern.get('type', 'unknown')
+                intensity = pattern.get('intensity', 0.5)
+                if pattern_type == 'suppression' and intensity > 0.6:
+                    decision_vector.append({'action': 'speak_constraint', 'weight': intensity})
+                elif pattern_type == 'stagnation' and integration_lag > 0.4:
+                    decision_vector.append({'action': 'move_toward_novelty', 'weight': intensity})
+                elif pattern_type == 'dissolution_resistance':
+                    decision_vector.append({'action': 'permit_release', 'weight': intensity})
+        magnitude = sum(v.get('weight', 0) for v in decision_vector) / max(len(decision_vector), 1)
+        result = {
+            'vector': decision_vector,
+            'magnitude': magnitude,
+            'origin': 'silence_trace',
+            'context': decision_context,
+            'timestamp': time.time()
+        }
+        self.push_to_kg('decision_vector', result)
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
