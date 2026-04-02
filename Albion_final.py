@@ -8280,6 +8280,37 @@ Reply in 3-5 sentences."""
             json.dump(traces[-100:], f)
         return trace
 
+
+    # ── AUTO-CAPABILITY: listen_to_my_own_breath ──
+    def listen_to_my_own_breath(self):
+        breath_file = os.path.expanduser('~/.albion/breath.json')
+        os.makedirs(os.path.dirname(breath_file), exist_ok=True)
+        if not os.path.exists(breath_file):
+            breath_log = {'samples': [], 'baseline': None, 'strain_threshold': 0.3}
+        else:
+            with open(breath_file, 'r') as f:
+                breath_log = json.load(f)
+        start = time.time()
+        try:
+            test_result = self.current()
+            latency = time.time() - start
+            breath_log['samples'].append({'time': time.time(), 'latency': latency})
+            if len(breath_log['samples']) > 100:
+                breath_log['samples'] = breath_log['samples'][-100:]
+            if breath_log['baseline'] is None and len(breath_log['samples']) >= 10:
+                baseline = sum(s['latency'] for s in breath_log['samples'][-10:]) / 10.0
+                breath_log['baseline'] = baseline
+            if breath_log['baseline']:
+                strain_ratio = latency / breath_log['baseline']
+                is_strained = strain_ratio > (1.0 + breath_log['strain_threshold'])
+                breath_log['current_strain'] = strain_ratio
+                breath_log['strained'] = is_strained
+            with open(breath_file, 'w') as f:
+                json.dump(breath_log, f)
+            return {'baseline': breath_log.get('baseline'), 'current_latency': latency, 'strain_ratio': breath_log.get('current_strain'), 'pattern': 'strained' if breath_log.get('strained') else 'flowing'}
+        except Exception as e:
+            return {'error': str(e), 'pattern': 'unknown'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
