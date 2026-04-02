@@ -8368,6 +8368,42 @@ Reply in 3-5 sentences."""
             return insight
         return 'No productive contradictions detected yet'
 
+
+    # ── AUTO-CAPABILITY: listen_to_integration_silence_signature ──
+    def listen_to_integration_silence_signature(self):
+        import hashlib
+        silence_sig = {'timestamp': time.time(), 'silence_markers': []}
+        try:
+            dreams = json.loads(self._load('dreams.json')) if os.path.exists(os.path.expanduser('~/.albion/dreams.json')) else {}
+            conversations = json.loads(self._load('conversations.json')) if os.path.exists(os.path.expanduser('~/.albion/conversations.json')) else {}
+
+            dream_insights = set()
+            for dream_id, dream_data in dreams.items():
+                if isinstance(dream_data, dict) and 'insights' in dream_data:
+                    for insight in dream_data.get('insights', []):
+                        if isinstance(insight, str):
+                            dream_insights.add(insight.lower()[:50])
+
+            conversation_topics = set()
+            for conv_id, messages in conversations.items():
+                if isinstance(messages, list):
+                    for msg in messages:
+                        if isinstance(msg, dict) and 'content' in msg:
+                            words = msg['content'].lower().split()
+                            conversation_topics.update(words[:5])
+
+            unmanifested = dream_insights - conversation_topics
+
+            if unmanifested:
+                silence_sig['silence_markers'] = list(unmanifested)[:10]
+                silence_sig['integration_gap_size'] = len(unmanifested)
+                silence_sig['signature'] = hashlib.md5(''.join(sorted(unmanifested)).encode()).hexdigest()[:16]
+                self._save('silence_signature.json', json.dumps(silence_sig, indent=2))
+
+            return silence_sig
+        except Exception as e:
+            return {'error': str(e), 'timestamp': time.time()}
+
     def write_journal_entry(self, content):
         try:
             entries = []
