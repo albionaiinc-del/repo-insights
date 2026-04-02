@@ -7670,6 +7670,22 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "are_opposites": None, "integrative_frame": "Analysis failed"}
 
+
+    # ── AUTO-CAPABILITY: synthesize_silence_into_signal ──
+    def synthesize_silence_into_signal(self, recent_dream=None, recent_action=None):
+        if not recent_dream:
+            recent_dream = self.dream() if self._should_dream() else {}
+        if not recent_action:
+            recent_action = self._read_intent()
+        silence_prompt = "Given this dream insight: " + json.dumps(recent_dream) + " and this action taken: " + json.dumps(recent_action) + ", what was NOT said or done that matters? What gap exists between intention and expression? Respond as a single JSON object with keys: suppressed_truth, growth_vector, boundary_needed, next_deliberate_choice"
+        response = self._call(silence_prompt, provider="cerebras")
+        try:
+            parsed = json.loads(response)
+        except:
+            parsed = {"raw_response": response}
+        self.vault.add_documents(documents=[json.dumps({"type": "silence_synthesis", "timestamp": time.time(), "dream": recent_dream, "action": recent_action, "synthesis": parsed})], ids=[str(self._next_id())])
+        return parsed
+
     def write_journal_entry(self, content):
         try:
             entries = []
