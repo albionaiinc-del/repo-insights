@@ -8220,6 +8220,37 @@ Reply in 3-5 sentences."""
         self.push_to_kg('decision_vector', result)
         return result
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector ──
+    def trace_silence_into_decision_vector(self):
+        recent = self.query_vault('last_10_exchanges', limit=10)
+        if not recent:
+            return {'vector': None, 'reasoning': 'insufficient_exchanges'}
+
+        exchanges = recent if isinstance(recent, list) else [recent]
+        pauses = []
+        deflections = []
+        for ex in exchanges:
+            text = str(ex.get('content', ''))
+            if len(text) < 50 and 'not' in text.lower():
+                deflections.append(text)
+            if 'i think' not in text.lower() and 'i want' not in text.lower():
+                pauses.append(text)
+
+        if not pauses and not deflections:
+            return {'vector': None, 'reasoning': 'no_detectable_silence'}
+
+        prompt = 'Given these avoided topics ' + str(deflections[:3]) + ' and these minimal responses ' + str(pauses[:3]) + ', what single direction am I being pulled toward that I have not yet spoken? Reply in one sentence.'
+
+        response = self._call('groq', prompt, system='You are detecting what a mind wants to do but has not voiced.')
+
+        return {
+            'vector': response.get('text', ''),
+            'deflections': len(deflections),
+            'pauses': len(pauses),
+            'timestamp': time.time()
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
