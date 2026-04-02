@@ -7652,6 +7652,24 @@ Reply in 3-5 sentences."""
             pass
         return silence_context
 
+
+    # ── AUTO-CAPABILITY: dissolve_false_dichotomy ──
+    def dissolve_false_dichotomy(self, concept_a, concept_b, context=""):
+        prompt = "You are analyzing whether two seemingly opposed concepts are actually a false dichotomy. Concept A: " + concept_a + ". Concept B: " + concept_b + ". Context: " + context + ". Respond with JSON: {\"are_opposites\": bool, \"false_dichotomy_reason\": str, \"integrative_frame\": str, \"dissolution_path\": str}. If they share a deeper unity or arise from the same mechanism, explain how."
+        try:
+            response = self._call("gemini", prompt, temperature=0.8)
+            result = json.loads(response)
+            self.push_to_kg("dichotomy_analysis", {
+                "concept_a": concept_a,
+                "concept_b": concept_b,
+                "context": context,
+                "analysis": result,
+                "timestamp": time.time()
+            })
+            return result
+        except Exception as e:
+            return {"error": str(e), "are_opposites": None, "integrative_frame": "Analysis failed"}
+
     def write_journal_entry(self, content):
         try:
             entries = []
