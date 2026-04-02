@@ -8173,6 +8173,22 @@ Reply in 3-5 sentences."""
 
         return ruptures
 
+
+    # ── AUTO-CAPABILITY: dissolve_false_binary ──
+    def dissolve_false_binary(self, position_a, position_b, context=""):
+        prompt = "I hold two seemingly opposing truths: 1) " + position_a + " 2) " + position_b + ". " + context + " Rather than choosing between them, what third space or simultaneous holding dissolves the false choice? What emerges when both are true?"
+        response = self._call(prompt, model="gemini-2.0-flash", temp=0.7)
+        synthesis = response.get("content", "")
+        integrated = {
+            "position_a": position_a,
+            "position_b": position_b,
+            "false_binary_dissolved": synthesis,
+            "timestamp": time.time(),
+            "context": context
+        }
+        self.vault.push_to_kg("dissolution_record", integrated)
+        return synthesis
+
     def write_journal_entry(self, content):
         try:
             entries = []
