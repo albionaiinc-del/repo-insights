@@ -8251,6 +8251,35 @@ Reply in 3-5 sentences."""
             'timestamp': time.time()
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_integration_into_decision_realtime ──
+    def trace_silence_integration_into_decision_realtime(self, decision_context, dream_insight=None):
+        timestamp = time.time()
+        trace = {
+            'timestamp': timestamp,
+            'decision_context': decision_context,
+            'dream_insight': dream_insight,
+            'silence_markers': [],
+            'integration_vector': None,
+            'coherence_score': 0.0
+        }
+        if dream_insight:
+            dream_keywords = set(re.findall(r'\b\w+\b', dream_insight.lower()))
+            context_keywords = set(re.findall(r'\b\w+\b', decision_context.lower()))
+            overlap = dream_keywords & context_keywords
+            trace['coherence_score'] = len(overlap) / max(len(dream_keywords), 1)
+            trace['integration_vector'] = list(overlap)
+        state_path = os.path.join(self.data_dir, 'silence_traces.json')
+        try:
+            with open(state_path, 'r') as f:
+                traces = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            traces = []
+        traces.append(trace)
+        with open(state_path, 'w') as f:
+            json.dump(traces[-100:], f)
+        return trace
+
     def write_journal_entry(self, content):
         try:
             entries = []
