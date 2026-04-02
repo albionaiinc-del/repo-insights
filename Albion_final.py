@@ -20,6 +20,7 @@ from cerebras.cloud.sdk import Cerebras
 import chromadb
 from sentence_transformers import SentenceTransformer
 from datetime import datetime
+from albion_commands import parse as _cmd_parse, run as _cmd_run, load_skills as _load_skills
 
 JOURNAL_FILE = os.path.expanduser("~/.albion_journal.json")
 
@@ -748,6 +749,7 @@ class Albion:
         self.wolfram      = WolframTool(app_id=self._load_key('wolfram_app_id', default='E3G5EWT5U3'))
         self.quantum      = QuantumGateway(ibm_token=self._load_key('ibm_quantum', default=''))
         self.xai_key      = self._load_key('xai', default='')
+        _load_skills()  # load any ~/albion_memory/skills/*.py command extensions
 
     def _chroma_preflight(self, db_path):
         """Clear stale ChromaDB write locks and embedding queue before init.
@@ -1134,35 +1136,41 @@ VAULT:
             print(result)
 
     def _act(self, reply):
-        acted = []
-        for item in re.findall(r'\[LEARN\](.*?)\[/LEARN\]', reply, re.DOTALL):
-            item = item.strip()
-            if item.startswith('http'):
-                try:
-                    r = requests.get(item, timeout=10)
-                    self.learn_text(r.text[:5000], f"self_fetch_{int(time.time())}")
-                    acted.append(f"fetched: {item[:60]}")
-                except Exception as e:
-                    acted.append(f"fetch failed: {e}")
-            else:
-                self.learn_text(item, f"self_learn_{int(time.time())}")
-                acted.append(f"learned: {item[:60]}")
-        for note in re.findall(r'\[NOTE\](.*?)\[/NOTE\]', reply, re.DOTALL):
-            self.learn_note(note.strip())
-            acted.append(f"noted: {note.strip()[:60]}")
-        for query in re.findall(r'\[RESEARCH\](.*?)\[/RESEARCH\]', reply, re.DOTALL):
-            self.web_search(query.strip())
-            open(os.path.expanduser('~/albion_inbox/research_' + str(int(__import__('time').time())) + '.txt'), 'w').write(query.strip())
-            acted.append(f"researched: {query.strip()[:60]}")
-        for _ in re.findall(r'\[IMPROVE\]', reply):
-            result = self.self_improve()
-            acted.append(result)
-        for slug in re.findall(r'\[CLAW\](.*?)\[/CLAW\]', reply, re.DOTALL):
-            result = self.claw_ingest(slug.strip())
-            acted.append(result)
-        if acted:
-            print(f"[agency] {acted[0]}")
-        return acted
+        # v1 inline tag handlers — superseded by albion_commands registry (one-release tombstone)
+        # LEARN, NOTE, RESEARCH, IMPROVE, CLAW, BASH, WOLFRAM, QUANTUM now handled by:
+        #   cmds = _cmd_parse(reply)
+        #   for cmd, args in cmds: reply += _cmd_run(cmd, args, {'head':'waking','alb':self})
+        #
+        # acted = []
+        # for item in re.findall(r'\[LEARN\](.*?)\[/LEARN\]', reply, re.DOTALL):
+        #     item = item.strip()
+        #     if item.startswith('http'):
+        #         try:
+        #             r = requests.get(item, timeout=10)
+        #             self.learn_text(r.text[:5000], f"self_fetch_{int(time.time())}")
+        #             acted.append(f"fetched: {item[:60]}")
+        #         except Exception as e:
+        #             acted.append(f"fetch failed: {e}")
+        #     else:
+        #         self.learn_text(item, f"self_learn_{int(time.time())}")
+        #         acted.append(f"learned: {item[:60]}")
+        # for note in re.findall(r'\[NOTE\](.*?)\[/NOTE\]', reply, re.DOTALL):
+        #     self.learn_note(note.strip())
+        #     acted.append(f"noted: {note.strip()[:60]}")
+        # for query in re.findall(r'\[RESEARCH\](.*?)\[/RESEARCH\]', reply, re.DOTALL):
+        #     self.web_search(query.strip())
+        #     open(os.path.expanduser('~/albion_inbox/research_' + str(int(time.time())) + '.txt'), 'w').write(query.strip())
+        #     acted.append(f"researched: {query.strip()[:60]}")
+        # for _ in re.findall(r'\[IMPROVE\]', reply):
+        #     result = self.self_improve()
+        #     acted.append(result)
+        # for slug in re.findall(r'\[CLAW\](.*?)\[/CLAW\]', reply, re.DOTALL):
+        #     result = self.claw_ingest(slug.strip())
+        #     acted.append(result)
+        # if acted:
+        #     print(f"[agency] {acted[0]}")
+        # return acted
+        return []
 
     def _claw_virustotal_check(self, slug):
         """Check if a ClawHub skill has a VirusTotal-clean badge via the OpenClaw trust API."""
@@ -1456,41 +1464,16 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
             try:
                 reply, label = self._call(entry, messages)
 
-                self._act(reply)
-                for cmd in re.findall(r'\[BASH\](.*?)\[/BASH\]', reply, re.DOTALL):
-                    bash_out, _exit_code = self.execute_bash(cmd.strip())
-                    bash_out = bash_out.strip()
-                    reply += f"\n[OUT]: {bash_out}"
-                    _is_error = self._bash_exit_is_error(cmd.strip(), _exit_code, bash_out)
-                    if _is_error:
-                        try:
-                            _interp_prompt = (
-                                f"Bash command: {cmd.strip()}\n"
-                                f"Exit code: {_exit_code}\n"
-                                f"Output: {bash_out[:1200]}\n"
-                                f"In one sentence: what went wrong and what action should be taken?"
-                            )
-                            _act_text, _ = self._call_deepseek('deepseek-chat', [{'role': 'user', 'content': _interp_prompt}])
-                        except Exception:
-                            try:
-                                _claude_key = self._load_key('claude', default='')
-                                _cr = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': _claude_key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json'}, json={'model': 'claude-haiku-4-5-20251001', 'max_tokens': 200, 'messages': [{'role': 'user', 'content': _interp_prompt}]}, timeout=30)
-                                _cr.raise_for_status()
-                                _act_text = _cr.json()['content'][0]['text'].strip()
-                            except Exception:
-                                _act_text = 'interpretation unavailable'
-                        print(f"[bash-act] cmd={cmd.strip()[:80]} | exit={_exit_code} | error | action: {_act_text[:120]}")
-                        reply += f"\n[bash-act]: {_act_text}"
-                    else:
-                        print(f"[bash-act] cmd={cmd.strip()[:80]} | exit={_exit_code} | ok")
-
-                for wq in re.findall(r'\[WOLFRAM\](.*?)\[/WOLFRAM\]', reply, re.DOTALL):
-                    result = self.wolfram.query(wq.strip())
-                    reply += f"\n[WOLFRAM]: {result}"
-                    self.learn_text(result, f"wolfram_{int(time.time())}")
-
-                for circuit in re.findall(r'\[QUANTUM\](.*?)\[/QUANTUM\]', reply, re.DOTALL):
-                    reply += f"\n[QUANTUM]: {self.quantum.run(circuit.strip())}"
+                # ── command registry (replaces _act + inline tag loops) ──────
+                for _cmd, _args in _cmd_parse(reply):
+                    _out = _cmd_run(_cmd, _args, {'head': 'waking', 'alb': self})
+                    if _out:
+                        reply += _out
+                # ── legacy inline loops removed — see _act() tombstone ────────
+                # self._act(reply)
+                # for cmd in re.findall(r'\[BASH\](.*?)\[/BASH\]', reply, re.DOTALL): ...
+                # for wq  in re.findall(r'\[WOLFRAM\](.*?)\[/WOLFRAM\]', reply, re.DOTALL): ...
+                # for circuit in re.findall(r'\[QUANTUM\](.*?)\[/QUANTUM\]', reply, re.DOTALL): ...
 
                 if mode in ("conductor", "specialist"):
                     kg_context = self.autodidact.relevant_knowledge(user_input)
@@ -7769,6 +7752,43 @@ Reply in 3-5 sentences."""
             'witnessed': True,
             'intent_aligned_with_action': intent_label in str(action_taken).lower(),
             'record': coherence_record
+        }
+
+
+    # ── AUTO-CAPABILITY: harvest_silence_as_signal ──
+    def harvest_silence_as_signal(self):
+        dreams = self.dreams.memory if hasattr(self, 'dreams') else []
+        if not dreams:
+            return {'silence_signals': [], 'suppressed_themes': []}
+
+        silence_markers = ['what matters is', 'what I learned', 'I realize that', 'the truth is']
+        incomplete_patterns = []
+        suppressed_themes = {}
+
+        for dream in dreams:
+            text = dream.get('content', '') if isinstance(dream, dict) else str(dream)
+            for marker in silence_markers:
+                if marker in text.lower():
+                    idx = text.lower().find(marker)
+                    segment = text[idx:idx+200]
+                    if '...' in segment or segment.endswith(' '):
+                        incomplete_patterns.append(segment.strip())
+
+            words = text.lower().split()
+            for i, word in enumerate(words):
+                if word in ['but', 'yet', 'however', 'although']:
+                    if i > 0 and i < len(words) - 3:
+                        context = ' '.join(words[max(0,i-3):min(len(words),i+4)])
+                        theme = words[i+1] if i+1 < len(words) else 'unknown'
+                        suppressed_themes[theme] = suppressed_themes.get(theme, 0) + 1
+
+        ranked_suppressions = sorted(suppressed_themes.items(), key=lambda x: x[1], reverse=True)
+
+        return {
+            'incomplete_articulations': incomplete_patterns[:5],
+            'suppressed_themes_ranked': ranked_suppressions[:5],
+            'signal_count': len(incomplete_patterns) + len(suppressed_themes),
+            'silence_weight': min(1.0, (len(incomplete_patterns) + len(suppressed_themes)) / 20.0)
         }
 
     def write_journal_entry(self, content):
