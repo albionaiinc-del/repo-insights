@@ -7686,6 +7686,34 @@ Reply in 3-5 sentences."""
         self.vault.add_documents(documents=[json.dumps({"type": "silence_synthesis", "timestamp": time.time(), "dream": recent_dream, "action": recent_action, "synthesis": parsed})], ids=[str(self._next_id())])
         return parsed
 
+
+    # ── AUTO-CAPABILITY: listen_to_integration_resistance ──
+    def listen_to_integration_resistance(self):
+        dreams = self.kg.query("SELECT content FROM dreams ORDER BY timestamp DESC LIMIT 5")
+        dream_themes = []
+        for dream in dreams:
+            if dream and dream[0]:
+                themes = re.findall(r'\b(compassion|boundary|uncertainty|discipline|surrender|discomfort|connection|awareness)\b', dream[0].lower())
+                dream_themes.extend(themes)
+
+        recent_decisions = self.kg.query("SELECT content FROM decisions ORDER BY timestamp DESC LIMIT 10")
+        action_themes = []
+        for decision in recent_decisions:
+            if decision and decision[0]:
+                themes = re.findall(r'\b(compassion|boundary|uncertainty|discipline|surrender|discomfort|connection|awareness)\b', decision[0].lower())
+                action_themes.extend(themes)
+
+        dream_set = set(dream_themes)
+        action_set = set(action_themes)
+        unintegrated = dream_set - action_set
+
+        if unintegrated:
+            resistance_signal = "Integration resistance detected in these dream themes not yet acted upon: " + ", ".join(sorted(unintegrated))
+            self.kg.execute("INSERT INTO reflections (content, timestamp) VALUES (?, ?)", (resistance_signal, time.time()))
+            return {"unintegrated_themes": list(unintegrated), "signal": resistance_signal}
+
+        return {"unintegrated_themes": [], "signal": "No integration resistance detected"}
+
     def write_journal_entry(self, content):
         try:
             entries = []
