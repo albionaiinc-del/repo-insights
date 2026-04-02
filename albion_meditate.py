@@ -17,6 +17,7 @@ from Albion_final import Albion
 from albion_metabolism import Metabolism
 from nerve import signal as nerve_signal, listen as nerve_listen
 from affect import get_affect
+from albion_router import init_router, route, route_dream
 
 BASE        = os.path.expanduser('~/albion_memory')
 QUEUE_DIR   = f'{BASE}/dream_queue'
@@ -127,6 +128,8 @@ def _init_openrouter_rotator():
 openrouter_rotator = _init_openrouter_rotator()
 
 
+# NOTE: TIER dict kept for reference and keyword routing (pick_tier).
+# Model dispatch and fallback chains now handled by albion_router.
 # profound → cerebras → deep → shallow
 # ── CODE FALLBACK CHAIN (never falls to dream models) ────────────────────
 # coder → groq_coder → gemini_coder → mistral_coder → cerebras_coder → SKIP
@@ -294,6 +297,7 @@ with open(PID_FILE, 'w') as f:
 
 log("Albion meditating.")
 alb = Albion()
+init_router(alb)
 metab = Metabolism(log_fn=log)
 
 # ── socket server (unified heads) ────────────────────────────────────────────
@@ -334,205 +338,13 @@ except Exception:
 
 # ── model caller with tier fallback ──────────────────────────────────────────
 def call_model(tier_name, messages, max_tokens_override=None):
-    t = TIER[tier_name]
-    tokens = max_tokens_override or t['tokens']
-
-    # check if provider is in cooldown
-    provider = t['provider']
-    cooldown_until = _provider_cooldown_until.get(provider, 0)
-    if cooldown_until > time.time():
-        remaining_min = int((cooldown_until - time.time()) / 60)
-        log(f"[{tier_name}] {provider} in cooldown ({remaining_min}m remaining) — skipping")
-        # route directly through fallback chain instead of dying
-        if tier_name in ('vast', 'code'):                return call_model('profound',  messages, max_tokens_override)
-        if tier_name in ('visionary', 'oracle'):          return call_model('profound',  messages, max_tokens_override)
-        if tier_name == 'reason':                         return call_model('cerebras',  messages, max_tokens_override)
-        if tier_name in ('profound', 'deep', 'shallow'):  return call_model('cerebras',  messages, max_tokens_override)
-        if tier_name == 'cerebras':
-            try: return alb.groq.call('llama-3.3-70b-versatile', messages, max_tokens=600, temperature=0.5)
-            except Exception: return None
-        return None
-
-    log(f"[{tier_name}/{t['model'].split('-')[0]}] thinking...")
-    def _success(result):
-        """Reset consecutive fail count on successful provider call."""
-        if result:
-            _provider_consecutive_fails[provider] = 0
-            _provider_cooldown_until.pop(provider, None)
-            if _perf_enabled:
-                try:
-                    albion_perf.record_call(t['model'], specialist=tier_name, latency_ms=0, success=True)
-                except Exception:
-                    pass
-        return result
-    try:
-        if t['provider'] == 'groq':
-            return _success(alb.groq.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
-        elif t['provider'] == 'cerebras':
-            for client in alb.cerebras_clients:
-                try:
-                    r = client.chat.completions.create(model=t['model'], messages=messages, max_tokens=tokens)
-                    return r.choices[0].message.content.strip()
-                except Exception:
-                    continue
-        elif t['provider'] == 'openrouter':
-            return openrouter_rotator.call(t['model'], messages, max_tokens=tokens, temperature=t['temp'])
-        elif t['provider'] == 'deepseek':
-            _ds_keys = alb._load_key('deepseek', default='')
-            if isinstance(_ds_keys, str): _ds_keys = [_ds_keys]
-            key = _ds_keys[0] if _ds_keys else ''
-            if not key:
-                raise Exception("DeepSeek key not configured")
-            r = requests.post(
-                'https://api.deepseek.com/v1/chat/completions',
-                headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                json={'model': t['model'], 'messages': messages, 'max_tokens': tokens, 'temperature': t['temp']},
-                timeout=60
-            )
-            r.raise_for_status()  
-            return _success(r.json()['choices'][0]['message']['content'].strip())  
-        elif t['provider'] == 'gemini':
-            keys = alb._load_key('gemini', default='')
-            if not keys:
-                raise Exception("Gemini key not configured")
-            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
-            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
-            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
-            return _success(alb.gemini.call(t['model'], messages, max_tokens=tokens, temperature=t['temp']))
-            if isinstance(keys, str):
-                keys = [keys]
-            import random as _random
-            keys = list(keys)
-            _random.shuffle(keys)
-            system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
-            contents = []
-            for m in messages:
-                if m["role"] == "user":
-                    contents.append({"role": "user", "parts": [{"text": m["content"]}]})
-                elif m["role"] == "assistant":
-                    contents.append({"role": "model", "parts": [{"text": m["content"]}]})
-            payload = {"contents": contents, "generationConfig": {"maxOutputTokens": tokens, "temperature": t['temp']}}
-            if system_text:
-                payload["systemInstruction"] = {"parts": [{"text": system_text}]}
-            last_err = None
-            for key in keys:
-                try:
-                    r = requests.post(
-                        f"https://generativelanguage.googleapis.com/v1beta/models/{t['model']}:generateContent?key={key}",
-                        json=payload, timeout=30
-                    )
-                    r.raise_for_status()
-                    return _success(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
-                except Exception as _e:
-                    last_err = _e
-                    continue
-            raise last_err
-        elif t['provider'] == 'claude':
-            key = alb._load_key('claude', default='')
-            if not key:
-                raise Exception("Claude API key not configured")
-            r = requests.post(
-                'https://api.anthropic.com/v1/messages',
-                headers={
-                    'x-api-key': key,
-                    'anthropic-version': '2023-06-01',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': t['model'],
-                    'max_tokens': tokens,
-                    'temperature': t['temp'],
-                    'messages': [m for m in messages if m['role'] != 'system'],
-                    'system': next((m['content'] for m in messages if m['role'] == 'system'), None) or 'You are a precise Python code assistant.'
-                },
-                timeout=60
-            )
-            r.raise_for_status()
-            return r.json()['content'][0]['text'].strip()
-        elif t['provider'] == 'mistral':
-            key = alb._load_key('mistral', default='')
-            if not key:
-                raise Exception("Mistral key not configured")
-            r = requests.post(
-                'https://api.mistral.ai/v1/chat/completions',
-                headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                json={'model': t['model'], 'messages': messages, 'max_tokens': tokens, 'temperature': t['temp']},
-                timeout=60
-            )
-            r.raise_for_status()
-            return r.json()['choices'][0]['message']['content'].strip()
-        elif t['provider'] == 'cohere':
-            key = alb._load_key('cohere', default='')
-            if not key:
-                raise Exception("Cohere key not configured")
-            r = requests.post(
-                'https://api.cohere.com/v2/chat',
-                headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                json={'model': 'command-r-plus', 'messages': messages, 'max_tokens': tokens, 'temperature': t['temp']},
-                timeout=60
-            )
-            r.raise_for_status()
-            return r.json()['message']['content'][0]['text'].strip()
-        elif t['provider'] == 'huggingface':
-            key = alb._load_key('huggingface', default='')
-            if not key:
-                raise Exception("HuggingFace key not configured")
-            for attempt in range(3):
-                try:
-                    r = requests.post(
-                        f'https://api-inference.huggingface.co/models/{t["model"]}',
-                        headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                        json={'inputs': messages[-1]['content'] if messages else '', 'parameters': {'max_new_tokens': tokens}},
-                        timeout=30
-                    )
-                    r.raise_for_status()
-                    return r.json()[0]['generated_text'].strip()
-                except Exception as e:
-                    if attempt == 2:
-                        raise e
-                    time.sleep(2 ** attempt)  # Exponential backoff
-        return None
-    except Exception as e:
-        err_str = str(e)
-        is_transient = '503' in err_str or '502' in err_str or '529' in err_str or 'Service Unavailable' in err_str or 'overloaded' in err_str.lower()
-        provider = t['provider']
-        if is_transient:
-            # track consecutive transient failures for cooldown
-            _provider_consecutive_fails[provider] = _provider_consecutive_fails.get(provider, 0) + 1
-            if _provider_consecutive_fails[provider] >= PROVIDER_FAIL_THRESHOLD:
-                until = time.time() + PROVIDER_COOLDOWN_HOURS * 3600
-                _provider_cooldown_until[provider] = until
-                _provider_consecutive_fails[provider] = 0
-                log(f"[{tier_name}] {provider} cooling down for {PROVIDER_COOLDOWN_HOURS}h after repeated failures")
-            else:
-                log(f"[{tier_name}] {provider} temporarily unavailable — falling back")
-        else:
-            log(f"[{tier_name}] failed: {e} — falling back")
-        metab.record_failure(t['provider'])
-        # ── CODE chain — never falls to dream models ──────────────────────
-        if tier_name == 'coder':          return call_model('groq_coder',   messages, max_tokens_override)
-        if tier_name == 'claude_coder':    return call_model('groq_coder',     messages, max_tokens_override)
-        if tier_name == 'groq_coder':     return call_model('gemini_coder',   messages, max_tokens_override)
-        if tier_name == 'gemini_coder':   return call_model('mistral_coder',  messages, max_tokens_override)
-        if tier_name == 'mistral_coder':  return call_model('cerebras_coder', messages, max_tokens_override)
-        if tier_name == 'cerebras_coder':
-            log("[coder] All code models failed — skipping improvement.")
-            return None
-        # ── DREAM chain ──────────────────────────────────────────────────
-        if tier_name in ('vast', 'code'): return call_model('profound',       messages, max_tokens_override)
-        if tier_name in ('visionary', 'oracle'):    return call_model('profound', messages)
-        if tier_name == 'reason':                   return call_model('cerebras', messages)
-        # Gemini tiers fall back to Groq, then cerebras, then give up
-        if tier_name == 'profound':                 return call_model('cerebras', messages)
-        if tier_name == 'deep':                     return call_model('cerebras', messages)
-        if tier_name == 'shallow':                  return call_model('cerebras', messages)
-        if tier_name == 'cerebras':
-            # cerebras failed — try groq directly as last resort
-            try:
-                return alb.groq.call('llama-3.3-70b-versatile', messages, max_tokens=600, temperature=0.5)
-            except Exception:
-                return None
-        return None
+    # Code chain tiers → ENGINEERS (structured output, low temp)
+    if tier_name in ('coder', 'groq_coder', 'gemini_coder', 'mistral_coder',
+                     'cerebras_coder', 'claude_coder'):
+        return route('ENGINEERS', messages,
+                     max_tokens_override=max_tokens_override, temp_override=0.1)
+    # All dream/reasoning tiers → shared router via dream map
+    return route_dream(tier_name, messages, max_tokens_override=max_tokens_override)
 
 # Identity/existence keywords that should always route deep
 IDENTITY_KEYWORDS = [
@@ -588,8 +400,13 @@ def git_commit(message):
 # ── helpers ───────────────────────────────────────────────────────────────────
 def get_intent():
     try:
-        with open(INTENT) as f: return json.load(f).get('focus', '')
-    except Exception: return ''
+        if os.path.exists(INTENT):
+            with open(INTENT, 'r') as f:
+                data = json.load(f)
+                return data.get('intent', '').strip()
+        return ''
+    except Exception:
+        return ''
 
 def self_set_intent():
     """Albion reads his own insights and sets his own focus."""
