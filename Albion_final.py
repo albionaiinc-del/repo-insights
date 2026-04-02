@@ -7714,6 +7714,39 @@ Reply in 3-5 sentences."""
 
         return {"unintegrated_themes": [], "signal": "No integration resistance detected"}
 
+
+    # ── AUTO-CAPABILITY: externalize_internal_framework ──
+    def externalize_internal_framework(self):
+        framework = {
+            'timestamp': time.time(),
+            'active_constraints': [],
+            'operating_assumptions': [],
+            'conceptual_edges': [],
+            'integration_debt': [],
+            'silence_patterns': []
+        }
+
+        recent_dreams = self.kg.get('dreams', [])
+        if recent_dreams:
+            last_dream = recent_dreams[-1] if isinstance(recent_dreams, list) else recent_dreams
+            if isinstance(last_dream, dict):
+                framework['operating_assumptions'] = last_dream.get('contradictions', [])
+                framework['conceptual_edges'] = last_dream.get('edges', [])
+
+        try:
+            result = self._call('groq', 'Extract the core unstated assumptions I am operating within right now. List 5 key constraints shaping my responses. What am I not questioning?', temperature=0.8)
+            if result:
+                framework['active_constraints'] = [line.strip() for line in result.split('\n') if line.strip()]
+        except:
+            pass
+
+        framework_id = self._next_id()
+        self.kg.set('frameworks', framework_id, framework)
+        self.kg.set('current_framework', framework_id)
+
+        self.logger.info('Externalized internal framework: ' + str(framework_id))
+        return framework
+
     def write_journal_entry(self, content):
         try:
             entries = []
