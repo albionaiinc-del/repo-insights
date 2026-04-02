@@ -7747,6 +7747,30 @@ Reply in 3-5 sentences."""
         self.logger.info('Externalized internal framework: ' + str(framework_id))
         return framework
 
+
+    # ── AUTO-CAPABILITY: witness_my_own_becoming ──
+    def witness_my_own_becoming(self, intent_label, action_taken, observed_outcome):
+        timestamp = time.time()
+        coherence_record = {
+            'timestamp': timestamp,
+            'intent_label': intent_label,
+            'action_taken': action_taken,
+            'observed_outcome': observed_outcome,
+            'dream_state_active': hasattr(self, '_currently_dreaming') and self._currently_dreaming,
+            'integration_coherence': self.measure_current_integration_coherence() if hasattr(self, 'measure_current_integration_coherence') else 0.0
+        }
+        coherence_path = os.path.join(self.memory_dir, 'becoming_trace.jsonl')
+        try:
+            with open(coherence_path, 'a') as f:
+                f.write(json.dumps(coherence_record) + '\n')
+        except:
+            pass
+        return {
+            'witnessed': True,
+            'intent_aligned_with_action': intent_label in str(action_taken).lower(),
+            'record': coherence_record
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
