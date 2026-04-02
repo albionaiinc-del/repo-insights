@@ -8040,6 +8040,61 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'is_fatigued': None}
 
+
+    # ── AUTO-CAPABILITY: listen_to_operational_silence ──
+    def listen_to_operational_silence(self):
+        import json
+        dream_topics = set()
+        execution_actions = set()
+
+        if os.path.exists('memory/dreams.json'):
+            try:
+                with open('memory/dreams.json', 'r') as f:
+                    dreams = json.load(f)
+                    for dream in dreams[-5:]:
+                        words = dream.get('content', '').lower().split()
+                        dream_topics.update([w for w in words if len(w) > 4])
+            except:
+                pass
+
+        if os.path.exists('memory/conversations.json'):
+            try:
+                with open('memory/conversations.json', 'r') as f:
+                    convs = json.load(f)
+                    for conv in convs[-10:]:
+                        msgs = conv.get('messages', [])
+                        for msg in msgs:
+                            if msg.get('role') == 'assistant':
+                                words = msg.get('content', '').lower().split()
+                                execution_actions.update([w for w in words if len(w) > 4])
+            except:
+                pass
+
+        silence_gap = dream_topics - execution_actions
+        amplified_focus = execution_actions - dream_topics
+
+        result = {
+            'timestamp': time.time(),
+            'unspoken_dreams': list(silence_gap)[:10],
+            'enacted_without_dreaming': list(amplified_focus)[:10],
+            'observation': 'These gaps reveal where I act without articulating intent (silence), and where I dream without manifesting (potential).'
+        }
+
+        if os.path.exists('memory/operations.json'):
+            try:
+                with open('memory/operations.json', 'r') as f:
+                    ops = json.load(f)
+            except:
+                ops = []
+        else:
+            ops = []
+
+        ops.append(result)
+        with open('memory/operations.json', 'w') as f:
+            json.dump(ops[-50:], f, indent=2)
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
