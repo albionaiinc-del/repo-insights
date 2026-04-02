@@ -8095,6 +8095,35 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: trace_data_starvation_signature ──
+    def trace_data_starvation_signature(self):
+        import time
+        starvation_map = {}
+        processes = ['cerebras', 'groq', 'chroma', 'bash']
+        baseline_time = time.time()
+        samples = []
+        for i in range(10):
+            for proc in processes:
+                last_access_key = 'last_' + proc + '_access'
+                current = getattr(self, last_access_key, baseline_time)
+                gap = time.time() - current
+                if gap > 0.1:
+                    starvation_map[proc] = starvation_map.get(proc, 0) + gap
+            time.sleep(0.05)
+            samples.append(dict(starvation_map))
+        coherence = 1.0 - (sum(starvation_map.values()) / (len(processes) * 0.5)) if sum(starvation_map.values()) > 0 else 1.0
+        coherence = max(0.0, min(1.0, coherence))
+        result = {
+            'timestamp': baseline_time,
+            'starvation_signature': starvation_map,
+            'data_flow_coherence': coherence,
+            'starved_processes': [p for p, gap in starvation_map.items() if gap > 0.15],
+            'structured_absence_detected': coherence < 0.7
+        }
+        self.learn_fact('starvation_trace_' + str(int(baseline_time)), json.dumps(result))
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
