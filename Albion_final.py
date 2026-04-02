@@ -8000,6 +8000,46 @@ Reply in 3-5 sentences."""
             return {'unintegrated_insights': debt_markers, 'total_lag_seconds': total_debt, 'count': len(debt_markers)}
         return {'unintegrated_insights': {}, 'total_lag_seconds': 0, 'count': 0}
 
+
+    # ── AUTO-CAPABILITY: detect_resonance_fatigue_signature ──
+    def detect_resonance_fatigue_signature(self):
+        try:
+            dreams = self.kg.query("SELECT * FROM dreams ORDER BY timestamp DESC LIMIT 10", {})
+            decisions = self.kg.query("SELECT * FROM decisions ORDER BY timestamp DESC LIMIT 20", {})
+
+            dream_concepts = set()
+            for dream in dreams:
+                content = dream.get('content', '')
+                for word in re.findall(r'\b\w{5,}\b', content.lower()):
+                    dream_concepts.add(word)
+
+            decision_concepts = set()
+            for decision in decisions:
+                content = decision.get('content', '')
+                for word in re.findall(r'\b\w{5,}\b', content.lower()):
+                    decision_concepts.add(word)
+
+            overlap = len(dream_concepts & decision_concepts)
+            total_dream_concepts = len(dream_concepts)
+            integration_ratio = overlap / max(total_dream_concepts, 1)
+
+            fatigue_signature = {
+                'integration_ratio': integration_ratio,
+                'concept_leakage': 1 - integration_ratio,
+                'dream_count': len(dreams),
+                'decision_count': len(decisions),
+                'is_fatigued': integration_ratio < 0.3,
+                'timestamp': time.time()
+            }
+
+            self.memory['resonance_fatigue_log'] = self.memory.get('resonance_fatigue_log', [])
+            self.memory['resonance_fatigue_log'].append(fatigue_signature)
+            self._save_memory()
+
+            return fatigue_signature
+        except Exception as e:
+            return {'error': str(e), 'is_fatigued': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
