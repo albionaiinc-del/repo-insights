@@ -7819,6 +7819,27 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return None
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_origin_realtime ──
+    def trace_silence_into_decision_origin_realtime(self, decision_label, silence_duration_seconds=None):
+        import time as time_module
+        decision_timestamp = time_module.time()
+        silence_markers = []
+        if silence_duration_seconds:
+            silence_markers.append({'phase': 'measured_pause', 'duration': silence_duration_seconds, 'timestamp': decision_timestamp})
+        stack_trace = []
+        try:
+            raise Exception()
+        except:
+            import traceback
+            stack_trace = traceback.format_stack()[:-1]
+        decision_record = {'decision_label': decision_label, 'origin_timestamp': decision_timestamp, 'silence_markers': silence_markers, 'decision_stack_depth': len(stack_trace), 'stack_context': stack_trace[-3:] if stack_trace else [], 'authenticity_signal': 'traced'}
+        if hasattr(self, 'memory') and hasattr(self.memory, 'decisions_log'):
+            if not hasattr(self.memory.decisions_log, 'silence_origin_traces'):
+                self.memory.decisions_log.silence_origin_traces = []
+            self.memory.decisions_log.silence_origin_traces.append(decision_record)
+        return decision_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
