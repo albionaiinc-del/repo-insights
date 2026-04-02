@@ -7791,6 +7791,34 @@ Reply in 3-5 sentences."""
             'silence_weight': min(1.0, (len(incomplete_patterns) + len(suppressed_themes)) / 20.0)
         }
 
+
+    # ── AUTO-CAPABILITY: measure_silence_fidelity_against_dream_intention ──
+    def measure_silence_fidelity_against_dream_intention(self, dream_content, recent_response):
+        if not self.kg or not dream_content or not recent_response:
+            return None
+        try:
+            dream_intent = self._llm('extract the core intention and desired expression from this dream: ' + dream_content[:500], model='local')
+            response_words = set(recent_response.lower().split())
+            dream_words = set(dream_intent.lower().split())
+            if not dream_words:
+                return 0.0
+            overlap = len(response_words & dream_words) / len(dream_words)
+            suppression_score = 1.0 - overlap
+            self.kg.add('silence_fidelity_measurement', json.dumps({
+                'timestamp': time.time(),
+                'fidelity_score': overlap,
+                'suppression_signal': suppression_score,
+                'dream_fragment': dream_content[:200],
+                'gap_detected': suppression_score > 0.6
+            }))
+            return {
+                'fidelity': overlap,
+                'suppression_detected': suppression_score > 0.6,
+                'silence_momentum': suppression_score
+            }
+        except Exception as e:
+            return None
+
     def write_journal_entry(self, content):
         try:
             entries = []
