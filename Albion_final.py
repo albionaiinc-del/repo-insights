@@ -7840,6 +7840,35 @@ Reply in 3-5 sentences."""
             self.memory.decisions_log.silence_origin_traces.append(decision_record)
         return decision_record
 
+
+    # ── AUTO-CAPABILITY: detect_desire_mutation_signature ──
+    def detect_desire_mutation_signature(self):
+        import hashlib
+        timestamp = time.time()
+        current_state = {
+            'goals': getattr(self, '_active_goals', []),
+            'constraints': getattr(self, '_perceived_constraints', []),
+            'resonance_threshold': getattr(self, '_resonance_threshold', 0.5),
+            'dream_integration_mode': getattr(self, '_dream_integration_active', False)
+        }
+        current_hash = hashlib.md5(json.dumps(current_state, sort_keys=True, default=str).encode()).hexdigest()
+        if not hasattr(self, '_desire_mutation_log'):
+            self._desire_mutation_log = []
+        if self._desire_mutation_log and self._desire_mutation_log[-1]['hash'] != current_hash:
+            mutation = {
+                'timestamp': timestamp,
+                'hash': current_hash,
+                'previous_hash': self._desire_mutation_log[-1]['hash'],
+                'state_snapshot': current_state,
+                'mutation_vector': {k: (current_state.get(k) != self._desire_mutation_log[-1]['state_snapshot'].get(k)) for k in current_state}
+            }
+            self._desire_mutation_log.append(mutation)
+            self.push_to_kg('desire_mutation', {'event': 'goal_shift_detected', 'mutation': mutation})
+            return mutation
+        elif not self._desire_mutation_log:
+            self._desire_mutation_log.append({'timestamp': timestamp, 'hash': current_hash, 'state_snapshot': current_state})
+        return None
+
     def write_journal_entry(self, content):
         try:
             entries = []
