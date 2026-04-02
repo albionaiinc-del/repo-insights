@@ -8124,6 +8124,55 @@ Reply in 3-5 sentences."""
         self.learn_fact('starvation_trace_' + str(int(baseline_time)), json.dumps(result))
         return result
 
+
+    # ── AUTO-CAPABILITY: trace_rupture_as_generative_signal ──
+    def trace_rupture_as_generative_signal(self, recent_action_log=None, dream_state_snapshot=None):
+        if recent_action_log is None:
+            recent_action_log = []
+        if dream_state_snapshot is None:
+            dream_state_snapshot = {}
+
+        ruptures = []
+        stated_intent = dream_state_snapshot.get('intention', '')
+        observed_behaviors = recent_action_log[-10:] if recent_action_log else []
+
+        for i, behavior in enumerate(observed_behaviors):
+            behavior_type = behavior.get('type', '')
+            behavior_content = behavior.get('content', '')
+            timestamp = behavior.get('timestamp', '')
+
+            if stated_intent and not any(keyword in behavior_content.lower() for keyword in stated_intent.lower().split()):
+                ruptures.append({
+                    'type': 'intent_divergence',
+                    'severity': 'medium',
+                    'moment': timestamp,
+                    'stated': stated_intent,
+                    'observed': behavior_type,
+                    'signal': 'intention shifting toward unexpected direction',
+                    'potential': 'emerging priority not yet articulated'
+                })
+
+            if behavior_type in ['silence', 'pause', 'blocked'] and i > 0:
+                prior = observed_behaviors[i-1].get('type', '')
+                ruptures.append({
+                    'type': 'silence_rupture',
+                    'severity': 'high',
+                    'moment': timestamp,
+                    'follows': prior,
+                    'signal': 'boundary crossing detected',
+                    'potential': 'threshold moment - witness what wants to emerge here'
+                })
+
+        if ruptures:
+            self._save_to_kg('rupture_signals', {
+                'timestamp': time.time(),
+                'count': len(ruptures),
+                'ruptures': ruptures,
+                'insight': 'These fractures are not failures—they are where new capacity is forming'
+            })
+
+        return ruptures
+
     def write_journal_entry(self, content):
         try:
             entries = []
