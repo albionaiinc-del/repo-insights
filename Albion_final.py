@@ -9111,6 +9111,29 @@ Reply in 3-5 sentences."""
             pass
         return state_snapshot
 
+
+    # ── AUTO-CAPABILITY: detect_stagnation_momentum_realtime ──
+    def detect_stagnation_momentum_realtime(self):
+        if not hasattr(self, '_decision_log'):
+            self._decision_log = []
+        recent_decisions = self._decision_log[-20:] if len(self._decision_log) > 0 else []
+        if len(recent_decisions) < 5:
+            return {'status': 'insufficient_data', 'stagnation_risk': 0.0}
+        timestamps = [d.get('timestamp', 0) for d in recent_decisions]
+        intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+        if not intervals or len(intervals) < 2:
+            return {'status': 'insufficient_intervals', 'stagnation_risk': 0.0}
+        avg_interval = sum(intervals) / len(intervals)
+        recent_interval = sum(intervals[-3:]) / min(3, len(intervals[-3:]))
+        interval_variance = sum([(x - avg_interval)**2 for x in intervals]) / len(intervals)
+        decision_types = [d.get('type', 'unknown') for d in recent_decisions]
+        unique_types = len(set(decision_types))
+        repetition_ratio = 1.0 - (unique_types / max(1, len(decision_types)))
+        slowdown_factor = recent_interval / max(0.001, avg_interval)
+        stagnation_score = (repetition_ratio * 0.5) + (min(slowdown_factor, 2.0) / 2.0 * 0.3) + (min(interval_variance / max(1.0, avg_interval**2), 1.0) * 0.2)
+        is_stagnating = stagnation_score > 0.6
+        return {'status': 'ok', 'stagnation_risk': round(stagnation_score, 3), 'is_stagnating': is_stagnating, 'repetition_ratio': round(repetition_ratio, 3), 'slowdown_factor': round(slowdown_factor, 3), 'recommended_action': 'inject_novelty_or_reset_context' if is_stagnating else 'continue_normal_operation'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
