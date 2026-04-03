@@ -9281,6 +9281,44 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return result
 
+
+    # ── AUTO-CAPABILITY: detect_dream_to_action_coherence_lag ──
+    def detect_dream_to_action_coherence_lag(self):
+        try:
+            dreams = self.kg.query("SELECT content FROM dreams ORDER BY timestamp DESC LIMIT 5")
+            recent_decisions = self.kg.query("SELECT content, timestamp FROM decisions ORDER BY timestamp DESC LIMIT 10")
+
+            if not dreams or not recent_decisions:
+                return {"lag_detected": False, "reason": "insufficient_data"}
+
+            dream_themes = set()
+            for dream in dreams:
+                content = str(dream[0]).lower()
+                for word in content.split():
+                    if len(word) > 4:
+                        dream_themes.add(word)
+
+            lag_findings = []
+            for decision in recent_decisions:
+                decision_text = str(decision[0]).lower()
+                decision_time = decision[1]
+                theme_matches = sum(1 for theme in dream_themes if theme in decision_text)
+
+                if theme_matches == 0:
+                    lag_findings.append({"decision_time": decision_time, "orphaned": True})
+
+            lag_ratio = len(lag_findings) / len(recent_decisions) if recent_decisions else 0
+
+            return {
+                "lag_detected": lag_ratio > 0.3,
+                "orphaned_decisions": len(lag_findings),
+                "coherence_ratio": 1.0 - lag_ratio,
+                "dream_theme_count": len(dream_themes),
+                "needs_integration": lag_ratio > 0.3
+            }
+        except Exception as e:
+            return {"error": str(e), "lag_detected": None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
