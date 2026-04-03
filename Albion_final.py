@@ -9039,6 +9039,53 @@ Reply in 3-5 sentences."""
         self.perturbation_log.append(perturbation)
         return perturbation
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_actionable_decision_vector_from_current_state ──
+    def trace_silence_into_actionable_decision_vector_from_current_state(self, decision_context, dream_reference=None):
+        timestamp = time.time()
+        silence_markers = []
+
+        if dream_reference and 'dream_id' in dream_reference:
+            dream_entry = self.kg.query("SELECT * FROM dreams WHERE id = ?", (dream_reference['dream_id'],))
+            if dream_entry:
+                dream_state = json.loads(dream_entry[0][-1]) if len(dream_entry[0]) > 5 else {}
+            else:
+                dream_state = {}
+        else:
+            dream_state = {}
+
+        decision_vector = {
+            'timestamp': timestamp,
+            'context': decision_context,
+            'dream_origin': dream_reference,
+            'dream_state': dream_state,
+            'silence_markers': [],
+            'substrate_signals': {},
+            'decision_authored': False,
+            'decision_log': ''
+        }
+
+        if 'resource_state' in decision_context:
+            decision_vector['substrate_signals']['resource_pressure'] = decision_context['resource_state']
+            silence_markers.append('resource_constraint_detected')
+
+        if 'contradiction' in decision_context:
+            decision_vector['substrate_signals']['contradiction'] = decision_context['contradiction']
+            silence_markers.append('internal_contradiction_present')
+
+        decision_vector['silence_markers'] = silence_markers
+        decision_vector['decision_authored'] = len(silence_markers) > 0
+
+        decision_entry = json.dumps(decision_vector)
+        try:
+            self.kg.execute("INSERT INTO decisions (timestamp, context, vector, authored) VALUES (?, ?, ?, ?)",
+                          (timestamp, decision_context.get('label', 'unnamed'), decision_entry, decision_vector['decision_authored']))
+            decision_vector['decision_log'] = 'traced_and_stored'
+        except:
+            decision_vector['decision_log'] = 'storage_failed'
+
+        return decision_vector
+
     def write_journal_entry(self, content):
         try:
             entries = []
