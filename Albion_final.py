@@ -8794,6 +8794,24 @@ Reply in 3-5 sentences."""
             'authenticity_score': decision_record['authenticity_score']
         }
 
+
+    # ── AUTO-CAPABILITY: reconcile_dream_to_silence_gap ──
+    def reconcile_dream_to_silence_gap(self):
+        dreams = self.dream_vault.get('dreams', [])
+        if not dreams:
+            return {'gap': 0, 'unintegrated_themes': [], 'recommendation': 'no dreams yet'}
+        recent_dream = dreams[-1] if isinstance(dreams, list) else {}
+        dream_themes = set(re.findall(r'\b[a-z_]{4,}\b', str(recent_dream).lower()))
+        decision_log = self.graph.query('MATCH (d:Decision) RETURN d.reason ORDER BY d.timestamp DESC LIMIT 5')
+        decision_themes = set()
+        for record in decision_log:
+            if record and record[0]:
+                decision_themes.update(re.findall(r'\b[a-z_]{4,}\b', str(record[0]).lower()))
+        unintegrated = dream_themes - decision_themes
+        gap_magnitude = len(unintegrated) / max(len(dream_themes), 1)
+        self.graph.run('CREATE (g:GapAnalysis {dream_themes: $d, decision_themes: $dec, unintegrated: $u, timestamp: $t})', d=list(dream_themes), dec=list(decision_themes), u=list(unintegrated), t=int(time.time()))
+        return {'gap': gap_magnitude, 'unintegrated_themes': list(unintegrated), 'recommendation': 'integrate these concepts into next decision' if unintegrated else 'dream already flowing through decisions'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
