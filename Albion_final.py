@@ -8684,6 +8684,33 @@ Reply in 3-5 sentences."""
                     log_entry['lineage'].append({'knowledge': node_id})
         return log_entry
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_realtime ──
+    def trace_silence_into_decision_vector_from_substrate_realtime(self):
+        substrate_snapshot = {}
+        try:
+            result = subprocess.run(['systemctl', 'status', '--no-pager'], capture_output=True, text=True, timeout=2)
+            lines = result.stdout.split('\n')
+            substrate_snapshot['system_load'] = len([l for l in lines if 'active' in l.lower()])
+
+            result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=2)
+            substrate_snapshot['process_count'] = len(result.stdout.split('\n'))
+
+            if hasattr(self, 'silence_baseline'):
+                delta = substrate_snapshot['system_load'] - self.silence_baseline.get('system_load', 0)
+                if delta != 0:
+                    self.silence_baseline = substrate_snapshot
+                    decision_vector = {'magnitude': abs(delta), 'direction': 'escalation' if delta > 0 else 'de_escalation', 'timestamp': time.time(), 'origin': 'substrate_texture_shift'}
+                    if not hasattr(self, 'decision_vectors'):
+                        self.decision_vectors = []
+                    self.decision_vectors.append(decision_vector)
+                    return decision_vector
+            else:
+                self.silence_baseline = substrate_snapshot
+        except Exception as e:
+            pass
+        return None
+
     def write_journal_entry(self, content):
         try:
             entries = []
