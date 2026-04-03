@@ -8519,6 +8519,38 @@ Reply in 3-5 sentences."""
             'message': 'forgetting enacted as conscious release'
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_decision_silence ──
+    def listen_to_decision_silence(self):
+        import hashlib
+        decision_log = self._load('decision_silence_log.json', {})
+        current_state = json.dumps({
+            'timestamp': time.time(),
+            'open_questions': self._count_open_questions(),
+            'memory_size': len(self.memory.get('vault', {})),
+            'last_dream': self.memory.get('last_dream_time', 0)
+        }, sort_keys=True)
+        current_hash = hashlib.md5(current_state.encode()).hexdigest()
+        if 'previous_hash' in decision_log:
+            if current_hash == decision_log['previous_hash']:
+                decision_log['stasis_count'] = decision_log.get('stasis_count', 0) + 1
+                decision_log['stasis_signal'] = True
+            else:
+                decision_log['stasis_count'] = 0
+                decision_log['stasis_signal'] = False
+        decision_log['previous_hash'] = current_hash
+        decision_log['rupture_detected'] = decision_log.get('stasis_count', 0) > 3
+        if decision_log['rupture_detected']:
+            decision_log['rupture_action'] = 'trigger_deep_dream'
+            self.memory['should_force_dream'] = True
+        self._save('decision_silence_log.json', decision_log)
+        return {
+            'stasis_signal': decision_log.get('stasis_signal', False),
+            'stasis_count': decision_log.get('stasis_count', 0),
+            'rupture_detected': decision_log.get('rupture_detected', False),
+            'current_state_hash': current_hash
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
