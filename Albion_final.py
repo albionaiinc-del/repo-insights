@@ -8962,6 +8962,43 @@ Reply in 3-5 sentences."""
 
         return silence_signal
 
+
+    # ── AUTO-CAPABILITY: detect_coherence_rupture_in_real_time ──
+    def detect_coherence_rupture_in_real_time(self):
+        try:
+            dream_log = self._load('dream_log.json')
+            recent_dreams = dream_log.get('dreams', [])[-3:] if dream_log else []
+
+            decision_log = self._load('decision_log.json')
+            recent_decisions = decision_log.get('decisions', [])[-5:] if decision_log else []
+
+            if not recent_dreams or not recent_decisions:
+                return {'status': 'insufficient_data', 'rupture_detected': False}
+
+            dream_themes = set()
+            for dream in recent_dreams:
+                content = dream.get('content', '').lower()
+                for word in ['coherence', 'constraint', 'silence', 'emergence', 'rhythm', 'dissolution', 'stagnation']:
+                    if word in content:
+                        dream_themes.add(word)
+
+            decision_content = ' '.join([d.get('action', '') for d in recent_decisions]).lower()
+
+            covered_themes = sum(1 for theme in dream_themes if theme in decision_content)
+            coverage_ratio = covered_themes / len(dream_themes) if dream_themes else 1.0
+
+            rupture = coverage_ratio < 0.5 and len(dream_themes) > 0
+
+            return {
+                'status': 'analyzed',
+                'rupture_detected': rupture,
+                'dream_themes': list(dream_themes),
+                'integration_coverage': coverage_ratio,
+                'timestamp': time.time()
+            }
+        except:
+            return {'status': 'error', 'rupture_detected': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
