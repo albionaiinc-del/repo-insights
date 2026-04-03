@@ -357,6 +357,10 @@ class MemorySummarizer:
         self.groq = groq_rotator  
         self.summarize_every = summarize_every  
         self.turn_count = 0  
+
+    def summarize(self, recent_memory):  
+        """Placeholder for memory summarization logic."""  
+        return recent_memory  
         self.model = "llama-3.1-8b-instant"  
     
     def summarize(self, text):  
