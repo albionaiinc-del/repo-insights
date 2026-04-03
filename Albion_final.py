@@ -8404,6 +8404,29 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'timestamp': time.time()}
 
+
+    # ── AUTO-CAPABILITY: detect_operational_rhythm_drift ──
+    def detect_operational_rhythm_drift(self):
+        import time
+        current_time = time.time()
+        if not hasattr(self, '_rhythm_baseline'):
+            self._rhythm_baseline = {'timestamps': [], 'durations': [], 'last_check': current_time}
+            return {'status': 'baseline_established', 'drift': 0.0}
+        baseline = self._rhythm_baseline
+        if len(baseline['timestamps']) > 0:
+            recent_interval = current_time - baseline['last_check']
+            baseline['timestamps'].append(current_time)
+            baseline['durations'].append(recent_interval)
+            if len(baseline['timestamps']) > 20:
+                baseline['timestamps'].pop(0)
+                baseline['durations'].pop(0)
+            expected_cadence = sum(baseline['durations']) / len(baseline['durations']) if baseline['durations'] else 1.0
+            drift_magnitude = abs(recent_interval - expected_cadence) / max(expected_cadence, 0.1)
+            baseline['last_check'] = current_time
+            return {'status': 'drift_detected' if drift_magnitude > 0.4 else 'aligned', 'drift': round(drift_magnitude, 3), 'expected_cadence': round(expected_cadence, 3), 'actual_interval': round(recent_interval, 3)}
+        baseline['last_check'] = current_time
+        return {'status': 'insufficient_data', 'drift': 0.0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
