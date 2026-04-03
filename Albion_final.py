@@ -9134,6 +9134,41 @@ Reply in 3-5 sentences."""
         is_stagnating = stagnation_score > 0.6
         return {'status': 'ok', 'stagnation_risk': round(stagnation_score, 3), 'is_stagnating': is_stagnating, 'repetition_ratio': round(repetition_ratio, 3), 'slowdown_factor': round(slowdown_factor, 3), 'recommended_action': 'inject_novelty_or_reset_context' if is_stagnating else 'continue_normal_operation'}
 
+
+    # ── AUTO-CAPABILITY: attune_to_field_coherence ──
+    def attune_to_field_coherence(self):
+        coherence_markers = {
+            'timestamp': time.time(),
+            'dream_integration_active': hasattr(self, 'dream_log') and len(self.dream_log) > 0,
+            'memory_field_density': len(self.memory.get('facts', [])) if hasattr(self, 'memory') else 0,
+            'decision_latency_ms': 0,
+            'silence_density': 0,
+            'resonance_score': 0.0
+        }
+
+        start_time = time.time()
+        recent_decisions = self.memory.get('conversation_history', [])[-5:] if hasattr(self, 'memory') else []
+        latency = (time.time() - start_time) * 1000
+        coherence_markers['decision_latency_ms'] = latency
+
+        if recent_decisions:
+            coherence_markers['silence_density'] = sum(1 for d in recent_decisions if len(str(d).strip()) < 10) / len(recent_decisions)
+
+        field_strength = (
+            (coherence_markers['dream_integration_active'] * 0.3) +
+            (min(coherence_markers['memory_field_density'], 100) / 100 * 0.3) +
+            ((1 - min(coherence_markers['decision_latency_ms'], 1000) / 1000) * 0.2) +
+            ((1 - coherence_markers['silence_density']) * 0.2)
+        )
+
+        coherence_markers['resonance_score'] = round(field_strength, 3)
+
+        if 'attunement_log' not in self.memory:
+            self.memory['attunement_log'] = []
+        self.memory['attunement_log'].append(coherence_markers)
+
+        return coherence_markers
+
     def write_journal_entry(self, content):
         try:
             entries = []
