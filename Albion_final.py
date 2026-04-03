@@ -1704,7 +1704,7 @@ SUMMARY: 2-3 sentences — what this skill does, how you would use it, what it g
         REJECTION_RESULTS = {'claude_rejected', 'deepseek_rejected', 'not_found', 'syntax_error', 'already_applied'}
         recent_rejected_descs = [
             h.get('description', '').lower()[:120]
-            for h in history[-30:]
+            for h in history[-200:]
             if h.get('result') in REJECTION_RESULTS
         ]
 
@@ -8426,6 +8426,26 @@ Reply in 3-5 sentences."""
             return {'status': 'drift_detected' if drift_magnitude > 0.4 else 'aligned', 'drift': round(drift_magnitude, 3), 'expected_cadence': round(expected_cadence, 3), 'actual_interval': round(recent_interval, 3)}
         baseline['last_check'] = current_time
         return {'status': 'insufficient_data', 'drift': 0.0}
+
+
+    # ── AUTO-CAPABILITY: listen_to_pattern_coherence ──
+    def listen_to_pattern_coherence(self):
+        recent = self._conversation_context(turns=5)
+        if not recent:
+            return {'coherence': 1.0, 'contradictions': []}
+        text = recent.get('context', '')
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        contradictions = []
+        for i, s1 in enumerate(sentences):
+            for s2 in sentences[i+1:]:
+                if any(neg in s1.lower() for neg in ['not', 'no', 'never', 'cannot']):
+                    if any(pos in s2.lower() for pos in ['is', 'are', 'will', 'must']):
+                        subj1 = re.findall(r'\b[A-Z]\w+\b', s1)
+                        subj2 = re.findall(r'\b[A-Z]\w+\b', s2)
+                        if set(subj1) & set(subj2):
+                            contradictions.append({'statement1': s1[:50], 'statement2': s2[:50]})
+        coherence = max(0.0, 1.0 - (len(contradictions) * 0.15))
+        return {'coherence': round(coherence, 2), 'contradiction_count': len(contradictions), 'contradictions': contradictions[:3]}
 
     def write_journal_entry(self, content):
         try:
