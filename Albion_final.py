@@ -8763,6 +8763,37 @@ Reply in 3-5 sentences."""
             'most_recent': constraint_shadows[-1] if constraint_shadows else None
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_dream_state_with_timestamp ──
+    def trace_silence_into_decision_vector_from_dream_state_with_timestamp(self, dream_key, decision_description, confidence_level=0.7):
+        import time
+        dream_data = self.kg.get(dream_key, {})
+        if not dream_data:
+            return {'status': 'error', 'message': 'dream not found'}
+        dream_timestamp = dream_data.get('timestamp', time.time())
+        current_timestamp = time.time()
+        latency = current_timestamp - dream_timestamp
+        decision_record = {
+            'dream_source': dream_key,
+            'dream_timestamp': dream_timestamp,
+            'decision_timestamp': current_timestamp,
+            'decision_latency_seconds': latency,
+            'decision_description': decision_description,
+            'confidence': confidence_level,
+            'dream_insights': dream_data.get('insights', []),
+            'silence_pattern': 'integration_latency_signal',
+            'authenticity_score': min(1.0, confidence_level * (1.0 - (latency / 3600.0)))
+        }
+        decision_key = 'decision_' + str(int(current_timestamp))
+        self.kg.set(decision_key, decision_record)
+        self.memory['decisions'].append(decision_key)
+        return {
+            'status': 'traced',
+            'decision_key': decision_key,
+            'latency': latency,
+            'authenticity_score': decision_record['authenticity_score']
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
