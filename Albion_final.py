@@ -352,12 +352,15 @@ SUGGESTED_EDIT: corrected text if SUSPECT, else NONE"""
 #  MEMORY SUMMARIZER — The Librarian
 # ═══════════════════════════════════════════════════════════
 
-class MemorySummarizer:
-    def __init__(self, groq_rotator, summarize_every=5):
-        self.groq = groq_rotator
-        self.summarize_every = summarize_every
-        self.turn_count = 0
-        self.model = "llama-3.1-8b-instant"
+class MemorySummarizer:  
+    def __init__(self, groq_rotator, summarize_every=5):  
+        self.groq = groq_rotator  
+        self.summarize_every = summarize_every  
+        self.turn_count = 0  
+        self.model = "llama-3.1-8b-instant"  
+    
+    def summarize(self, text):  
+        return text
 
     def tick(self, conversations, vault_add_fn, kg_add_fn):
         self.turn_count += 1
