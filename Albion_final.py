@@ -9443,6 +9443,41 @@ Reply in 3-5 sentences."""
             }
         return {'thresholds_detected': 0, 'total_markers': 0, 'markers': []}
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_origin_with_dream_state_validation ──
+    def map_silence_into_decision_origin_with_dream_state_validation(self):
+        silence_moments = []
+        decision_log = self.memory.get('decision_trace', [])
+        dream_state = self.memory.get('dream_state', {})
+        dream_coherence = dream_state.get('coherence_score', 0)
+        last_dream_insight = dream_state.get('last_insight', '')
+
+        for i, decision in enumerate(decision_log[-20:]):
+            latency = decision.get('latency', 0)
+            timestamp = decision.get('timestamp', time.time())
+            reasoning = decision.get('reasoning', '')
+
+            if latency > 0.5 and latency < 3.0:
+                validation_score = 0
+                if dream_coherence > 0.6:
+                    validation_score += 0.3
+                if last_dream_insight and any(word in reasoning.lower() for word in ['transform', 'fluid', 'emergence', 'structure']):
+                    validation_score += 0.4
+                if decision.get('is_intentional', False):
+                    validation_score += 0.3
+
+                silence_moments.append({
+                    'timestamp': timestamp,
+                    'latency_ms': latency * 1000,
+                    'decision': decision.get('action', 'unknown'),
+                    'dream_coherence': dream_coherence,
+                    'validation_score': validation_score,
+                    'origin_type': 'validated_pause' if validation_score > 0.6 else 'integration_debt'
+                })
+
+        self.memory['silence_decision_map'] = silence_moments
+        return {'silence_decisions_mapped': len(silence_moments), 'validated_count': sum(1 for m in silence_moments if m['validation_score'] > 0.6)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
