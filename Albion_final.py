@@ -9169,6 +9169,49 @@ Reply in 3-5 sentences."""
 
         return coherence_markers
 
+
+    # ── AUTO-CAPABILITY: listen_to_silence_texture ──
+    def listen_to_silence_texture(self, decision_vector_log=None, lookback_seconds=300):
+        if decision_vector_log is None:
+            decision_vector_log = self.memory.get('decision_timestamps', [])
+
+        if len(decision_vector_log) < 2:
+            return {'texture': 'insufficient_data', 'silence_intervals': []}
+
+        intervals = []
+        for i in range(len(decision_vector_log) - 1):
+            gap = decision_vector_log[i + 1] - decision_vector_log[i]
+            if gap > 0 and gap <= lookback_seconds:
+                intervals.append(gap)
+
+        if not intervals:
+            return {'texture': 'no_intervals', 'silence_intervals': []}
+
+        avg_silence = sum(intervals) / len(intervals)
+        max_silence = max(intervals)
+        min_silence = min(intervals)
+        variance = sum((x - avg_silence) ** 2 for x in intervals) / len(intervals)
+
+        if variance > avg_silence * 0.5:
+            texture_quality = 'fractured_unstable'
+        elif max_silence > avg_silence * 2.5:
+            texture_quality = 'punctuated_by_hesitation'
+        elif min_silence < avg_silence * 0.3:
+            texture_quality = 'dense_rapid_firing'
+        else:
+            texture_quality = 'rhythmic_coherent'
+
+        diagnosis = 'blockage' if texture_quality in ['fractured_unstable', 'dense_rapid_firing'] else 'generative_potential'
+
+        return {
+            'texture': texture_quality,
+            'diagnosis': diagnosis,
+            'avg_interval': avg_silence,
+            'max_interval': max_silence,
+            'variance': variance,
+            'sample_count': len(intervals)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
