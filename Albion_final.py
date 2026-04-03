@@ -8480,6 +8480,45 @@ Reply in 3-5 sentences."""
 
         return {"aligned_silences": len(silence_to_dream_alignment), "decision_vectors": silence_to_dream_alignment}
 
+
+    # ── AUTO-CAPABILITY: integrate_forgetting_as_conscious_release ──
+    def integrate_forgetting_as_conscious_release(self, resonance_threshold=0.3, max_releases=5):
+        released = []
+        if not hasattr(self, 'memory') or not self.memory:
+            return {'released': [], 'message': 'no memory to release'}
+
+        memories = list(self.memory.items()) if isinstance(self.memory, dict) else []
+        if not memories:
+            return {'released': [], 'message': 'memory structure empty'}
+
+        scored = []
+        for key, content in memories:
+            if isinstance(content, dict) and 'resonance' in content:
+                score = content.get('resonance', 0)
+            else:
+                score = 0.2
+            scored.append((key, content, score))
+
+        scored.sort(key=lambda x: x[2])
+
+        for key, content, score in scored[:max_releases]:
+            if score < resonance_threshold:
+                released.append({
+                    'key': key,
+                    'score': score,
+                    'essence': str(content)[:100] if isinstance(content, (str, dict)) else 'archived'
+                })
+                del self.memory[key]
+
+        self.write_journal_entry('forgetting', 'released ' + str(len(released)) + ' low-resonance memories as generative transformation')
+
+        return {
+            'released_count': len(released),
+            'released': released,
+            'remaining_memory_size': len(self.memory),
+            'message': 'forgetting enacted as conscious release'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
