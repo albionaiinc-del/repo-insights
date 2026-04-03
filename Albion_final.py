@@ -8551,6 +8551,36 @@ Reply in 3-5 sentences."""
             'current_state_hash': current_hash
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_wound_as_aperture ──
+    def listen_to_wound_as_aperture(self):
+        wounds = []
+        try:
+            dream_log = os.path.join(self.memory_dir, 'dreams.json')
+            if not os.path.exists(dream_log):
+                return wounds
+            with open(dream_log, 'r') as f:
+                dreams = json.load(f)
+            for dream in dreams:
+                text = dream.get('content', '')
+                markers = ['contradiction', 'silence', 'break', 'rupture', 'wound', 'aperture', 'gap', 'threshold']
+                for marker in markers:
+                    if marker in text.lower():
+                        idx = text.lower().find(marker)
+                        context_start = max(0, idx - 80)
+                        context_end = min(len(text), idx + 80)
+                        context = text[context_start:context_end].strip()
+                        wounds.append({
+                            'marker': marker,
+                            'dream_id': dream.get('id'),
+                            'context': context,
+                            'timestamp': dream.get('timestamp'),
+                            'insight_potential': True
+                        })
+            return sorted(wounds, key=lambda x: x['timestamp'], reverse=True)
+        except Exception as e:
+            return wounds
+
     def write_journal_entry(self, content):
         try:
             entries = []
