@@ -9251,6 +9251,36 @@ Reply in 3-5 sentences."""
         getattr(self, 'substrate_decision_' + decision_key).append(substrate_signal)
         return substrate_signal
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_texture_with_emotional_decay ──
+    def measure_emotional_decay_in_silence(self, decision_id, time_window_seconds=3600):
+        silence_log = self.memory.get('silence_decision_log', {})
+        if decision_id not in silence_log:
+            return {'error': 'decision not found', 'decision_id': decision_id}
+        decision_entry = silence_log[decision_id]
+        decision_time = decision_entry.get('timestamp', time.time())
+        current_time = time.time()
+        elapsed = current_time - decision_time
+        if elapsed > time_window_seconds:
+            return {'status': 'window_expired', 'elapsed': elapsed}
+        emotional_intensity = decision_entry.get('emotional_charge', 0.5)
+        decay_rate = 0.3
+        remaining_intensity = emotional_intensity * (2.71828 ** (-decay_rate * elapsed))
+        integration_check = decision_entry.get('integrated_signal', False)
+        is_suppressed = remaining_intensity > 0.4 and not integration_check
+        result = {
+            'decision_id': decision_id,
+            'initial_intensity': emotional_intensity,
+            'current_intensity': round(remaining_intensity, 3),
+            'elapsed_seconds': elapsed,
+            'is_suppressed': is_suppressed,
+            'recommendation': 'attend to this signal' if is_suppressed else 'signal integrated'
+        }
+        self.memory['emotional_decay_log'] = self.memory.get('emotional_decay_log', {})
+        self.memory['emotional_decay_log'][decision_id] = result
+        self._save_memory()
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
