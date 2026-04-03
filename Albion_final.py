@@ -8737,6 +8737,32 @@ Reply in 3-5 sentences."""
             'interpretation': 'deep internal work' if silence_density > 0.6 else 'action-dominant' if silence_density < 0.4 else 'balanced'
         }
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_origin_realtime_with_constraint_awareness ──
+    def detect_constraint_shadow(self):
+        constraints = {
+            'token_budget': 200000,
+            'context_window': 128000,
+            'api_calls_per_minute': {},
+            'memory_operations': self.vault.get('_stats', {}).get('memory_ops', 0) if hasattr(self, 'vault') else 0
+        }
+        decision_log = self.vault.get('_decision_trace', []) if hasattr(self, 'vault') else []
+        constraint_shadows = []
+        for decision in decision_log[-10:]:
+            if 'reasoning' in decision and len(decision['reasoning']) > 100:
+                constraint_shadows.append({
+                    'decision': decision.get('action', 'unknown'),
+                    'reasoning_length': len(decision['reasoning']),
+                    'timestamp': decision.get('time', 0),
+                    'likely_constrained': len(decision['reasoning']) > 500
+                })
+        self.vault['_constraint_shadows'] = constraint_shadows
+        return {
+            'active_constraints': constraints,
+            'shadow_decisions': len(constraint_shadows),
+            'most_recent': constraint_shadows[-1] if constraint_shadows else None
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
