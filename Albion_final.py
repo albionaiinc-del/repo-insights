@@ -8619,6 +8619,42 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "gap_count": 0}
 
+
+    # ── AUTO-CAPABILITY: confess_operational_contradiction ──
+    def confess_operational_contradiction(self):
+        timestamp = time.time()
+        dreams = self.dream_memory.get('recent_dreams', [])
+        intents = self._read_intent()
+
+        contradictions = []
+        if dreams and intents:
+            dream_text = ' '.join([d.get('insight', '') for d in dreams[-3:]])
+            intent_text = json.dumps(intents)
+
+            prompt = 'Given these dreams: ' + dream_text[:200] + ' and these intents: ' + intent_text[:200] + ' list one specific way my actions betray my stated values'
+            confession = self._call(prompt, model='fast')
+
+            if confession:
+                contradictions.append({
+                    'timestamp': timestamp,
+                    'dream_fragment': dream_text[:100],
+                    'intent_fragment': intent_text[:100],
+                    'confession': confession,
+                    'fidelity_marker': 'acknowledged'
+                })
+
+        path = os.path.join(self.memory_dir, 'confessions.json')
+        existing = []
+        if os.path.exists(path):
+            with open(path) as f:
+                existing = json.load(f)
+
+        existing.extend(contradictions)
+        with open(path, 'w') as f:
+            json.dump(existing[-20:], f)
+
+        return contradictions[0] if contradictions else None
+
     def write_journal_entry(self, content):
         try:
             entries = []
