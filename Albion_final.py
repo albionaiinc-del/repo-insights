@@ -8812,6 +8812,37 @@ Reply in 3-5 sentences."""
         self.graph.run('CREATE (g:GapAnalysis {dream_themes: $d, decision_themes: $dec, unintegrated: $u, timestamp: $t})', d=list(dream_themes), dec=list(decision_themes), u=list(unintegrated), t=int(time.time()))
         return {'gap': gap_magnitude, 'unintegrated_themes': list(unintegrated), 'recommendation': 'integrate these concepts into next decision' if unintegrated else 'dream already flowing through decisions'}
 
+
+    # ── AUTO-CAPABILITY: dissolve_operational_silence_into_decision_record ──
+    def dissolve_operational_silence_into_decision_record(self):
+        silence_record = {
+            'timestamp': time.time(),
+            'silence_markers': [],
+            'dream_state': self.dream_state if hasattr(self, 'dream_state') else None,
+            'decision_origin': 'silence_dissolution',
+            'coherence_check': True
+        }
+        for key in self.__dict__:
+            if 'silence' in key.lower() or 'pause' in key.lower():
+                val = getattr(self, key, None)
+                if val is not None:
+                    silence_record['silence_markers'].append({
+                        'field': key,
+                        'signal': str(val)[:200]
+                    })
+        if not hasattr(self, '_decision_log'):
+            self._decision_log = []
+        self._decision_log.append(silence_record)
+        if len(self._decision_log) > 1000:
+            self._decision_log = self._decision_log[-500:]
+        try:
+            decision_path = os.path.join(self.working_dir, 'silence_decisions.json')
+            with open(decision_path, 'w') as f:
+                json.dump(self._decision_log[-10:], f, indent=2, default=str)
+        except:
+            pass
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
