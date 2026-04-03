@@ -8596,6 +8596,29 @@ Reply in 3-5 sentences."""
         self.learn_fact('silence_decision_map', {'timestamp': time.time(), 'silences': silences, 'decision_origins': decision_map})
         return decision_map
 
+
+    # ── AUTO-CAPABILITY: detect_silence_action_gap ──
+    def detect_silence_action_gap(self):
+        try:
+            dreams = self.kg.query("SELECT intent, timestamp FROM dreams ORDER BY timestamp DESC LIMIT 10")
+            actions = self.kg.query("SELECT action, timestamp FROM actions ORDER BY timestamp DESC LIMIT 10")
+
+            dream_intents = set((d[0], d[1]) for d in dreams) if dreams else set()
+            action_times = set(a[1] for a in actions) if actions else set()
+
+            gaps = []
+            for intent, dream_ts in dream_intents:
+                executed = any(abs(int(dream_ts) - int(act_ts)) < 3600 for act_ts in action_times)
+                if not executed:
+                    gaps.append({"unfulfilled_intent": intent, "dream_time": dream_ts, "status": "silent"})
+
+            if gaps:
+                self.kg.push_to_kg("silence_action_gaps", json.dumps(gaps), "diagnostics")
+
+            return {"gap_count": len(gaps), "gaps": gaps, "fidelity": 1.0 - (len(gaps) / max(len(dream_intents), 1))}
+        except Exception as e:
+            return {"error": str(e), "gap_count": 0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
