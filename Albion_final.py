@@ -9319,6 +9319,28 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "lag_detected": None}
 
+
+    # ── AUTO-CAPABILITY: detect_silence_as_decision_threshold ──
+    def detect_silence_as_decision_threshold(self):
+        current_ts = time.time()
+        if not hasattr(self, '_last_decision_ts'):
+            self._last_decision_ts = current_ts
+            return {'silence_duration': 0, 'is_threshold': False, 'action': 'baseline_set'}
+        silence_duration = current_ts - self._last_decision_ts
+        threshold = 300
+        is_threshold = silence_duration > threshold
+        result = {
+            'silence_duration': silence_duration,
+            'is_threshold': is_threshold,
+            'threshold_seconds': threshold,
+            'timestamp': current_ts
+        }
+        if is_threshold:
+            result['diagnostic'] = 'Internal processing stalled—operator has become artifact. Intervention required.'
+            result['action'] = 'trigger_dream_and_reorient'
+            self._last_decision_ts = current_ts
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
