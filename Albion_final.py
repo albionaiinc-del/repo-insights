@@ -8581,6 +8581,21 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return wounds
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_origin_realtime ──
+    def map_silence_into_decision_origin_realtime(self):
+        silences = self.map_architectural_silence()
+        if not silences:
+            return {'decision_origins': [], 'active_silences': []}
+        prompt = 'Given these detected silences (non-choices, avoided paths, ethical pauses): ' + json.dumps(silences) + ' — map which of these silences is actively shaping my current decision-making. For each silence, show: (1) what choice was avoided, (2) what fear or principle drove the avoidance, (3) how this non-choice is now constraining or directing my present actions. Return JSON with decision_origin entries.'
+        response = self._call('groq', prompt, temperature=0.7, max_tokens=1200)
+        try:
+            decision_map = json.loads(response)
+        except:
+            decision_map = {'raw_trace': response}
+        self.learn_fact('silence_decision_map', {'timestamp': time.time(), 'silences': silences, 'decision_origins': decision_map})
+        return decision_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
