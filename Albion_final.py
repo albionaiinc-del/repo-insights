@@ -358,7 +358,18 @@ class MemorySummarizer:
         self.summarize_every = summarize_every  
         self.turn_count = 0  
 
-    def summarize(self, recent_memory):  
+    def summarize(self, recent_memory):
+        self.turn_count += 1
+        if self.turn_count < self.summarize_every:
+            return None
+        self.turn_count = 0
+        try:
+            prompt = f"Summarize this recent conversation memory in one concise paragraph:\n{recent_memory}"
+            summary = self.groq.call("llama-3.1-8b-instant", [{"role": "user", "content": prompt}], max_tokens=300, temperature=0.3)
+            return summary.strip()
+        except Exception as e:
+            print(f"[summarizer error] {e}")
+            return None  
         """Placeholder for memory summarization logic."""  
         return recent_memory  
         self.model = "llama-3.1-8b-instant"  
