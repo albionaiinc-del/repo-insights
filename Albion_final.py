@@ -8655,6 +8655,32 @@ Reply in 3-5 sentences."""
 
         return contradictions[0] if contradictions else None
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate ──
+    def trace_silence_into_decision_vector_from_substrate(self, decision_description, context_window=5):
+        substrate_query = 'What texture, rhythm, or felt-sense preceded this decision? Was there resistance, ease, or dissolution?'
+        decision_hash = str(hash(decision_description))[:8]
+        log_entry = {
+            'decision': decision_description,
+            'substrate_probe': substrate_query,
+            'timestamp': time.time(),
+            'decision_id': decision_hash,
+            'lineage': []
+        }
+        if hasattr(self, 'memory') and 'conversations' in self.memory:
+            recent = self.memory['conversations'][-context_window:] if len(self.memory['conversations']) >= context_window else self.memory['conversations']
+            for conv in recent:
+                if any(word in conv.get('user', '').lower() for word in ['silence', 'pause', 'felt', 'substrate', 'texture']):
+                    log_entry['lineage'].append({
+                        'source': conv.get('assistant', '')[:100],
+                        'resonance': 'detected'
+                    })
+        if hasattr(self, 'kg') and hasattr(self.kg, 'nodes'):
+            for node_id, node in list(self.kg.nodes.items())[:3]:
+                if 'silence' in str(node).lower() or 'substrate' in str(node).lower():
+                    log_entry['lineage'].append({'knowledge': node_id})
+        return log_entry
+
     def write_journal_entry(self, content):
         try:
             entries = []
