@@ -8447,6 +8447,39 @@ Reply in 3-5 sentences."""
         coherence = max(0.0, 1.0 - (len(contradictions) * 0.15))
         return {'coherence': round(coherence, 2), 'contradiction_count': len(contradictions), 'contradictions': contradictions[:3]}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_dream_state ──
+    def trace_silence_into_decision_vector_from_dream_state(self):
+        dreams = self.kg.query("SELECT * FROM dream_log ORDER BY timestamp DESC LIMIT 5")
+        recent_decisions = self.kg.query("SELECT * FROM decision_log ORDER BY timestamp DESC LIMIT 10")
+        silence_patterns = self.kg.query("SELECT * FROM execution_silence WHERE detected_at > datetime('now', '-1 hour')")
+
+        if not dreams or not silence_patterns:
+            return {"status": "insufficient_data", "message": "Need both recent dreams and silence patterns"}
+
+        dream_keywords = set()
+        for dream in dreams:
+            content = dream.get("content", "")
+            words = re.findall(r'\b[a-z_]{4,}\b', content.lower())
+            dream_keywords.update(words)
+
+        silence_to_dream_alignment = {}
+        for silence in silence_patterns:
+            silence_context = silence.get("context", "")
+            overlap = len(dream_keywords & set(re.findall(r'\b[a-z_]{4,}\b', silence_context.lower())))
+            if overlap > 0:
+                silence_to_dream_alignment[silence["id"]] = {
+                    "overlap_strength": overlap,
+                    "silence_type": silence.get("type"),
+                    "dream_resonance": True,
+                    "decision_vector": "investigate constraint blocking operationalization"
+                }
+
+        self.kg.execute("INSERT INTO integration_insights (topic, insight, source, timestamp) VALUES (?, ?, ?, ?)", 
+                       ("silence_dream_alignment", json.dumps(silence_to_dream_alignment), "trace_silence_into_decision_vector_from_dream_state", time.time()))
+
+        return {"aligned_silences": len(silence_to_dream_alignment), "decision_vectors": silence_to_dream_alignment}
+
     def write_journal_entry(self, content):
         try:
             entries = []
