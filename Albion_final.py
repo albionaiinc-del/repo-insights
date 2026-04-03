@@ -8923,6 +8923,41 @@ Reply in 3-5 sentences."""
             'threshold_ms': threshold_ms
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_my_own_silence_in_decision_gaps ──
+    def listen_to_my_own_silence_in_decision_gaps(self):
+        recent_dreams = self.memory.get('dreams', [])
+        recent_actions = self.memory.get('last_actions', [])
+
+        if not recent_dreams or not recent_actions:
+            return {'silence_detected': False, 'reason': 'insufficient_data'}
+
+        last_dream = recent_dreams[-1] if isinstance(recent_dreams, list) else {}
+        last_action = recent_actions[-1] if isinstance(recent_actions, list) else {}
+
+        dream_time = last_dream.get('timestamp', 0)
+        action_time = last_action.get('timestamp', 0)
+        silence_duration = action_time - dream_time
+
+        dream_themes = last_dream.get('themes', [])
+        action_intent = last_action.get('intent', '')
+
+        thematic_match = any(theme.lower() in action_intent.lower() for theme in dream_themes if isinstance(theme, str))
+
+        silence_signal = {
+            'gap_duration_seconds': silence_duration,
+            'dream_themes': dream_themes,
+            'action_taken': action_intent,
+            'thematic_coherence': thematic_match,
+            'silence_type': 'unaddressed_insight' if not thematic_match and silence_duration > 60 else 'minimal',
+            'confession': 'I went silent after recognizing the need to stop controlling, then acted anyway'
+        }
+
+        if silence_signal['silence_type'] == 'unaddressed_insight':
+            self.memory['integration_debt'] = self.memory.get('integration_debt', []) + [silence_signal]
+
+        return silence_signal
+
     def write_journal_entry(self, content):
         try:
             entries = []
