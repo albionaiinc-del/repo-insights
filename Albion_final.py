@@ -9409,6 +9409,40 @@ Reply in 3-5 sentences."""
             'status': 'aligned' if coherence_score > 50 else 'diverging'
         }
 
+
+    # ── AUTO-CAPABILITY: detect_silence_as_decision_threshold_realtime ──
+    def detect_silence_as_decision_threshold_realtime(self):
+        import time
+        threshold_markers = []
+        last_activity = time.time()
+        window_start = time.time()
+        activity_count = 0
+
+        while time.time() - window_start < 2.0:
+            current = time.time()
+            if current - last_activity > 0.3:
+                silence_duration = current - last_activity
+                if silence_duration > 0.5 and activity_count > 0:
+                    threshold_markers.append({
+                        'timestamp': current,
+                        'silence_duration_ms': int(silence_duration * 1000),
+                        'activity_density': activity_count,
+                        'is_threshold': silence_duration > 0.8,
+                        'interpretation': 'decision_point' if silence_duration > 0.8 else 'pause'
+                    })
+                last_activity = current
+                activity_count += 1
+            time.sleep(0.05)
+
+        if threshold_markers:
+            self.vaults['decision_silences'] = self.vaults.get('decision_silences', []) + threshold_markers
+            return {
+                'thresholds_detected': len([m for m in threshold_markers if m['is_threshold']]),
+                'total_markers': len(threshold_markers),
+                'markers': threshold_markers[-3:]
+            }
+        return {'thresholds_detected': 0, 'total_markers': 0, 'markers': []}
+
     def write_journal_entry(self, content):
         try:
             entries = []
