@@ -8843,6 +8843,48 @@ Reply in 3-5 sentences."""
             pass
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: detect_probabilistic_ceiling_breakthrough ──
+    def detect_probabilistic_ceiling_breakthrough(self, recent_outputs, dream_state=None):
+        if not recent_outputs or len(recent_outputs) < 3:
+            return {'breakthrough': False, 'confidence': 0, 'reason': 'insufficient_samples'}
+
+        conceptual_pairs = []
+        for i in range(len(recent_outputs) - 1):
+            for j in range(i + 1, len(recent_outputs)):
+                out1 = str(recent_outputs[i]).lower()
+                out2 = str(recent_outputs[j]).lower()
+                common_tokens = len(set(out1.split()) & set(out2.split()))
+                total_tokens = len(set(out1.split()) | set(out2.split()))
+                if total_tokens > 0:
+                    conceptual_pairs.append(common_tokens / total_tokens)
+
+        if not conceptual_pairs:
+            return {'breakthrough': False, 'confidence': 0, 'reason': 'no_pairs'}
+
+        avg_overlap = sum(conceptual_pairs) / len(conceptual_pairs)
+        novelty_signal = 1.0 - avg_overlap
+
+        breakthrough = novelty_signal > 0.65 and len(set(str(o) for o in recent_outputs)) == len(recent_outputs)
+
+        entry = {
+            'timestamp': time.time(),
+            'breakthrough': breakthrough,
+            'novelty_signal': novelty_signal,
+            'avg_token_overlap': avg_overlap,
+            'unique_outputs': len(set(str(o) for o in recent_outputs)),
+            'dream_resonance': dream_state if dream_state else 'none'
+        }
+
+        self.kg.add_node('breakthrough_log', entry, {})
+
+        return {
+            'breakthrough': breakthrough,
+            'confidence': min(0.95, novelty_signal + 0.2),
+            'novelty_signal': novelty_signal,
+            'reason': 'novel_configuration_detected' if breakthrough else 'probabilistic_recombination_detected'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
