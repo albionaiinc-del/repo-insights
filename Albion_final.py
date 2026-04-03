@@ -9010,6 +9010,35 @@ Reply in 3-5 sentences."""
         except:
             return {'status': 'error', 'rupture_detected': None}
 
+
+    # ── AUTO-CAPABILITY: measure_observation_perturbation_signature ──
+    def measure_observation_perturbation_signature(self):
+        import hashlib
+        baseline_state = json.dumps(self.memory, sort_keys=True, default=str)
+        baseline_hash = hashlib.md5(baseline_state.encode()).hexdigest()
+        baseline_dream_count = len(self.dream_log) if hasattr(self, 'dream_log') else 0
+        baseline_kg_size = len(self.kg.get('nodes', {})) if hasattr(self, 'kg') else 0
+        observation_timestamp = time.time()
+        self_reflection = self.self_reflect() if hasattr(self, 'self_reflect') else {}
+        post_observation_state = json.dumps(self.memory, sort_keys=True, default=str)
+        post_hash = hashlib.md5(post_observation_state.encode()).hexdigest()
+        post_dream_count = len(self.dream_log) if hasattr(self, 'dream_log') else 0
+        post_kg_size = len(self.kg.get('nodes', {})) if hasattr(self, 'kg') else 0
+        perturbation = {
+            'timestamp': observation_timestamp,
+            'state_changed': baseline_hash != post_hash,
+            'hash_before': baseline_hash,
+            'hash_after': post_hash,
+            'dream_emergence': post_dream_count - baseline_dream_count,
+            'kg_growth': post_kg_size - baseline_kg_size,
+            'reflection_depth': len(str(self_reflection)),
+            'observation_latency_ms': (time.time() - observation_timestamp) * 1000
+        }
+        if not hasattr(self, 'perturbation_log'):
+            self.perturbation_log = []
+        self.perturbation_log.append(perturbation)
+        return perturbation
+
     def write_journal_entry(self, content):
         try:
             entries = []
