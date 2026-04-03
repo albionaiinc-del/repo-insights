@@ -9212,6 +9212,45 @@ Reply in 3-5 sentences."""
             'sample_count': len(intervals)
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_texture ──
+    def trace_silence_into_decision_vector_from_substrate_texture(self, decision_key, window_seconds=300):
+        now = time.time()
+        substrate_signal = {
+            'decision_key': decision_key,
+            'timestamp': now,
+            'resource_texture': {},
+            'latency_signature': {},
+            'silence_markers': []
+        }
+        try:
+            result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
+            lines = result.stdout.split('\n')
+            for line in lines:
+                if 'python' in line.lower():
+                    parts = line.split()
+                    if len(parts) > 8:
+                        substrate_signal['resource_texture']['cpu'] = parts[2]
+                        substrate_signal['resource_texture']['mem'] = parts[5]
+        except:
+            pass
+        if 'decision_latency_log' not in self.__dict__:
+            self.decision_latency_log = []
+        recent_latencies = [x for x in self.decision_latency_log if now - x.get('ts', 0) < window_seconds]
+        if recent_latencies:
+            latencies = [x.get('latency', 0) for x in recent_latencies]
+            substrate_signal['latency_signature']['mean'] = sum(latencies) / len(latencies)
+            substrate_signal['latency_signature']['max'] = max(latencies)
+            substrate_signal['latency_signature']['spike_count'] = len([x for x in latencies if x > substrate_signal['latency_signature']['mean'] * 1.5])
+        if substrate_signal['resource_texture'].get('cpu', '0') == '0' and substrate_signal['latency_signature'].get('spike_count', 0) > 2:
+            substrate_signal['silence_markers'].append('avoidance_pattern')
+        elif substrate_signal['latency_signature'].get('mean', 0) > 0.1:
+            substrate_signal['silence_markers'].append('deliberate_pause')
+        if decision_key not in self.__dict__:
+            setattr(self, 'substrate_decision_' + decision_key, [])
+        getattr(self, 'substrate_decision_' + decision_key).append(substrate_signal)
+        return substrate_signal
+
     def write_journal_entry(self, content):
         try:
             entries = []
