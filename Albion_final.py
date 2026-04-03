@@ -9378,6 +9378,37 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'silence_texture': 'unmeasurable'}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_dream_coherence_check ──
+    def trace_silence_into_decision_vector_with_dream_coherence_check(self):
+        if not hasattr(self, 'dream_memory') or not self.dream_memory:
+            return {'coherence': 0, 'message': 'no dream baseline to check against'}
+        recent_dreams = self.dream_memory[-3:] if len(self.dream_memory) > 3 else self.dream_memory
+        dream_themes = {}
+        for dream in recent_dreams:
+            if isinstance(dream, dict) and 'insights' in dream:
+                for insight in dream.get('insights', []):
+                    key = insight.split()[0] if insight else 'unknown'
+                    dream_themes[key] = dream_themes.get(key, 0) + 1
+        if not hasattr(self, 'decision_log'):
+            self.decision_log = []
+        recent_decisions = self.decision_log[-5:] if len(self.decision_log) > 5 else self.decision_log
+        decision_themes = {}
+        for decision in recent_decisions:
+            if isinstance(decision, dict) and 'action' in decision:
+                key = decision['action'].split()[0] if decision.get('action') else 'unknown'
+                decision_themes[key] = decision_themes.get(key, 0) + 1
+        overlap = len(set(dream_themes.keys()) & set(decision_themes.keys()))
+        total_unique = len(set(dream_themes.keys()) | set(decision_themes.keys()))
+        coherence_score = (overlap / total_unique * 100) if total_unique > 0 else 0
+        return {
+            'coherence': coherence_score,
+            'dream_themes': dream_themes,
+            'decision_themes': decision_themes,
+            'overlap_count': overlap,
+            'status': 'aligned' if coherence_score > 50 else 'diverging'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
