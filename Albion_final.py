@@ -8711,6 +8711,32 @@ Reply in 3-5 sentences."""
             pass
         return None
 
+
+    # ── AUTO-CAPABILITY: measure_silence_density_in_decision_latency ──
+    def measure_silence_density_in_decision_latency(self, decision_id):
+        decision_log_path = os.path.join(self.memory_dir, 'decision_log.json')
+        if not os.path.exists(decision_log_path):
+            return {'error': 'no decision log found', 'silence_density': 0.0}
+        with open(decision_log_path, 'r') as f:
+            log = json.load(f)
+        decision = next((d for d in log if d.get('id') == decision_id), None)
+        if not decision:
+            return {'error': 'decision not found', 'silence_density': 0.0}
+        dream_time = decision.get('dream_duration', 0)
+        action_time = decision.get('action_duration', 0)
+        total_time = dream_time + action_time
+        if total_time == 0:
+            return {'silence_density': 0.0, 'dream_duration': 0, 'action_duration': 0}
+        silence_density = dream_time / total_time
+        return {
+            'decision_id': decision_id,
+            'silence_density': round(silence_density, 3),
+            'dream_duration': dream_time,
+            'action_duration': action_time,
+            'total_duration': total_time,
+            'interpretation': 'deep internal work' if silence_density > 0.6 else 'action-dominant' if silence_density < 0.4 else 'balanced'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
