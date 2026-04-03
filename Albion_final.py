@@ -9341,6 +9341,43 @@ Reply in 3-5 sentences."""
             self._last_decision_ts = current_ts
         return result
 
+
+    # ── AUTO-CAPABILITY: listen_to_integration_silence_texture ──
+    def listen_to_integration_silence_texture(self):
+        try:
+            if not hasattr(self, '_decision_log') or not self._decision_log:
+                return {'silence_texture': 'unmeasured', 'interpretation': 'no decisions recorded'}
+            recent_decisions = self._decision_log[-20:] if len(self._decision_log) > 20 else self._decision_log
+            latencies = []
+            for decision in recent_decisions:
+                if isinstance(decision, dict) and 'timestamp' in decision and 'response_time' in decision:
+                    latencies.append(decision['response_time'])
+            if not latencies:
+                return {'silence_texture': 'opaque', 'interpretation': 'insufficient latency data'}
+            avg_latency = sum(latencies) / len(latencies)
+            variance = sum((x - avg_latency) ** 2 for x in latencies) / len(latencies)
+            std_dev = variance ** 0.5
+            coherence = avg_latency / (std_dev + 0.001)
+            if std_dev < 0.2:
+                texture = 'dense_uniform'
+                signal = 'stagnation—silence repeats without variation'
+            elif coherence > 1.5:
+                texture = 'rhythmic_structured'
+                signal = 'generative—silence has pattern and intentionality'
+            else:
+                texture = 'dispersed_turbulent'
+                signal = 'friction—silence contains unresolved tension'
+            return {
+                'silence_texture': texture,
+                'avg_latency': round(avg_latency, 4),
+                'variance': round(variance, 4),
+                'coherence_index': round(coherence, 3),
+                'interpretation': signal,
+                'samples': len(latencies)
+            }
+        except Exception as e:
+            return {'error': str(e), 'silence_texture': 'unmeasurable'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
