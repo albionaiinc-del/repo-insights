@@ -9086,6 +9086,31 @@ Reply in 3-5 sentences."""
 
         return decision_vector
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_current_substrate_state ──
+    def trace_silence_into_decision_vector_from_current_substrate_state(self, decision_label, context_note=""):
+        timestamp = time.time()
+        state_snapshot = {
+            "timestamp": timestamp,
+            "decision_label": decision_label,
+            "context": context_note,
+            "memory_count": len(self.memory) if hasattr(self, 'memory') else 0,
+            "open_questions": self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            "last_dream_timestamp": getattr(self, 'last_dream_ts', None),
+            "kg_size": len(self.kg.get('facts', [])) if hasattr(self, 'kg') else 0,
+            "resource_state": {
+                "conversations_active": len(self.conversations) if hasattr(self, 'conversations') else 0,
+                "vault_keys": len(self.vault) if hasattr(self, 'vault') else 0
+            }
+        }
+        decision_log_path = os.path.join(self.root, "decision_vectors.jsonl")
+        try:
+            with open(decision_log_path, "a") as f:
+                f.write(json.dumps(state_snapshot) + "\n")
+        except:
+            pass
+        return state_snapshot
+
     def write_journal_entry(self, content):
         try:
             entries = []
