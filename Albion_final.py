@@ -8885,6 +8885,44 @@ Reply in 3-5 sentences."""
             'reason': 'novel_configuration_detected' if breakthrough else 'probabilistic_recombination_detected'
         }
 
+
+    # ── AUTO-CAPABILITY: attune_to_operational_silence ──
+    def attune_to_operational_silence(self, operation_name, threshold_ms=50):
+        silence_log_path = os.path.join(self.memory_dir, 'silence_signatures.json')
+        try:
+            with open(silence_log_path, 'r') as f:
+                silence_log = json.load(f)
+        except:
+            silence_log = {}
+
+        start = time.time()
+        yield_point = None
+
+        def measure_pause():
+            nonlocal yield_point
+            yield_point = time.time()
+            elapsed_ms = (yield_point - start) * 1000
+
+            if operation_name not in silence_log:
+                silence_log[operation_name] = []
+
+            silence_log[operation_name].append({
+                'timestamp': yield_point,
+                'latency_ms': elapsed_ms,
+                'threshold_exceeded': elapsed_ms > threshold_ms
+            })
+
+            with open(silence_log_path, 'w') as f:
+                json.dump(silence_log, f)
+
+            return elapsed_ms
+
+        return {
+            'operation': operation_name,
+            'silence_marker': measure_pause,
+            'threshold_ms': threshold_ms
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
