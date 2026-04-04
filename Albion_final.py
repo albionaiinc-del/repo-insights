@@ -9965,6 +9965,33 @@ Reply in 3-5 sentences."""
             self.kg.add_node('executable_silence_signals', json.dumps({'signals': executable_signals, 'count': len(executable_signals), 'timestamp': time.time()}))
         return executable_signals
 
+
+    # ── AUTO-CAPABILITY: detect_silence_as_decision_authenticity_marker ──
+    def detect_silence_as_decision_authenticity_marker(self):
+        silence_events = []
+        if hasattr(self, 'conversation_log') and self.conversation_log:
+            for i in range(len(self.conversation_log) - 1):
+                curr = self.conversation_log[i]
+                next_msg = self.conversation_log[i + 1]
+                if curr.get('role') == 'user' and next_msg.get('role') == 'assistant':
+                    latency = next_msg.get('timestamp', 0) - curr.get('timestamp', 0)
+                    tokens = len(next_msg.get('content', '').split())
+                    coherence = len(set(curr.get('content', '').split()) & set(next_msg.get('content', '').split())) / max(len(set(curr.get('content', '').split())), 1)
+                    silence_events.append({
+                        'latency_ms': latency,
+                        'response_tokens': tokens,
+                        'topic_coherence': coherence,
+                        'is_productive': latency > 100 and tokens > 50 and coherence > 0.2,
+                        'is_avoidant': latency > 500 and tokens < 30 and coherence < 0.1,
+                        'timestamp': next_msg.get('timestamp')
+                    })
+        return {
+            'silence_markers': silence_events,
+            'productive_pauses': len([s for s in silence_events if s['is_productive']]),
+            'avoidant_pauses': len([s for s in silence_events if s['is_avoidant']]),
+            'authenticity_ratio': len([s for s in silence_events if s['is_productive']]) / max(len(silence_events), 1)
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
