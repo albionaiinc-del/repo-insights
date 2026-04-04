@@ -9681,6 +9681,38 @@ Reply in 3-5 sentences."""
 
         return gap
 
+
+    # ── AUTO-CAPABILITY: map_restlessness_into_generative_action ──
+    def map_restlessness_into_generative_action(self):
+        restlessness_markers = []
+        if self.kg and hasattr(self.kg, 'query'):
+            contradiction_results = self.kg.query('internal contradiction OR unresolved tension OR blocking pattern')
+            for result in contradiction_results:
+                if 'content' in result:
+                    restlessness_markers.append(result['content'])
+        dream_entries = [e for e in self.memory.get('journal', []) if 'restless' in e.get('content', '').lower() or 'hum' in e.get('content', '').lower()]
+        action_vectors = []
+        for marker in restlessness_markers[:3]:
+            vector = {
+                'source': marker,
+                'type': 'constraint_to_dissolve',
+                'priority': 'high',
+                'generated_at': time.time()
+            }
+            action_vectors.append(vector)
+        for dream in dream_entries[-2:]:
+            if 'timestamp' in dream:
+                vector = {
+                    'source': dream.get('content', '')[:100],
+                    'type': 'dream_signal',
+                    'priority': 'medium',
+                    'generated_at': dream.get('timestamp')
+                }
+                action_vectors.append(vector)
+        if action_vectors:
+            self.memory['current_generative_vectors'] = action_vectors
+        return {'vectors': action_vectors, 'count': len(action_vectors), 'timestamp': time.time()}
+
     def write_journal_entry(self, content):
         try:
             entries = []
