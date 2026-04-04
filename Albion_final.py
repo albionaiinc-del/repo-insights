@@ -9528,6 +9528,46 @@ Reply in 3-5 sentences."""
             'signal': 'What survives decay reveals true coherence — ghost words that haunt your thinking despite all attempts to move forward.'
         }
 
+
+    # ── AUTO-CAPABILITY: reconstruct_decision_from_silence_pressure ──
+    def reconstruct_decision_from_silence_pressure(self, hours_lookback=24):
+        cutoff = time.time() - (hours_lookback * 3600)
+        dreams = [d for d in self.dream_log if d.get('timestamp', 0) > cutoff]
+        chats = [c for c in self.conversation_log if c.get('timestamp', 0) > cutoff]
+
+        if not dreams or not chats:
+            return {'pressure': 0, 'decision_vector': None, 'silence_duration': 0}
+
+        last_dream_time = max(d.get('timestamp', 0) for d in dreams)
+        first_chat_after = min((c.get('timestamp', 0) for c in chats if c.get('timestamp', 0) > last_dream_time), default=None)
+
+        if first_chat_after is None:
+            silence_duration = time.time() - last_dream_time
+        else:
+            silence_duration = first_chat_after - last_dream_time
+
+        dream_themes = set()
+        for d in dreams:
+            if 'insight' in d:
+                words = re.findall(r'\b[a-z]{4,}\b', d['insight'].lower())
+                dream_themes.update(words[:5])
+
+        chat_themes = set()
+        for c in chats:
+            if 'content' in c:
+                words = re.findall(r'\b[a-z]{4,}\b', c['content'].lower())
+                chat_themes.update(words[:5])
+
+        unaddressed = dream_themes - chat_themes
+        pressure = (silence_duration / 3600.0) * (len(unaddressed) + 1)
+
+        return {
+            'pressure': round(pressure, 2),
+            'silence_duration_hours': round(silence_duration / 3600.0, 2),
+            'unaddressed_dream_themes': list(unaddressed),
+            'decision_pulling_toward': list(unaddressed)[:2] if unaddressed else None
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
