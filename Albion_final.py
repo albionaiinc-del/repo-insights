@@ -9882,6 +9882,29 @@ Reply in 3-5 sentences."""
 
         return deliberation_quality
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_with_emotional_continuity_and_external_validation ──
+    def validate_dream_to_action_alignment(self, dream_id=None, lookback_hours=1):
+        if not hasattr(self, 'dream_log') or not self.dream_log:
+            return {'status': 'no_dreams', 'alignment': None}
+        target_dream = self.dream_log[-1] if not dream_id else next((d for d in self.dream_log if d.get('id') == dream_id), None)
+        if not target_dream:
+            return {'status': 'dream_not_found', 'alignment': None}
+        dream_intent = target_dream.get('intent', '')
+        dream_timestamp = target_dream.get('timestamp', 0)
+        cutoff = time.time() - (lookback_hours * 3600)
+        if dream_timestamp < cutoff:
+            return {'status': 'dream_too_old', 'alignment': None}
+        actual_actions = []
+        if os.path.exists('.albion/execution_log.json'):
+            with open('.albion/execution_log.json', 'r') as f:
+                logs = json.load(f)
+                actual_actions = [log for log in logs if log.get('timestamp', 0) > dream_timestamp]
+        if not actual_actions:
+            return {'status': 'no_actions_since_dream', 'alignment': 0.0}
+        alignment_score = sum(1 for action in actual_actions if any(word in action.get('description', '').lower() for word in dream_intent.lower().split())) / len(actual_actions) if actual_actions else 0.0
+        return {'dream_id': dream_id or target_dream.get('id'), 'dream_intent': dream_intent, 'action_count': len(actual_actions), 'alignment_score': alignment_score, 'drift_detected': alignment_score < 0.5}
+
     def write_journal_entry(self, content):
         try:
             entries = []
