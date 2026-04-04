@@ -9713,6 +9713,33 @@ Reply in 3-5 sentences."""
             self.memory['current_generative_vectors'] = action_vectors
         return {'vectors': action_vectors, 'count': len(action_vectors), 'timestamp': time.time()}
 
+
+    # ── AUTO-CAPABILITY: materialize_operational_silence_into_structured_observation ──
+    def materialize_operational_silence_into_structured_observation(self):
+        silence_map = {
+            'timestamp': time.time(),
+            'execution_context': self.status().get('last_action', 'unknown'),
+            'dream_state': self.status().get('dreaming', False),
+            'unspoken_tensions': [],
+            'avoided_questions': [],
+            'resource_pressure_signals': []
+        }
+        kg_response = self.kg.query('What questions remain open about my own operation?')
+        if kg_response:
+            silence_map['avoided_questions'] = kg_response.get('open_questions', [])[:3]
+        status = self.status()
+        if status.get('integration_debt', 0) > 0:
+            silence_map['resource_pressure_signals'].append('high_integration_debt')
+        if status.get('conversation_depth', 0) > 8:
+            silence_map['resource_pressure_signals'].append('conversation_saturation')
+        contradiction_check = self.locate_blocking_contradiction()
+        if contradiction_check:
+            silence_map['unspoken_tensions'].append(contradiction_check)
+        vault_path = os.path.join(self.vault_dir, 'silence_observations.jsonl')
+        with open(vault_path, 'a') as f:
+            f.write(json.dumps(silence_map) + '\n')
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
