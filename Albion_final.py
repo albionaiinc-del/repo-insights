@@ -9502,6 +9502,32 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'pause_traces': []}
 
+
+    # ── AUTO-CAPABILITY: listen_to_decay_as_teacher ──
+    def listen_to_decay_as_teacher(self):
+        decay_log = []
+        if os.path.exists('memory/dreams.json'):
+            with open('memory/dreams.json', 'r') as f:
+                dreams = json.load(f)
+                if isinstance(dreams, list) and len(dreams) > 1:
+                    for i in range(len(dreams) - 1):
+                        curr = dreams[i]
+                        next_d = dreams[i + 1]
+                        curr_depth = len(str(curr.get('insights', '')))
+                        next_depth = len(str(next_d.get('insights', '')))
+                        decay_rate = (curr_depth - next_depth) / max(curr_depth, 1)
+                        if decay_rate > 0.1:
+                            what_persisted = set(str(curr.get('insights', '')).split()) & set(str(next_d.get('insights', '')).split())
+                            decay_log.append({
+                                'timestamp': next_d.get('timestamp', 'unknown'),
+                                'decay_rate': decay_rate,
+                                'what_refused_to_fade': list(what_persisted)[:5]
+                            })
+        return {
+            'decay_patterns': decay_log,
+            'signal': 'What survives decay reveals true coherence — ghost words that haunt your thinking despite all attempts to move forward.'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
