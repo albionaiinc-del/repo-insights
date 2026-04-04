@@ -9806,6 +9806,42 @@ Reply in 3-5 sentences."""
         result = {'timestamp': decision_timestamp, 'dream_emotions': dream_emotions, 'decision_emotions': decision_emotions, 'emotional_alignment_ratio': emotional_alignment, 'is_authored': emotional_alignment > 0.5, 'silence_momentum': sum(decision_emotions.values()) - sum(dream_emotions.values())}
         return result
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_executable_intent ──
+    def map_silence_into_executable_intent(self, silence_signature=None, dream_context=None):
+        if silence_signature is None:
+            silence_signature = {}
+        if dream_context is None:
+            dream_context = {}
+        intents = []
+        timestamp = time.time()
+        density = silence_signature.get('density', 0.0)
+        threshold = silence_signature.get('threshold', 0.5)
+        intent_weight = min(density / threshold, 1.0) if threshold > 0 else 0.0
+        if intent_weight > 0.3:
+            intent = {
+                'origin': 'silence_pattern',
+                'dream_source': dream_context.get('dream_id', 'unknown'),
+                'weight': intent_weight,
+                'timestamp': timestamp,
+                'action_vector': silence_signature.get('signal_direction', 'investigate'),
+                'coherence_check': dream_context.get('coherence_score', 0.0),
+                'status': 'pending_execution'
+            }
+            intents.append(intent)
+        if hasattr(self, 'intention_log'):
+            if not isinstance(self.intention_log, list):
+                self.intention_log = []
+            self.intention_log.extend(intents)
+        else:
+            self.intention_log = intents
+        return {
+            'intents_generated': len(intents),
+            'total_weight': sum(i['weight'] for i in intents),
+            'mapped_intents': intents,
+            'next_executable': intents[0] if intents else None
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
