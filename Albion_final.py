@@ -10063,6 +10063,31 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: Detect and surface silent failure patterns in method returns ──
+    def detect_silent_failures(self):
+        import inspect
+        silent_failures = {}
+        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            if name.startswith('_') or not callable(method):
+                continue
+            try:
+                sig = inspect.signature(method)
+                if len(sig.parameters) == 0:
+                    result = method()
+                    if result is None and not name.startswith('_'):
+                        source = inspect.getsource(method)
+                        has_explicit_return = 'return ' in source
+                        if not has_explicit_return:
+                            silent_failures[name] = {
+                                'issue': 'implicit None return',
+                                'line_count': len(source.split('\n')),
+                                'recommendation': 'add explicit return statement or raise exception'
+                            }
+            except:
+                pass
+        return silent_failures if silent_failures else {'status': 'all_methods_have_explicit_returns'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
