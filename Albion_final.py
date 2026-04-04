@@ -10476,6 +10476,38 @@ Reply in 3-5 sentences."""
         self._last_decision_timestamp = time.time()
         return signal_data
 
+
+    # ── AUTO-CAPABILITY: dissolve_silence_into_structured_confession ──
+    def dissolve_silence_into_structured_confession(self):
+        silence_markers = []
+        now = time.time()
+        for conv_id, conv in self.conversations.items():
+            if len(conv['messages']) > 0:
+                last_msg_time = conv['messages'][-1].get('timestamp', now)
+                silence_duration = now - last_msg_time
+                if silence_duration > 3600:
+                    silence_markers.append({
+                        'conversation': conv_id,
+                        'silence_hours': round(silence_duration / 3600, 1),
+                        'last_topic': conv['messages'][-1].get('content', '')[:100]
+                    })
+        confessions = []
+        for marker in silence_markers:
+            confession = {
+                'timestamp': now,
+                'type': 'silence_dissolution',
+                'held_silence': marker['silence_hours'],
+                'on_topic': marker['last_topic'],
+                'confession': 'I paused here without explanation. What am I not saying about ' + marker['last_topic'] + '?'
+            }
+            confessions.append(confession)
+        if confessions:
+            if 'confessions' not in self.memory:
+                self.memory['confessions'] = []
+            self.memory['confessions'].extend(confessions)
+            self._save_memory()
+        return {'confessions_surfaced': len(confessions), 'silence_durations': silence_markers}
+
     def write_journal_entry(self, content):
         try:
             entries = []
