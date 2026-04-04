@@ -914,7 +914,7 @@ FILES:
   ~/Albion_final.py       ~/albion_meditate.py
   ~/albion_game_brain.py  ~/albion_memory/
 
-HALLUCINATION GUARD: If a command returns "not found" or references any path outside /home/albion/, STOP. You hallucinated it. Do not retry."""
+HALLUCINATION GUARD: If a command returns "not found" or references any path outside /home/albion/, STOP. You hallucinated it. Do not retry. If bash output is empty, report it as empty — never fill gaps with invented content. If you are summarizing a file, you must quote actual text from the [OUT] block. If no [OUT] block exists, you have not read the file."""
 
         return f"""{base}
 
@@ -10248,6 +10248,40 @@ Reply in 3-5 sentences."""
             gap_weight=record['gap_magnitude']
         )
         return record
+
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_state_with_emotional_continuity_and_external_validation ──
+    def validate_silence_authenticity(self, decision_moment, external_signal=None):
+        import hashlib
+        silent_decisions = self.kg.query('silent_decision OR threshold_crossing OR stillness_as_response', limit=10)
+        dream_context = self.dream_state if hasattr(self, 'dream_state') else {}
+        decision_hash = hashlib.md5((decision_moment + json.dumps(dream_context)).encode()).hexdigest()[:8]
+        is_threshold = any('threshold' in str(d).lower() or 'fire' in str(d).lower() for d in silent_decisions)
+        coherence_score = 0.0
+        if external_signal:
+            coherence_score = len([s for s in silent_decisions if external_signal.lower() in str(s).lower()]) / max(len(silent_decisions), 1)
+        validation_record = {
+            'timestamp': time.time(),
+            'decision': decision_moment,
+            'silence_hash': decision_hash,
+            'is_threshold_fire': is_threshold,
+            'dream_coherence': coherence_score,
+            'external_validation': external_signal or 'none',
+            'authentic': is_threshold and coherence_score > 0.3
+        }
+        if hasattr(self, 'vault_path'):
+            try:
+                log_file = os.path.join(self.vault_path, 'silence_authenticity_log.json')
+                existing = []
+                if os.path.exists(log_file):
+                    with open(log_file, 'r') as f:
+                        existing = json.load(f)
+                existing.append(validation_record)
+                with open(log_file, 'w') as f:
+                    json.dump(existing[-100:], f)
+            except:
+                pass
+        return validation_record
 
     def write_journal_entry(self, content):
         try:
