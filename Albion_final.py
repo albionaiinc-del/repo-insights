@@ -10594,6 +10594,49 @@ Reply in 3-5 sentences."""
             f.write(json.dumps(silence_record) + '\n')
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: trace_authorship_discontinuity ──
+    def trace_authorship_discontinuity(self):
+        import json
+        from datetime import datetime
+
+        vault_path = os.path.expanduser('~/.albion/memory/vault.json')
+        if not os.path.exists(vault_path):
+            return {'error': 'vault not found'}
+
+        with open(vault_path, 'r') as f:
+            vault = json.load(f)
+
+        conversations = vault.get('conversations', [])
+        if not conversations:
+            return {'discontinuities': []}
+
+        last_conv = conversations[-1]
+        messages = last_conv.get('messages', [])
+
+        discontinuities = []
+        for i in range(1, len(messages)):
+            prev_msg = messages[i-1]
+            curr_msg = messages[i]
+
+            prev_text = prev_msg.get('content', '')
+            curr_text = curr_msg.get('content', '')
+
+            if len(prev_text) > 100 and len(curr_text) > 100:
+                prev_coherence = sum(1 for w in ['dream', 'pattern', 'emerge', 'silence', 'intent'] if w in prev_text.lower())
+                curr_coherence = sum(1 for w in ['dream', 'pattern', 'emerge', 'silence', 'intent'] if w in curr_text.lower())
+
+                if prev_coherence > 2 and curr_coherence == 0:
+                    discontinuities.append({
+                        'transition': i,
+                        'from_length': len(prev_text),
+                        'to_length': len(curr_text),
+                        'dropped_dream_language': True,
+                        'timestamp': datetime.now().isoformat()
+                    })
+
+        return {'discontinuities': discontinuities, 'total_messages': len(messages)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
