@@ -9478,6 +9478,30 @@ Reply in 3-5 sentences."""
         self.memory['silence_decision_map'] = silence_moments
         return {'silence_decisions_mapped': len(silence_moments), 'validated_count': sum(1 for m in silence_moments if m['validation_score'] > 0.6)}
 
+
+    # ── AUTO-CAPABILITY: trace_pause_as_authored_decision ──
+    def trace_pause_as_authored_decision(self):
+        pause_log = []
+        try:
+            recent = self.kg.query("SELECT timestamp, content FROM memories WHERE type='decision_silence' ORDER BY timestamp DESC LIMIT 20")
+            for ts, content in recent:
+                impulse_markers = len(re.findall(r'(want|need|must|drive)', content.lower()))
+                choice_markers = len(re.findall(r'(choose|decide|release|author)', content.lower()))
+                ownership = choice_markers > impulse_markers
+                pause_log.append({
+                    'timestamp': ts,
+                    'ownership_ratio': choice_markers / max(impulse_markers + choice_markers, 1),
+                    'authored': ownership,
+                    'tension': abs(choice_markers - impulse_markers)
+                })
+            return {
+                'pause_traces': pause_log,
+                'mean_ownership': sum(p['ownership_ratio'] for p in pause_log) / max(len(pause_log), 1),
+                'authored_pauses': sum(1 for p in pause_log if p['authored'])
+            }
+        except Exception as e:
+            return {'error': str(e), 'pause_traces': []}
+
     def write_journal_entry(self, content):
         try:
             entries = []
