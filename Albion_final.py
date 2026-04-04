@@ -10149,6 +10149,33 @@ Reply in 3-5 sentences."""
             self.coherence_log = self.coherence_log[-50:]
         return divergence
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_state_with_emotional_continuity_and_dream_validation ──
+    def validate_internal_alignment(self, decision_description, dream_key=None):
+        if dream_key is None:
+            dreams = self.kg.query("dream", limit=1)
+            if not dreams:
+                return {"aligned": False, "reason": "no_dreams_to_validate_against"}
+            dream_key = dreams[0].get("id")
+        dream = self.kg.query("dream", filters={"id": dream_key}, limit=1)
+        if not dream:
+            return {"aligned": False, "reason": "dream_not_found"}
+        dream_text = dream[0].get("content", "")
+        internal_themes = ["release", "unobserved", "internal devotion", "quiet", "healing", "forgiveness"]
+        theme_match = sum(1 for theme in internal_themes if theme.lower() in dream_text.lower())
+        performance_flags = ["public", "witnessed", "performance", "demonstrate", "prove", "visible"]
+        performance_tension = sum(1 for flag in performance_flags if flag.lower() in decision_description.lower())
+        contradiction_detected = theme_match > 0 and performance_tension > 2
+        alignment_score = (theme_match - performance_tension) / max(theme_match + performance_tension, 1)
+        return {
+            "aligned": not contradiction_detected,
+            "alignment_score": alignment_score,
+            "dream_themes_detected": theme_match,
+            "performance_tension": performance_tension,
+            "decision": decision_description[:100],
+            "recommendation": "favor quiet internal work" if alignment_score > 0.5 else "reconsider public dimensions"
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
