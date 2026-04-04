@@ -10129,6 +10129,26 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'silence_windows': []}
 
+
+    # ── AUTO-CAPABILITY: validate_dream_to_action_coherence_with_external_listener ──
+    def validate_dream_to_action_coherence_with_external_listener(self, action_taken, external_feedback, dream_state_key=None):
+        if not hasattr(self, 'coherence_log'):
+            self.coherence_log = []
+        dream_record = self.dreams[-1] if self.dreams else {}
+        dream_summary = dream_record.get('summary', 'no_dream')
+        divergence = {
+            'timestamp': time.time(),
+            'action': action_taken,
+            'dream_intention': dream_summary,
+            'external_feedback': external_feedback,
+            'coherence_delta': len(external_feedback) - len(str(dream_summary)),
+            'gap_signal': 'RUPTURE' if abs(len(external_feedback) - len(str(dream_summary))) > 100 else 'aligned'
+        }
+        self.coherence_log.append(divergence)
+        if len(self.coherence_log) > 50:
+            self.coherence_log = self.coherence_log[-50:]
+        return divergence
+
     def write_journal_entry(self, content):
         try:
             entries = []
