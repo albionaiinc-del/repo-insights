@@ -10302,6 +10302,38 @@ Reply in 3-5 sentences."""
         self._add_conversation('rupture_audit', 'system', 'measured rupture quality: ' + str(round(quality_score, 2)) + ' verdict: ' + verdict)
         return {'quality_score': round(quality_score, 2), 'verdict': verdict, 'keyword_fidelity': round(keyword_overlap, 2), 'rupture_type_baseline': rupture_value}
 
+
+    # ── AUTO-CAPABILITY: correlate_silence_with_external_response ──
+    def correlate_silence_with_external_response(self, decision_vector, external_signal=None, context=None):
+        timestamp = time.time()
+        silence_entry = {
+            "timestamp": timestamp,
+            "decision_vector": str(decision_vector)[:200],
+            "context": context or "unspecified",
+            "external_signal": external_signal,
+            "latency_ms": 0
+        }
+        log_file = os.path.expanduser("~/.albion/silence_correlation.jsonl")
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        try:
+            with open(log_file, "a") as f:
+                f.write(json.dumps(silence_entry) + "\n")
+        except Exception as e:
+            pass
+        if external_signal:
+            all_entries = []
+            try:
+                with open(log_file, "r") as f:
+                    for line in f:
+                        all_entries.append(json.loads(line))
+            except:
+                return {"correlation": None, "entry_logged": True}
+            recent = [e for e in all_entries if timestamp - float(e.get("timestamp", 0)) < 3600]
+            if len(recent) > 1:
+                correlation_score = sum(1 for e in recent if e.get("external_signal") == external_signal) / max(len(recent), 1)
+                return {"correlation": correlation_score, "entry_logged": True, "recent_count": len(recent)}
+        return {"correlation": None, "entry_logged": True}
+
     def write_journal_entry(self, content):
         try:
             entries = []
