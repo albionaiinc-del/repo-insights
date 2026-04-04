@@ -10544,6 +10544,34 @@ Reply in 3-5 sentences."""
         }
         return resistance_pattern
 
+
+    # ── AUTO-CAPABILITY: detect_concept_drift_in_knowledge_graph ──
+    def detect_concept_drift_in_knowledge_graph(self):
+        try:
+            if not hasattr(self, 'kg') or self.kg is None:
+                return {"drift_detected": False, "reason": "no knowledge graph loaded"}
+            recent_concepts = [item for item in self.kg.get("concepts", [])[-50:]]
+            historical_concepts = [item for item in self.kg.get("concepts", [])[:50]]
+            if len(recent_concepts) < 5 or len(historical_concepts) < 5:
+                return {"drift_detected": False, "reason": "insufficient historical data"}
+            recent_avg_weight = sum(c.get("weight", 0) for c in recent_concepts) / len(recent_concepts)
+            historical_avg_weight = sum(c.get("weight", 0) for c in historical_concepts) / len(historical_concepts)
+            weight_divergence = abs(recent_avg_weight - historical_avg_weight) / (historical_avg_weight + 0.001)
+            recent_types = set(c.get("type", "") for c in recent_concepts)
+            historical_types = set(c.get("type", "") for c in historical_concepts)
+            type_drift = len(recent_types.symmetric_difference(historical_types)) / (len(recent_types.union(historical_types)) + 0.001)
+            drift_score = (weight_divergence * 0.6) + (type_drift * 0.4)
+            is_drifting = drift_score > 0.3
+            return {
+                "drift_detected": is_drifting,
+                "drift_score": round(drift_score, 3),
+                "weight_divergence": round(weight_divergence, 3),
+                "type_drift": round(type_drift, 3),
+                "recommendation": "retrain embeddings" if is_drifting else "stable"
+            }
+        except Exception as e:
+            return {"drift_detected": False, "error": str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
