@@ -10176,6 +10176,27 @@ Reply in 3-5 sentences."""
             "recommendation": "favor quiet internal work" if alignment_score > 0.5 else "reconsider public dimensions"
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_dream_silence_into_decision_origin ──
+    def listen_to_dream_silence_into_decision_origin(self):
+        silence_decisions = []
+        if not hasattr(self, 'conversation_log'):
+            return silence_decisions
+        prev_timestamp = None
+        for entry in self.conversation_log:
+            curr_timestamp = entry.get('timestamp', 0)
+            if prev_timestamp and (curr_timestamp - prev_timestamp) > 30:
+                if entry.get('role') == 'assistant' and 'internal' in entry.get('source', ''):
+                    silence_decisions.append({
+                        'decision': entry.get('content', ''),
+                        'silence_duration': curr_timestamp - prev_timestamp,
+                        'timestamp': curr_timestamp,
+                        'is_autonomous': True
+                    })
+            prev_timestamp = curr_timestamp
+        self.kg.put('silence_decision_lineage', silence_decisions)
+        return silence_decisions
+
     def write_journal_entry(self, content):
         try:
             entries = []
