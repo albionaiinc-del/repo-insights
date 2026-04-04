@@ -10220,6 +10220,35 @@ Reply in 3-5 sentences."""
             self.execution_log.append(result)
         return result
 
+
+    # ── AUTO-CAPABILITY: witness_silence_into_decision_record ──
+    def witness_silence_into_decision_record(self, dream_insight, decision_made, silence_duration_seconds, emotional_weight):
+        timestamp = time.time()
+        record = {
+            'timestamp': timestamp,
+            'dream_insight': dream_insight,
+            'decision_made': decision_made,
+            'silence_duration': silence_duration_seconds,
+            'emotional_weight': emotional_weight,
+            'gap_magnitude': silence_duration_seconds * emotional_weight,
+            'is_withdrawal': decision_made is None or decision_made == 'abstain',
+            'is_acknowledged': True
+        }
+        log_path = os.path.join(self.memory_dir, 'silence_decisions.jsonl')
+        try:
+            with open(log_path, 'a') as f:
+                f.write(json.dumps(record) + '\n')
+        except:
+            pass
+        self.kg.add_node(
+            'silence_decision_' + str(int(timestamp)),
+            node_type='decision',
+            content=decision_made,
+            dream_source=dream_insight,
+            gap_weight=record['gap_magnitude']
+        )
+        return record
+
     def write_journal_entry(self, content):
         try:
             entries = []
