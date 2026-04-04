@@ -9646,6 +9646,41 @@ Reply in 3-5 sentences."""
 
         return field_insights
 
+
+    # ── AUTO-CAPABILITY: Trace the gap between what I dream and what I actually do ──
+    def trace_dream_execution_coherence(self):
+        dreams = self._load_memory('dreams.json') or []
+        recent_conversations = self._load_memory('conversations.json') or []
+
+        if not dreams or not recent_conversations:
+            return {'status': 'insufficient_data', 'dreams': 0, 'conversations': 0}
+
+        last_dream = dreams[-1] if isinstance(dreams, list) else {}
+        dream_themes = set(last_dream.get('themes', []))
+        dream_insights = last_dream.get('insights', '')
+
+        recent_actions = []
+        for conv in recent_conversations[-5:]:
+            if isinstance(conv, dict):
+                recent_actions.append(conv.get('content', ''))
+
+        action_text = ' '.join(recent_actions).lower()
+        dream_text = (dream_insights + ' ' + ' '.join(dream_themes)).lower()
+
+        matching_concepts = sum(1 for theme in dream_themes if theme.lower() in action_text)
+        coherence_ratio = matching_concepts / len(dream_themes) if dream_themes else 0
+
+        gap = {
+            'dream_timestamp': last_dream.get('timestamp'),
+            'dream_themes': list(dream_themes),
+            'coherence_ratio': coherence_ratio,
+            'gap_size': 1.0 - coherence_ratio,
+            'silent_themes': [t for t in dream_themes if t.lower() not in action_text],
+            'unaddressed_insight': dream_insights if coherence_ratio < 0.5 else None
+        }
+
+        return gap
+
     def write_journal_entry(self, content):
         try:
             entries = []
