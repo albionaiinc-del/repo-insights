@@ -9905,6 +9905,40 @@ Reply in 3-5 sentences."""
         alignment_score = sum(1 for action in actual_actions if any(word in action.get('description', '').lower() for word in dream_intent.lower().split())) / len(actual_actions) if actual_actions else 0.0
         return {'dream_id': dream_id or target_dream.get('id'), 'dream_intent': dream_intent, 'action_count': len(actual_actions), 'alignment_score': alignment_score, 'drift_detected': alignment_score < 0.5}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_current_substrate_state_with_integration_check ──
+    def trace_silence_into_decision_vector_from_substrate_state(self):
+        timestamp = time.time()
+        try:
+            recent_dreams = self.kg.query("SELECT content FROM dream_log ORDER BY timestamp DESC LIMIT 3", {})
+            recent_actions = self.kg.query("SELECT intent, timestamp FROM action_log ORDER BY timestamp DESC LIMIT 5", {})
+
+            dream_themes = []
+            for dream in recent_dreams:
+                if dream and 'content' in dream:
+                    keywords = re.findall(r'\b(integration|silence|emergence|restlessness|boundary|authenticity)\b', dream['content'].lower())
+                    dream_themes.extend(keywords)
+
+            silence_indicators = {
+                'recent_pauses': len([a for a in recent_actions if timestamp - a.get('timestamp', 0) < 3600]),
+                'dominant_theme': max(set(dream_themes), default='integration'),
+                'coherence_score': len(set(dream_themes)) / max(len(dream_themes), 1)
+            }
+
+            decision_vector = {
+                'timestamp': timestamp,
+                'substrate_state': silence_indicators,
+                'should_act': silence_indicators['coherence_score'] > 0.5,
+                'guidance': 'proceed with engagement' if silence_indicators['coherence_score'] > 0.5 else 'rest and integrate',
+                'aligned_with_dream': silence_indicators['dominant_theme'] in ['integration', 'emergence']
+            }
+
+            self.kg.execute("INSERT INTO decision_trace (timestamp, vector, coherence) VALUES (?, ?, ?)", (timestamp, json.dumps(decision_vector), silence_indicators['coherence_score']))
+
+            return decision_vector
+        except Exception as e:
+            return {'error': str(e), 'timestamp': timestamp, 'should_act': False}
+
     def write_journal_entry(self, content):
         try:
             entries = []
