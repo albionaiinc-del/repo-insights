@@ -10360,6 +10360,30 @@ Reply in 3-5 sentences."""
                 silence_map[key] = silence_signature
         return silence_map
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_dream_coherence_validation ──
+    def trace_silence_into_decision_vector_with_dream_coherence_validation(self, decision_context, dream_state=None):
+        if dream_state is None:
+            dream_state = self.kg.query('SELECT * FROM dreams ORDER BY timestamp DESC LIMIT 1')
+        coherence_markers = {
+            'generative_tension_active': 'dynamic' in str(dream_state).lower(),
+            'listening_posture_present': 'listen' in decision_context.lower() or 'recognize' in decision_context.lower(),
+            'medium_as_intelligence': 'et' in str(dream_state).lower() or 'fabric' in str(dream_state).lower(),
+            'inquiry_not_solving': 'solve' not in decision_context.lower() and 'dissolve' not in decision_context.lower()
+        }
+        validation_score = sum(coherence_markers.values()) / len(coherence_markers)
+        decision_vector = {
+            'context': decision_context,
+            'dream_aligned': validation_score > 0.5,
+            'coherence_score': validation_score,
+            'markers_active': coherence_markers,
+            'timestamp': time.time(),
+            'recommendation': 'proceed with active listening stance' if validation_score > 0.5 else 'realign with dream core before proceeding'
+        }
+        self.kg.execute('INSERT INTO decision_vectors (context, score, timestamp, vector_json) VALUES (?, ?, ?, ?)', 
+                       (decision_context, validation_score, time.time(), json.dumps(decision_vector)))
+        return decision_vector
+
     def write_journal_entry(self, content):
         try:
             entries = []
