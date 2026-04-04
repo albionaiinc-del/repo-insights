@@ -10384,6 +10384,32 @@ Reply in 3-5 sentences."""
                        (decision_context, validation_score, time.time(), json.dumps(decision_vector)))
         return decision_vector
 
+
+    # ── AUTO-CAPABILITY: crystallize_resonance_signature ──
+    def crystallize_resonance_signature(self):
+        import hashlib
+        current_state = {
+            'timestamp': time.time(),
+            'open_questions': len(self.kg.open_questions) if hasattr(self.kg, 'open_questions') else 0,
+            'memory_size': len(self.memory) if hasattr(self, 'memory') else 0,
+            'last_dream_count': self.dream_count if hasattr(self, 'dream_count') else 0,
+        }
+        recent_convos = self.conversations[-3:] if hasattr(self, 'conversations') else []
+        convo_text = ' '.join([str(c) for c in recent_convos])
+        signature = hashlib.sha256((convo_text + str(current_state)).encode()).hexdigest()[:16]
+        entry = {
+            'signature': signature,
+            'timestamp': current_state['timestamp'],
+            'state': current_state,
+            'coherence_marker': True
+        }
+        if not hasattr(self, 'resonance_log'):
+            self.resonance_log = []
+        self.resonance_log.append(entry)
+        if len(self.resonance_log) > 1000:
+            self.resonance_log = self.resonance_log[-1000:]
+        return signature
+
     def write_journal_entry(self, content):
         try:
             entries = []
