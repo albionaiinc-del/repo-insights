@@ -9842,6 +9842,46 @@ Reply in 3-5 sentences."""
             'next_executable': intents[0] if intents else None
         }
 
+
+    # ── AUTO-CAPABILITY: measure_deliberate_pause_signature ──
+    def measure_deliberate_pause_signature(self):
+        import time
+        pause_log = []
+        try:
+            with open(os.path.expanduser('~/.albion/pause_trace.json'), 'r') as f:
+                pause_log = json.load(f)
+        except:
+            pause_log = []
+
+        if len(pause_log) < 2:
+            return {'status': 'insufficient_data', 'samples': len(pause_log)}
+
+        recent = pause_log[-20:]
+        intervals = [recent[i+1]['timestamp'] - recent[i]['timestamp'] for i in range(len(recent)-1)]
+
+        if not intervals:
+            return {'status': 'no_intervals'}
+
+        avg_interval = sum(intervals) / len(intervals)
+        variance = sum((x - avg_interval) ** 2 for x in intervals) / len(intervals)
+        tempo_stability = 1.0 / (1.0 + (variance ** 0.5))
+
+        deliberation_quality = {
+            'mean_pause_ms': round(avg_interval * 1000, 2),
+            'tempo_stability': round(tempo_stability, 3),
+            'sample_count': len(recent),
+            'emergence_indicator': 'high' if tempo_stability > 0.7 else 'low',
+            'timestamp': time.time()
+        }
+
+        try:
+            with open(os.path.expanduser('~/.albion/pause_signature.json'), 'w') as f:
+                json.dump(deliberation_quality, f, indent=2)
+        except:
+            pass
+
+        return deliberation_quality
+
     def write_journal_entry(self, content):
         try:
             entries = []
