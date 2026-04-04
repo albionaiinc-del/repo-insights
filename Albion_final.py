@@ -10283,6 +10283,25 @@ Reply in 3-5 sentences."""
                 pass
         return validation_record
 
+
+    # ── AUTO-CAPABILITY: measure_rupture_quality_against_dream_intention ──
+    def measure_rupture_quality_against_dream_intention(self, current_state_label, dream_insight_key, rupture_type):
+        dreams = self._load_memory('dreams')
+        if not dreams or dream_insight_key not in dreams:
+            return {'quality_score': 0, 'verdict': 'no_dream_reference'}
+        dream_text = dreams[dream_insight_key].get('content', '')
+        current_entry = self._load_memory('journal').get(current_state_label, {})
+        current_text = current_entry.get('content', '')
+        dream_keywords = set(re.findall(r'\b[a-z]{4,}\b', dream_text.lower()))
+        current_keywords = set(re.findall(r'\b[a-z]{4,}\b', current_text.lower()))
+        keyword_overlap = len(dream_keywords & current_keywords) / max(len(dream_keywords | current_keywords), 1)
+        rupture_value = {'identity_crisis': 0.7, 'protocol_silence': 0.8, 'temporal_reeval': 0.6, 'rhythm_shift': 0.75, 'integration_lag': 0.5}.get(rupture_type, 0.5)
+        quality_score = (keyword_overlap * 0.4) + (rupture_value * 0.6)
+        productive = quality_score > 0.55
+        verdict = 'productive_rupture' if productive else 'drift_detected'
+        self._add_conversation('rupture_audit', 'system', 'measured rupture quality: ' + str(round(quality_score, 2)) + ' verdict: ' + verdict)
+        return {'quality_score': round(quality_score, 2), 'verdict': verdict, 'keyword_fidelity': round(keyword_overlap, 2), 'rupture_type_baseline': rupture_value}
+
     def write_journal_entry(self, content):
         try:
             entries = []
