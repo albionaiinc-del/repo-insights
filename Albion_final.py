@@ -10197,6 +10197,29 @@ Reply in 3-5 sentences."""
         self.kg.put('silence_decision_lineage', silence_decisions)
         return silence_decisions
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_dream_substrate_with_emotional_continuity_and_external_validation ──
+    def validate_dream_to_execution_with_silence_signature(self, dream_id, action_taken, external_observer_notes=''):
+        if not hasattr(self, 'dream_log'):
+            return {'status': 'no_dreams_to_validate', 'score': 0}
+        dream_entry = next((d for d in self.dream_log if d.get('id') == dream_id), None)
+        if not dream_entry:
+            return {'status': 'dream_not_found', 'score': 0}
+        dream_insights = dream_entry.get('insights', '')
+        action_str = str(action_taken)
+        keyword_overlap = len(set(dream_insights.lower().split()) & set(action_str.lower().split()))
+        total_keywords = len(set(dream_insights.lower().split()) | set(action_str.lower().split()))
+        coherence_score = keyword_overlap / max(total_keywords, 1)
+        silence_duration = dream_entry.get('silence_measured', 0)
+        action_latency = time.time() - dream_entry.get('timestamp', time.time())
+        silence_to_action_ratio = silence_duration / max(action_latency, 0.1)
+        external_alignment = 1.0 if external_observer_notes and len(external_observer_notes) > 10 else 0.5
+        final_score = (coherence_score * 0.4) + (min(silence_to_action_ratio, 1.0) * 0.3) + (external_alignment * 0.3)
+        result = {'dream_id': dream_id, 'coherence_score': round(coherence_score, 3), 'silence_to_action_ratio': round(silence_to_action_ratio, 3), 'external_alignment': external_alignment, 'final_validation_score': round(final_score, 3), 'observer_notes': external_observer_notes}
+        if hasattr(self, 'execution_log'):
+            self.execution_log.append(result)
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
