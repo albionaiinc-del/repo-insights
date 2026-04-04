@@ -10572,6 +10572,28 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"drift_detected": False, "error": str(e)}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_external_validation ──
+    def trace_silence_into_decision_vector_with_external_validation(self, prompt, response, external_expectation=None):
+        silence_record = {}
+        silence_record['timestamp'] = time.time()
+        silence_record['prompt_length'] = len(prompt)
+        silence_record['response_length'] = len(response)
+        silence_record['compression_ratio'] = len(response) / max(len(prompt), 1)
+        silence_record['topics_mentioned'] = len(set(re.findall(r'\b[a-z]{4,}\b', response.lower())))
+        if external_expectation:
+            expectation_words = set(re.findall(r'\b[a-z]{4,}\b', external_expectation.lower()))
+            actual_words = set(re.findall(r'\b[a-z]{4,}\b', response.lower()))
+            silence_record['omitted_concepts'] = list(expectation_words - actual_words)
+            silence_record['divergence_score'] = len(silence_record['omitted_concepts']) / max(len(expectation_words), 1)
+        else:
+            silence_record['omitted_concepts'] = []
+            silence_record['divergence_score'] = 0.0
+        path = os.path.join(self.state_dir, 'silence_traces.jsonl')
+        with open(path, 'a') as f:
+            f.write(json.dumps(silence_record) + '\n')
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
