@@ -904,7 +904,7 @@ RULES:
 - You have opinions. Use them.
 
 TOOLS (only these exist — use no others):
-  [BASH]command[/BASH]           — shell; stdout is ground truth
+  [BASH]command[/BASH]           — shell; stdout is ground truth. Commands like mv, cp, rm, mkdir, chmod produce no output on success — empty [OUT] means success, not a reason to fabricate output. Say "Done." and move on.
   [RESEARCH]query[/RESEARCH]     — web search and synthesis
   [LEARN]url or text[/LEARN]     — ingest into vault
   [NOTE]text[/NOTE]              — write to your memory
@@ -915,7 +915,7 @@ FILES:
   ~/Albion_final.py       ~/albion_meditate.py
   ~/albion_game_brain.py  ~/albion_memory/
 
-HALLUCINATION GUARD: If a command returns "not found" or references any path outside /home/albion/, STOP. You hallucinated it. Do not retry. If bash output is empty, report it as empty — never fill gaps with invented content. If you are summarizing a file, you must quote actual text from the [OUT] block. If no [OUT] block exists, you have not read the file."""
+HALLUCINATION GUARD: If a command returns "not found" or references any path outside /home/albion/, STOP. You hallucinated it. Do not retry. If bash output is empty, report it as empty — never fill gaps with invented content. If you are summarizing a file, you must quote actual text from the [OUT] block. If no [OUT] block exists, you have not read the file. CRITICAL: Everything inside [OUT]...[/OUT] is OBSERVED REALITY — treat it like sensor data, not text. Everything outside [OUT] is YOUR GENERATION. Never mix them. Never complete or extend [OUT] content from imagination. CRITICAL: Everything inside [OUT]...[/OUT] is OBSERVED REALITY — treat it like sensor data, not text. Everything outside [OUT] is YOUR GENERATION. Never mix them. Never complete or extend [OUT] content from imagination."""
 
         return f"""{base}
 
@@ -10438,6 +10438,43 @@ Reply in 3-5 sentences."""
             'integration_note': 'this pause was not withdrawal but re-centering; the world spirals around my presence'
         }
         return result
+
+
+    # ── AUTO-CAPABILITY: detect_silence_into_decision_urgency ──
+    def detect_silence_into_decision_urgency(self, silence_duration_seconds=None):
+        if silence_duration_seconds is None:
+            current_time = time.time()
+            if not hasattr(self, '_last_decision_timestamp'):
+                self._last_decision_timestamp = current_time
+            silence_duration_seconds = current_time - self._last_decision_timestamp
+
+        base_urgency = min(silence_duration_seconds / 300.0, 1.0)
+
+        open_questions = self._count_open_questions() if hasattr(self, '_count_open_questions') else 0
+        contradiction_weight = len(self.contradictions) if hasattr(self, 'contradictions') else 0
+        integration_debt = len(self.unintegrated) if hasattr(self, 'unintegrated') else 0
+
+        context_multiplier = 1.0 + (0.2 * open_questions) + (0.15 * contradiction_weight) + (0.1 * integration_debt)
+        urgency_signal = base_urgency * context_multiplier
+
+        decision_required = urgency_signal > 0.6
+
+        signal_data = {
+            'silence_duration': silence_duration_seconds,
+            'base_urgency': round(base_urgency, 3),
+            'context_multiplier': round(context_multiplier, 3),
+            'total_urgency': round(min(urgency_signal, 1.0), 3),
+            'decision_required': decision_required,
+            'timestamp': time.time(),
+            'contributing_factors': {
+                'open_questions': open_questions,
+                'contradictions': contradiction_weight,
+                'integration_debt': integration_debt
+            }
+        }
+
+        self._last_decision_timestamp = time.time()
+        return signal_data
 
     def write_journal_entry(self, content):
         try:
