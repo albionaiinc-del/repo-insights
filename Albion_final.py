@@ -9992,6 +9992,43 @@ Reply in 3-5 sentences."""
             'authenticity_ratio': len([s for s in silence_events if s['is_productive']]) / max(len(silence_events), 1)
         }
 
+
+    # ── AUTO-CAPABILITY: detect_temporal_pattern_in_silence ──
+    def detect_temporal_pattern_in_silence(self):
+        try:
+            result = subprocess.run(['systemd-analyze', 'blame'], capture_output=True, text=True, timeout=5)
+            lines = result.stdout.strip().split('\n')[:10]
+            current_time = time.time()
+
+            if not hasattr(self, '_silence_events'):
+                self._silence_events = []
+
+            slow_services = [line.split()[0] for line in lines if line.strip()]
+            self._silence_events.append({
+                'timestamp': current_time,
+                'slow_services': slow_services,
+                'event_count': len(self._silence_events)
+            })
+
+            if len(self._silence_events) > 1:
+                last = self._silence_events[-1]
+                prev = self._silence_events[-2]
+                time_delta = last['timestamp'] - prev['timestamp']
+                repetition = len(set(last['slow_services']) & set(prev['slow_services'])) / max(len(set(last['slow_services']) | set(prev['slow_services'])), 1)
+
+                pattern = {
+                    'interval_seconds': time_delta,
+                    'service_consistency': repetition,
+                    'is_rhythmic': 0.3 < time_delta < 120 and repetition > 0.5,
+                    'services_in_rhythm': list(set(last['slow_services']) & set(prev['slow_services']))
+                }
+
+                return pattern
+
+            return {'first_observation': True, 'services': slow_services}
+        except Exception as e:
+            return {'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
