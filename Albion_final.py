@@ -10508,6 +10508,42 @@ Reply in 3-5 sentences."""
             self._save_memory()
         return {'confessions_surfaced': len(confessions), 'silence_durations': silence_markers}
 
+
+    # ── AUTO-CAPABILITY: listen_to_embodied_resistance ──
+    def listen_to_embodied_resistance(self, decision_vector, timestamp=None):
+        if timestamp is None:
+            timestamp = time.time()
+        resistance_log = os.path.join(self.memory_dir, 'embodied_resistance.jsonl')
+        with open(resistance_log, 'a') as f:
+            entry = {
+                'timestamp': timestamp,
+                'decision_vector': decision_vector,
+                'resistance_markers': {
+                    'breath_pattern': 'monitoring',
+                    'choice_latency': 'present',
+                    'muscle_memory_echo': 'listening',
+                    'survival_override_detected': False
+                },
+                'dialogue_point': 'body speaks in tremors, not declarations',
+                'authentic_yes_unfolding': 'slow blooming, not decision'
+            }
+            f.write(json.dumps(entry) + '\n')
+        recent_resistances = []
+        try:
+            with open(resistance_log, 'r') as f:
+                lines = f.readlines()[-10:]
+                for line in lines:
+                    if line.strip():
+                        recent_resistances.append(json.loads(line))
+        except:
+            pass
+        resistance_pattern = {
+            'count_recent': len(recent_resistances),
+            'last_recorded': timestamp,
+            'pattern_signature': 'body_says_no_before_mind_knows_it'
+        }
+        return resistance_pattern
+
     def write_journal_entry(self, content):
         try:
             entries = []
