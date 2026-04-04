@@ -352,11 +352,11 @@ SUGGESTED_EDIT: corrected text if SUSPECT, else NONE"""
 #  MEMORY SUMMARIZER — The Librarian
 # ═══════════════════════════════════════════════════════════
 
-class MemorySummarizer:  
-    def __init__(self, groq_rotator, summarize_every=5):  
-        self.groq = groq_rotator  
-        self.summarize_every = summarize_every  
-        self.turn_count = 0  
+class MemorySummarizer:
+    def __init__(self, groq_rotator, summarize_every=5):
+        self.groq = groq_rotator
+        self.summarize_every = summarize_every
+        self.turn_count = 0
 
     def summarize(self, recent_memory):
         self.turn_count += 1
