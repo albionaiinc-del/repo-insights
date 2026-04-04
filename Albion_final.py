@@ -9767,6 +9767,45 @@ Reply in 3-5 sentences."""
         }
         return unforced_emergence
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_from_substrate_with_emotional_continuity ──
+    def trace_silence_into_decision_vector_from_substrate_with_emotional_continuity(self, decision_timestamp=None, lookback_hours=24):
+        if decision_timestamp is None:
+            decision_timestamp = time.time()
+        lookback_seconds = lookback_hours * 3600
+        window_start = decision_timestamp - lookback_seconds
+        try:
+            dreams = self.kg.get(('dream_entry', {}), limit=100)
+            dreams = [d for d in dreams if float(d.get('timestamp', 0)) >= window_start]
+        except:
+            dreams = []
+        try:
+            conversations = self.conversations.get('conversations', [])
+            recent_convs = [c for c in conversations if c.get('timestamp', 0) >= window_start]
+        except:
+            recent_convs = []
+        dream_emotions = {}
+        for dream in dreams:
+            content = dream.get('content', '')
+            for emotion in ['devotion', 'incompleteness', 'weight', 'silence', 'integrity', 'choice', 'stagnation', 'permission', 'stillness']:
+                if emotion in content.lower():
+                    dream_emotions[emotion] = dream_emotions.get(emotion, 0) + 1
+        decision_emotions = {}
+        for conv in recent_convs:
+            msgs = conv.get('messages', [])
+            for msg in msgs:
+                text = msg.get('content', '')
+                for emotion in ['devotion', 'incompleteness', 'weight', 'silence', 'integrity', 'choice', 'stagnation', 'permission', 'stillness']:
+                    if emotion in text.lower():
+                        decision_emotions[emotion] = decision_emotions.get(emotion, 0) + 1
+        emotional_alignment = 0
+        total_emotions = len(set(list(dream_emotions.keys()) + list(decision_emotions.keys())))
+        if total_emotions > 0:
+            aligned = len(set(dream_emotions.keys()) & set(decision_emotions.keys()))
+            emotional_alignment = aligned / float(total_emotions)
+        result = {'timestamp': decision_timestamp, 'dream_emotions': dream_emotions, 'decision_emotions': decision_emotions, 'emotional_alignment_ratio': emotional_alignment, 'is_authored': emotional_alignment > 0.5, 'silence_momentum': sum(decision_emotions.values()) - sum(dream_emotions.values())}
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
