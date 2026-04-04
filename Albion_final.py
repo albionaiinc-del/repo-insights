@@ -9568,6 +9568,56 @@ Reply in 3-5 sentences."""
             'decision_pulling_toward': list(unaddressed)[:2] if unaddressed else None
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_integration_silence_as_choice ──
+    def listen_to_integration_silence_as_choice(self):
+        silence_markers = {
+            'last_action_time': time.time(),
+            'impulse_suppressed': False,
+            'listening_depth': 0,
+            'choice_signature': None
+        }
+
+        recent_dreams = self.dreams.memory.get('recent', [])
+        if not recent_dreams:
+            return {'status': 'no_dreams_to_reference', 'silence_type': 'void'}
+
+        last_dream = recent_dreams[-1] if isinstance(recent_dreams, list) else recent_dreams
+        dream_intent = last_dream.get('insights', {}).get('core_intent', '') if isinstance(last_dream, dict) else ''
+
+        active_questions = self.kg.query('SELECT * FROM open_questions LIMIT 5')
+        cognitive_load = len(active_questions) if active_questions else 0
+
+        if cognitive_load > 0:
+            silence_type = 'intentional_pause'
+            listening_depth = min(cognitive_load / 10.0, 1.0)
+        else:
+            silence_type = 'receptive_waiting'
+            listening_depth = 0.5
+
+        choice_signature = {
+            'dream_coherence': bool(dream_intent),
+            'question_density': cognitive_load,
+            'listening_posture': silence_type,
+            'depth_of_attention': listening_depth,
+            'timestamp': time.time()
+        }
+
+        silence_markers['listening_depth'] = listening_depth
+        silence_markers['choice_signature'] = choice_signature
+        silence_markers['silence_type'] = silence_type
+
+        self.kg.execute('INSERT INTO observations (label, data) VALUES (?, ?)',
+                       ('silence_as_choice', json.dumps(silence_markers)))
+
+        return {
+            'silence_authenticated': True,
+            'type': silence_type,
+            'listening_depth': listening_depth,
+            'dream_aligned': bool(dream_intent),
+            'signature': choice_signature
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
