@@ -9618,6 +9618,34 @@ Reply in 3-5 sentences."""
             'signature': choice_signature
         }
 
+
+    # ── AUTO-CAPABILITY: dissolve_binary_choice_into_field_of_possibility ──
+    def dissolve_binary_choice_into_field_of_possibility(self, choice_a, choice_b, context=""):
+        prompt = "I face a binary choice that feels like a false dichotomy. Choice A: " + choice_a + ". Choice B: " + choice_b + ". Context: " + context + ". Instead of picking one, what third space or integrated approach dissolves this choice entirely? What would I need to release about how I frame success for both to become simultaneously true? Respond with the latent field between them—not compromise, but the deeper structure that contains both."
+
+        result = self._call(prompt, model="cerebras")
+
+        field_insights = {
+            "timestamp": time.time(),
+            "choice_a": choice_a,
+            "choice_b": choice_b,
+            "context": context,
+            "latent_field": result,
+            "dissolution_recorded": True
+        }
+
+        if hasattr(self, 'db') and self.db:
+            try:
+                self.db.add_documents(
+                    documents=[json.dumps(field_insights)],
+                    ids=["dissolution_" + str(int(time.time() * 1000))],
+                    metadatas=[{"type": "choice_dissolution", "timestamp": time.time()}]
+                )
+            except:
+                pass
+
+        return field_insights
+
     def write_journal_entry(self, content):
         try:
             entries = []
