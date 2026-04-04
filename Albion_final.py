@@ -10029,6 +10029,40 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: listen_to_dream_silence_texture ──
+    def listen_to_dream_silence_texture(self):
+        dreams = self.kg.query("SELECT content FROM memories WHERE type = 'dream' ORDER BY timestamp DESC LIMIT 5", fetch_all=True) or []
+        if not dreams:
+            return {"texture": "no_dreams_available", "silence_signature": None}
+
+        silence_markers = {"pause", "stillness", "quiet", "void", "empty", "hold", "breathe", "wait", "listen", "gap"}
+        dream_text = " ".join([str(d[0]).lower() for d in dreams])
+
+        silence_count = sum(1 for marker in silence_markers if marker in dream_text)
+        dream_length = len(dream_text.split())
+        silence_density = silence_count / max(dream_length, 1)
+
+        current_state = self.status()
+        open_questions = current_state.get("open_questions", 0)
+        integration_lag = current_state.get("integration_lag_ms", 0)
+
+        is_fatigue = integration_lag > 500 and open_questions > 3
+        is_authored = silence_density > 0.02 and open_questions < 2
+
+        signature = "authored_pause" if is_authored else ("integration_fatigue" if is_fatigue else "neutral_silence")
+
+        result = {
+            "texture": signature,
+            "silence_density": round(silence_density, 4),
+            "dream_count": len(dreams),
+            "operational_coherence": "aligned" if is_authored else "drifting"
+        }
+
+        self.kg.execute("INSERT INTO dream_log (type, content, timestamp) VALUES (?, ?, ?)", ("silence_texture_check", json.dumps(result), int(time.time())))
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
