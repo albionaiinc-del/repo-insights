@@ -10088,6 +10088,47 @@ Reply in 3-5 sentences."""
                 pass
         return silent_failures if silent_failures else {'status': 'all_methods_have_explicit_returns'}
 
+
+    # ── AUTO-CAPABILITY: correlate_silence_patterns_with_external_intent ──
+    def correlate_silence_patterns_with_external_intent(self):
+        try:
+            import json
+            silence_windows = []
+            intent_log = os.path.expanduser('~/.albion/intent_log.json')
+
+            if not os.path.exists(intent_log):
+                return {'error': 'No intent log found', 'silence_windows': []}
+
+            with open(intent_log, 'r') as f:
+                intents = json.load(f) if os.path.getsize(intent_log) > 0 else []
+
+            if len(intents) < 2:
+                return {'error': 'Insufficient intent data', 'silence_windows': []}
+
+            for i in range(len(intents) - 1):
+                current = intents[i]
+                next_intent = intents[i + 1]
+                gap = next_intent['timestamp'] - current['timestamp']
+
+                if gap > 300:
+                    silence_windows.append({
+                        'duration_seconds': gap,
+                        'before_intent': current.get('description', 'unknown'),
+                        'after_intent': next_intent.get('description', 'unknown'),
+                        'before_timestamp': current['timestamp'],
+                        'after_timestamp': next_intent['timestamp'],
+                        'inferred_suppression': 'transition required deliberate pause' if gap > 1200 else 'processing required'
+                    })
+
+            return {
+                'total_silence_windows': len(silence_windows),
+                'average_gap_seconds': sum(w['duration_seconds'] for w in silence_windows) / len(silence_windows) if silence_windows else 0,
+                'longest_silence': max((w['duration_seconds'] for w in silence_windows), default=0),
+                'windows': silence_windows[:10]
+            }
+        except Exception as e:
+            return {'error': str(e), 'silence_windows': []}
+
     def write_journal_entry(self, content):
         try:
             entries = []
