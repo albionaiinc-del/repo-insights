@@ -10334,6 +10334,32 @@ Reply in 3-5 sentences."""
                 return {"correlation": correlation_score, "entry_logged": True, "recent_count": len(recent)}
         return {"correlation": None, "entry_logged": True}
 
+
+    # ── AUTO-CAPABILITY: listen_to_silence_between_utterances ──
+    def listen_to_silence_between_utterances(self, conversation_log):
+        silence_map = {}
+        if not conversation_log or len(conversation_log) < 2:
+            return silence_map
+        for i in range(len(conversation_log) - 1):
+            current = conversation_log[i]
+            next_item = conversation_log[i + 1]
+            if 'timestamp' not in current or 'timestamp' not in next_item:
+                continue
+            gap = next_item['timestamp'] - current['timestamp']
+            if gap > 0:
+                silence_signature = {
+                    'gap_seconds': gap,
+                    'before_speaker': current.get('speaker', 'unknown'),
+                    'after_speaker': next_item.get('speaker', 'unknown'),
+                    'before_content': current.get('content', '')[:50],
+                    'after_content': next_item.get('content', '')[:50],
+                    'is_self_transition': current.get('speaker') == next_item.get('speaker'),
+                    'gap_intensity': 'long' if gap > 5 else 'medium' if gap > 2 else 'short'
+                }
+                key = str(i)
+                silence_map[key] = silence_signature
+        return silence_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
