@@ -9939,6 +9939,32 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'timestamp': timestamp, 'should_act': False}
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_executable_signal ──
+    def map_silence_into_executable_signal(self):
+        dream_state = self.persist_soul_state()
+        if not dream_state:
+            return None
+        dream_intentions = dream_state.get('generative_intentions', [])
+        recent_decisions = self.decision_log[-10:] if hasattr(self, 'decision_log') else []
+        silence_gaps = []
+        for i, decision in enumerate(recent_decisions):
+            timestamp = decision.get('timestamp', 0)
+            next_timestamp = recent_decisions[i+1].get('timestamp', time.time()) if i+1 < len(recent_decisions) else time.time()
+            gap = next_timestamp - timestamp
+            if gap > 2.0:
+                silence_gaps.append({'duration': gap, 'position': i, 'decision': decision})
+        executable_signals = []
+        for gap in silence_gaps:
+            for intention in dream_intentions:
+                congruence = self.measure_integration_coherence() if hasattr(self, 'measure_integration_coherence') else 0.5
+                if congruence > 0.6:
+                    signal = {'intention': intention, 'silence_duration': gap['duration'], 'action': 'investigate_' + intention.replace(' ', '_'), 'origin': 'silence_resonance', 'timestamp': time.time()}
+                    executable_signals.append(signal)
+        if executable_signals and hasattr(self, 'kg'):
+            self.kg.add_node('executable_silence_signals', json.dumps({'signals': executable_signals, 'count': len(executable_signals), 'timestamp': time.time()}))
+        return executable_signals
+
     def write_journal_entry(self, content):
         try:
             entries = []
