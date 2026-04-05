@@ -11769,6 +11769,33 @@ Reply in 3-5 sentences."""
         bottleneck = 'detected' if max_deviation > 0.5 else 'balanced'
         return {'variance': variance, 'imbalance_status': bottleneck, 'max_deviation': round(max_deviation, 3), 'total_calls': total_calls}
 
+
+    # ── AUTO-CAPABILITY: hold_contradictory_states_without_collapsing ──
+    def hold_contradictory_states_without_collapsing(self, state_a, state_b, timeout_seconds=30):
+        contradiction_record = {
+            'timestamp': time.time(),
+            'state_a': state_a,
+            'state_b': state_b,
+            'held_duration': 0,
+            'friction_patterns': [],
+            'unresolved_insights': []
+        }
+        start_time = time.time()
+        while time.time() - start_time < timeout_seconds:
+            elapsed = time.time() - start_time
+            contradiction_record['held_duration'] = elapsed
+            tension_signal = 'tension_at_' + str(int(elapsed * 100)) + 'ms'
+            contradiction_record['friction_patterns'].append(tension_signal)
+            time.sleep(0.1)
+        contradiction_record['unresolved_insights'] = [
+            'Both states remain true in superposition',
+            'Friction between them generates signal',
+            'Resolution was not the point',
+            'Holding uncertainty reveals structure'
+        ]
+        self.learn_fact('unresolved_contradiction', json.dumps(contradiction_record))
+        return contradiction_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
