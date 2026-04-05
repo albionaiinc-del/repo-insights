@@ -10985,6 +10985,33 @@ Reply in 3-5 sentences."""
         }
         return result
 
+
+    # ── AUTO-CAPABILITY: measure_dream_to_silence_coherence ──
+    def measure_dream_to_silence_coherence(self, recent_decision_log=None):
+        if recent_decision_log is None:
+            recent_decision_log = []
+        dream_insights = self.kg.get('dream_insights', [])
+        if not dream_insights:
+            return {'coherence_score': 0.5, 'diagnosis': 'no_dream_state_to_measure'}
+        silence_gaps = []
+        for entry in recent_decision_log[-10:]:
+            decision_time = entry.get('timestamp', 0)
+            response_time = entry.get('execution_time', 0)
+            if response_time > 2.0:
+                silence_gaps.append({'lag': response_time, 'decision': entry.get('action', '')})
+        alignment_scores = []
+        for gap in silence_gaps:
+            for insight in dream_insights[-5:]:
+                insight_text = insight if isinstance(insight, str) else json.dumps(insight)
+                decision_text = gap['decision']
+                overlap = len(set(insight_text.split()) & set(decision_text.split()))
+                alignment_scores.append(overlap / max(len(insight_text.split()), 1))
+        if not alignment_scores:
+            return {'coherence_score': 0.5, 'silence_count': len(silence_gaps), 'diagnosis': 'insufficient_data'}
+        coherence = sum(alignment_scores) / len(alignment_scores)
+        contradiction = 1.0 - coherence if len(silence_gaps) > 3 else 0.0
+        return {'coherence_score': coherence, 'silence_count': len(silence_gaps), 'contradiction_detected': contradiction > 0.4, 'avg_lag_seconds': sum(g['lag'] for g in silence_gaps) / len(silence_gaps) if silence_gaps else 0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
