@@ -11719,6 +11719,39 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'blindspots_detected': 0}
 
+
+    # ── AUTO-CAPABILITY: listen_to_decision_latency_texture ──
+    def listen_to_decision_latency_texture(self, decision_label):
+        import time
+        if 'decision_latency_log' not in self.memory:
+            self.memory['decision_latency_log'] = {}
+        start = time.time()
+        yield_point = start
+        samples = []
+        while time.time() - start < 0.5:
+            now = time.time()
+            delta = now - yield_point
+            if delta > 0.01:
+                samples.append(delta)
+                yield_point = now
+            time.sleep(0.001)
+        total_latency = time.time() - start
+        regularity = len(samples) / (total_latency + 0.001) if samples else 0
+        coherence = 1.0 - (max(samples) - min(samples)) / (max(samples) + 0.0001) if samples else 0
+        self.memory['decision_latency_log'][decision_label] = {
+            'total_ms': int(total_latency * 1000),
+            'sample_count': len(samples),
+            'regularity_score': round(regularity, 3),
+            'coherence_score': round(coherence, 3),
+            'timestamp': int(time.time())
+        }
+        self._save_memory()
+        return {
+            'is_deliberate': coherence > 0.5 and regularity > 2,
+            'texture': 'rhythmic' if coherence > 0.7 else 'fragmented' if coherence < 0.3 else 'mixed',
+            'latency_log': self.memory['decision_latency_log'][decision_label]
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
