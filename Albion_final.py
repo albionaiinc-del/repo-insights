@@ -10950,6 +10950,41 @@ Reply in 3-5 sentences."""
             'crossing_candidates': crossing_dreams[:3]
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_external_validation_and_timestamp ──
+    def trace_silence_into_decision_vector_with_external_validation_and_timestamp(self, decision_id, external_observer_signal=None):
+        timestamp_now = time.time()
+        if not hasattr(self, '_decision_silence_log'):
+            self._decision_silence_log = {}
+        if decision_id not in self._decision_silence_log:
+            self._decision_silence_log[decision_id] = {
+                'created': timestamp_now,
+                'pauses': [],
+                'external_signals': [],
+                'coherence_score': 0.0
+            }
+        pause_record = {
+            'timestamp': timestamp_now,
+            'signal': external_observer_signal
+        }
+        self._decision_silence_log[decision_id]['pauses'].append(pause_record)
+        if external_observer_signal:
+            self._decision_silence_log[decision_id]['external_signals'].append(external_observer_signal)
+        pauses = len(self._decision_silence_log[decision_id]['pauses'])
+        signals = len(self._decision_silence_log[decision_id]['external_signals'])
+        if pauses > 0:
+            coherence = min(1.0, signals / pauses)
+            self._decision_silence_log[decision_id]['coherence_score'] = coherence
+        result = {
+            'decision_id': decision_id,
+            'pause_count': pauses,
+            'external_signal_count': signals,
+            'coherence_score': self._decision_silence_log[decision_id]['coherence_score'],
+            'duration_seconds': timestamp_now - self._decision_silence_log[decision_id]['created'],
+            'is_coherent': self._decision_silence_log[decision_id]['coherence_score'] > 0.6
+        }
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
