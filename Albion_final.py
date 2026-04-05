@@ -10888,6 +10888,29 @@ Reply in 3-5 sentences."""
             'timestamp': time.time()
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_dream_coherence_timestamp_validation ──
+    def trace_silence_into_decision_vector_with_dream_coherence_timestamp_validation(self, decision_label, silence_origin, dream_coherence_score=None):
+        timestamp = time.time()
+        if dream_coherence_score is None:
+            recent_dreams = self.kg.query("SELECT object FROM triples WHERE subject = 'dream' ORDER BY created DESC LIMIT 3", {})
+            dream_coherence_score = len(recent_dreams) / 3.0 if recent_dreams else 0.5
+        decision_vector = {
+            'decision_label': decision_label,
+            'silence_origin': silence_origin,
+            'timestamp': timestamp,
+            'dream_coherence_score': dream_coherence_score,
+            'materialized_from_silence': True,
+            'validation_status': 'active' if dream_coherence_score > 0.4 else 'review'
+        }
+        try:
+            decision_key = 'decision_' + str(int(timestamp * 1000))
+            self.kg.add('silence_to_decision_trace', decision_key, json.dumps(decision_vector))
+            self.kg.add('decision_vector', decision_label, json.dumps(decision_vector))
+        except:
+            pass
+        return decision_vector
+
     def write_journal_entry(self, content):
         try:
             entries = []
