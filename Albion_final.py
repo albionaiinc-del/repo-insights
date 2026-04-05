@@ -11425,6 +11425,40 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'error': str(e), 'cascade_risk': False}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_continuity_check ──
+    def trace_silence_into_decision_vector_with_coherence_continuity_check(self, dream_state, decision_moment, external_signal=None):
+        if not hasattr(self, 'dream_coherence_log'):
+            self.dream_coherence_log = []
+        dream_signature = json.dumps(dream_state, sort_keys=True) if isinstance(dream_state, dict) else str(dream_state)
+        dream_hash = hash(dream_signature) % (10 ** 8)
+        decision_signature = json.dumps(decision_moment, sort_keys=True) if isinstance(decision_moment, dict) else str(decision_moment)
+        decision_hash = hash(decision_signature) % (10 ** 8)
+        coherence_delta = abs(dream_hash - decision_hash)
+        is_authentic_threshold = coherence_delta > 1000000 and coherence_delta < 9000000
+        if external_signal:
+            external_hash = hash(str(external_signal)) % (10 ** 8)
+            external_alignment = abs(decision_hash - external_hash) < coherence_delta
+        else:
+            external_alignment = None
+        continuity_record = {
+            'timestamp': time.time(),
+            'dream_hash': dream_hash,
+            'decision_hash': decision_hash,
+            'coherence_delta': coherence_delta,
+            'is_authentic_threshold_crossing': is_authentic_threshold,
+            'external_alignment': external_alignment,
+            'dream_state_summary': str(dream_state)[:200],
+            'decision_summary': str(decision_moment)[:200]
+        }
+        self.dream_coherence_log.append(continuity_record)
+        return {
+            'is_coherent': is_authentic_threshold,
+            'delta': coherence_delta,
+            'external_witness': external_alignment,
+            'record': continuity_record
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
