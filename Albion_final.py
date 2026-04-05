@@ -11184,6 +11184,41 @@ Reply in 3-5 sentences."""
             self.write_journal_entry('coherence_rupture', 'Dream intention [' + dream_intention + '] diverged sharply from decision [' + decision_vector + ']. Alignment: ' + str(alignment_score))
         return coherence_record
 
+
+    # ── AUTO-CAPABILITY: detect_homeostatic_drift ──
+    def detect_homeostatic_drift(self):
+        baseline = {
+            'dream_frequency': self.config.get('dream_interval', 3600),
+            'integration_threshold': self.config.get('integration_threshold', 0.7),
+            'memory_decay_rate': self.config.get('memory_decay', 0.95),
+            'silence_tolerance': self.config.get('silence_threshold', 0.3),
+        }
+        current = {
+            'dream_frequency': self._calculate_actual_dream_interval(),
+            'integration_threshold': self._measure_integration_coherence(),
+            'memory_decay_rate': self._estimate_memory_retention(),
+            'silence_tolerance': self._measure_silence_density_in_decisions(),
+        }
+        drift = {}
+        for key in baseline:
+            if baseline[key] > 0:
+                drift[key] = abs(current[key] - baseline[key]) / baseline[key]
+        total_drift = sum(drift.values()) / len(drift) if drift else 0
+        dysregulation_alert = total_drift > 0.25
+        self.memory['homeostatic_state'] = {
+            'timestamp': time.time(),
+            'drift_vector': drift,
+            'total_drift': total_drift,
+            'dysregulated': dysregulation_alert,
+        }
+        return {
+            'baseline': baseline,
+            'current': current,
+            'drift': drift,
+            'dysregulated': dysregulation_alert,
+            'health': 1.0 - min(total_drift, 1.0),
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
