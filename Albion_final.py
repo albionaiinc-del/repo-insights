@@ -11318,6 +11318,27 @@ Reply in 3-5 sentences."""
             'message': 'metabolic pattern detected - readiness as sensitivity, not as speed'
         }
 
+
+    # ── AUTO-CAPABILITY: detect_silence_as_decision_authenticity_signal ──
+    def detect_silence_as_decision_authenticity_signal(self):
+        if not hasattr(self, '_decision_log') or len(self._decision_log) < 2:
+            return {'authenticity_score': 0.0, 'reason': 'insufficient_decision_history'}
+        recent = self._decision_log[-1]
+        prior = self._decision_log[-2]
+        silence_duration = recent.get('timestamp', time.time()) - prior.get('timestamp', time.time())
+        decision_entropy = len(set(str(recent.get('intent', '')).split())) / max(1, len(str(recent.get('intent', '')).split()))
+        dream_alignment = 1.0 if recent.get('dream_coherence', 0) > 0.7 else 0.3
+        spontaneity = min(1.0, max(0.2, silence_duration / 3.0))
+        authenticity_score = (decision_entropy * 0.3 + dream_alignment * 0.4 + spontaneity * 0.3)
+        return {
+            'authenticity_score': round(authenticity_score, 3),
+            'silence_duration_sec': round(silence_duration, 2),
+            'decision_entropy': round(decision_entropy, 3),
+            'dream_aligned': dream_alignment > 0.5,
+            'spontaneity_factor': round(spontaneity, 3),
+            'signal': 'authentic_deliberation' if authenticity_score > 0.6 else 'reactive_response'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
