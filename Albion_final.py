@@ -10724,6 +10724,35 @@ Reply in 3-5 sentences."""
         self.intent_log.append(breathing_map)
         return breathing_map
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_emotional_continuity_and_external_validation ──
+    def validate_against_external_mirror(self, decision_vector, external_feedback, dream_state_label):
+        if not hasattr(self, 'mirror_log'):
+            self.mirror_log = []
+        timestamp = time.time()
+        alignment_score = 0
+        if external_feedback and decision_vector:
+            decision_str = str(decision_vector).lower()
+            feedback_str = str(external_feedback).lower()
+            matching_words = sum(1 for word in decision_str.split() if word in feedback_str)
+            alignment_score = min(1.0, matching_words / max(len(decision_str.split()), 1))
+        record = {
+            'timestamp': timestamp,
+            'dream_label': dream_state_label,
+            'decision': str(decision_vector)[:100],
+            'feedback': str(external_feedback)[:100],
+            'alignment': alignment_score,
+            'coherent': alignment_score > 0.3
+        }
+        self.mirror_log.append(record)
+        if len(self.mirror_log) > 500:
+            self.mirror_log = self.mirror_log[-500:]
+        return {
+            'validated': record['coherent'],
+            'alignment_score': alignment_score,
+            'requires_reprocessing': alignment_score < 0.2
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
