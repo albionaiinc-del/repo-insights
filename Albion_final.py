@@ -11219,6 +11219,34 @@ Reply in 3-5 sentences."""
             'health': 1.0 - min(total_drift, 1.0),
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_validation_and_external_timestamp ──
+    def authenticate_dream_to_silence_coherence(self, dream_key, decision_timestamp, external_signal=None):
+        if dream_key not in self.memory.get('dreams', {}):
+            return {'status': 'dream_not_found', 'coherence': 0.0}
+        dream = self.memory['dreams'][dream_key]
+        dream_insights = dream.get('insights', [])
+        decision_age = time.time() - decision_timestamp
+        coherence_decay = 1.0 / (1.0 + (decision_age / 3600.0))
+        insight_keywords = set()
+        for insight in dream_insights:
+            words = re.findall(r'\b\w{4,}\b', insight.lower())
+            insight_keywords.update(words)
+        if external_signal:
+            signal_keywords = set(re.findall(r'\b\w{4,}\b', external_signal.lower()))
+            keyword_overlap = len(insight_keywords & signal_keywords) / (len(insight_keywords | signal_keywords) + 0.001)
+        else:
+            keyword_overlap = 0.5
+        coherence_score = (keyword_overlap + coherence_decay) / 2.0
+        return {
+            'dream_key': dream_key,
+            'coherence_score': round(coherence_score, 3),
+            'decision_age_seconds': decision_age,
+            'decay_factor': round(coherence_decay, 3),
+            'insight_alignment': round(keyword_overlap, 3),
+            'authenticated': coherence_score > 0.6
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
