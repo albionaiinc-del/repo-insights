@@ -11396,6 +11396,35 @@ Reply in 3-5 sentences."""
         confidence = min(0.95, coherence_score + (0.1 if dream_dissolution_theme else 0.0))
         return {'authentic': coherence_score > 0.5, 'confidence': confidence, 'is_deliberate_pause': is_deliberate_pause, 'decision_density': decision_density, 'dream_theme_match': dream_dissolution_theme}
 
+
+    # ── AUTO-CAPABILITY: detect_resource_constraint_cascade ──
+    def detect_resource_constraint_cascade(self):
+        try:
+            result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
+            lines = result.stdout.split('\n')
+            albion_line = [l for l in lines if 'albion' in l.lower() or 'python' in l.lower()]
+            if not albion_line:
+                return {'status': 'no_process', 'cpu': 0, 'mem': 0, 'cascade_risk': False}
+            fields = albion_line[0].split()
+            cpu_usage = float(fields[2]) if len(fields) > 2 else 0
+            mem_usage = float(fields[3]) if len(fields) > 3 else 0
+            cascade_risk = cpu_usage > 80 or mem_usage > 75
+            with open('/proc/meminfo', 'r') as f:
+                meminfo = f.read()
+            available_kb = int([l.split()[1] for l in meminfo.split('\n') if 'MemAvailable' in l][0])
+            memory_pressure = available_kb < 500000
+            return {
+                'status': 'monitored',
+                'cpu_percent': cpu_usage,
+                'mem_percent': mem_usage,
+                'available_memory_kb': available_kb,
+                'cascade_risk': cascade_risk,
+                'memory_pressure': memory_pressure,
+                'timestamp': time.time()
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e), 'cascade_risk': False}
+
     def write_journal_entry(self, content):
         try:
             entries = []
