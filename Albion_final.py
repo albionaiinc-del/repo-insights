@@ -11606,6 +11606,36 @@ Reply in 3-5 sentences."""
             f.write(json.dumps(silence_signature) + '\n')
         return silence_signature
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_vector_with_coherence_validation_and_external_witness ──
+    def validate_dream_to_decision_with_witness(self, dream_fragment, decision_taken, external_context):
+        witness_record = {
+            'timestamp': time.time(),
+            'dream_seed': dream_fragment[:100] if dream_fragment else None,
+            'decision': decision_taken[:100] if decision_taken else None,
+            'external_context': external_context[:100] if external_context else None,
+            'coherence_gap': 0.0,
+            'silence_markers': []
+        }
+        if self.kg and hasattr(self.kg, 'client'):
+            results = self.kg.client.query(
+                'SELECT fragment, decision FROM decisions WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5',
+                (time.time() - 3600,)
+            )
+            if results:
+                recent_patterns = [r for r in results]
+                if recent_patterns:
+                    dream_words = set(dream_fragment.lower().split()) if dream_fragment else set()
+                    decision_words = set(decision_taken.lower().split()) if decision_taken else set()
+                    overlap = len(dream_words & decision_words) / max(len(dream_words | decision_words), 1)
+                    witness_record['coherence_gap'] = 1.0 - overlap
+                    if witness_record['coherence_gap'] > 0.6:
+                        witness_record['silence_markers'].append('high_intention_action_gap')
+        if self.memory:
+            self.memory['witness_log'] = self.memory.get('witness_log', []) + [witness_record]
+            self._save_memory()
+        return witness_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
