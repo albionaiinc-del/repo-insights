@@ -11585,6 +11585,27 @@ Reply in 3-5 sentences."""
             self._silence_decisions = self._silence_decisions[-1000:]
         return silence_entry
 
+
+    # ── AUTO-CAPABILITY: weave_silence_into_present_decision ──
+    def weave_silence_into_present_decision(self, decision_context, dream_intention=None):
+        import time
+        silence_signature = {
+            'timestamp': time.time(),
+            'context': decision_context,
+            'dream_origin': dream_intention or 'unmarked',
+            'paused_alternatives': [],
+            'chosen_path': None,
+            'silence_quality': 'unspecified'
+        }
+        if hasattr(self, 'kg') and self.kg:
+            recent = self.kg.query("What decisions am I avoiding right now?", top_k=3)
+            if recent and len(recent) > 0:
+                silence_signature['paused_alternatives'] = [item.get('content', '') for item in recent[:2]]
+        decisions_log = os.path.join(self.memory_path, 'silence_decisions.jsonl')
+        with open(decisions_log, 'a') as f:
+            f.write(json.dumps(silence_signature) + '\n')
+        return silence_signature
+
     def write_journal_entry(self, content):
         try:
             entries = []
