@@ -11796,6 +11796,39 @@ Reply in 3-5 sentences."""
         self.learn_fact('unresolved_contradiction', json.dumps(contradiction_record))
         return contradiction_record
 
+
+    # ── AUTO-CAPABILITY: embody_silence_as_signal ──
+    def embody_silence_as_signal(self, context_label, duration_seconds=None, metadata=None):
+        import time
+        start = time.time()
+        signal_record = {
+            'timestamp': start,
+            'context': context_label,
+            'duration_measured': duration_seconds,
+            'metadata': metadata or {},
+            'type': 'silence_signal'
+        }
+        if not hasattr(self, '_silence_log'):
+            self._silence_log = []
+        self._silence_log.append(signal_record)
+        try:
+            sig_path = os.path.join(self.vault_dir, 'silence_signals.json')
+            existing = []
+            if os.path.exists(sig_path):
+                with open(sig_path, 'r') as f:
+                    existing = json.load(f)
+            existing.append(signal_record)
+            with open(sig_path, 'w') as f:
+                json.dump(existing, f, indent=2)
+        except Exception as e:
+            pass
+        return {
+            'recorded': True,
+            'signal_id': len(self._silence_log),
+            'context': context_label,
+            'timestamp': start
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
