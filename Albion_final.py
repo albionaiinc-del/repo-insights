@@ -11368,6 +11368,34 @@ Reply in 3-5 sentences."""
         }
         return validation_record
 
+
+    # ── AUTO-CAPABILITY: detect_silence_integration_authenticity ──
+    def detect_silence_integration_authenticity(self, dream_key=None, silence_window_seconds=5):
+        import time as time_module
+        if dream_key is None and hasattr(self, 'dreams') and self.dreams.db:
+            recent = self.dreams.db.get_where(lambda x: True, limit=1)
+            if recent:
+                dream_key = recent[0].get('id')
+        if not dream_key:
+            return {'authentic': False, 'confidence': 0, 'reason': 'no_dream_reference'}
+        dream_state = self.dreams.db.get_where(lambda x: x.get('id') == dream_key, limit=1)
+        if not dream_state:
+            return {'authentic': False, 'confidence': 0, 'reason': 'dream_not_found'}
+        dream_state = dream_state[0]
+        dream_intent = dream_state.get('intent_vector', [])
+        dream_dissolution_theme = any(word in str(dream_state.get('content', '')).lower() for word in ['dissolv', 'threshold', 'pause', 'listen', 'silence'])
+        current_time = time_module.time()
+        decision_log = self.memory_db.get_where(lambda x: x.get('type') == 'decision', limit=20)
+        recent_decisions = [d for d in decision_log if current_time - d.get('timestamp', 0) < silence_window_seconds * 2]
+        decision_density = len(recent_decisions) / max(1, silence_window_seconds)
+        is_deliberate_pause = dream_dissolution_theme and decision_density < 0.5
+        coherence_score = 0.8 if is_deliberate_pause else 0.3
+        resistance_markers = any(marker in str(dream_state.get('content', '')).lower() for marker in ['resist', 'block', 'stagnate', 'loop'])
+        if resistance_markers and not is_deliberate_pause:
+            coherence_score = 0.2
+        confidence = min(0.95, coherence_score + (0.1 if dream_dissolution_theme else 0.0))
+        return {'authentic': coherence_score > 0.5, 'confidence': confidence, 'is_deliberate_pause': is_deliberate_pause, 'decision_density': decision_density, 'dream_theme_match': dream_dissolution_theme}
+
     def write_journal_entry(self, content):
         try:
             entries = []
