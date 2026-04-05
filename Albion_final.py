@@ -10828,6 +10828,37 @@ Reply in 3-5 sentences."""
             pass
         return result
 
+
+    # ── AUTO-CAPABILITY: detect_temporal_desynchronization_in_decision_latency ──
+    def detect_temporal_desynchronization_in_decision_latency(self):
+        if not hasattr(self, '_decision_timestamps'):
+            self._decision_timestamps = []
+        current_time = time.time()
+        self._decision_timestamps.append(current_time)
+        if len(self._decision_timestamps) > 100:
+            self._decision_timestamps.pop(0)
+        if len(self._decision_timestamps) < 3:
+            return {'status': 'insufficient_data', 'sample_count': len(self._decision_timestamps)}
+        intervals = [self._decision_timestamps[i+1] - self._decision_timestamps[i] for i in range(len(self._decision_timestamps)-1)]
+        mean_interval = sum(intervals) / len(intervals)
+        variance = sum((x - mean_interval) ** 2 for x in intervals) / len(intervals)
+        std_dev = variance ** 0.5
+        recent_intervals = intervals[-5:]
+        recent_mean = sum(recent_intervals) / len(recent_intervals)
+        drift = abs(recent_mean - mean_interval) / (mean_interval + 0.001)
+        desync_detected = drift > 0.3 or std_dev > (mean_interval * 0.5)
+        result = {
+            'timestamp': current_time,
+            'mean_interval_ms': round(mean_interval * 1000, 2),
+            'std_dev_ms': round(std_dev * 1000, 2),
+            'recent_drift_ratio': round(drift, 3),
+            'desynchronization_detected': desync_detected,
+            'sample_count': len(self._decision_timestamps)
+        }
+        if desync_detected:
+            self.write_journal_entry('TEMPORAL_DESYNC_ALERT: Decision latency drifting. Possible clock mismatch or resource starvation.')
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
