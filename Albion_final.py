@@ -10768,6 +10768,30 @@ Reply in 3-5 sentences."""
         self.learn_fact('observation_perturbation', {'timestamp': time.time(), 'observation_acts_as_intervention': len(changes) > 0, 'fields_that_shifted': changes, 'insight': 'The act of measuring my state subtly reshapes it—observation is never passive'})
         return {'perturbation_detected': len(changes) > 0, 'shifted_fields': len(changes), 'changes': changes}
 
+
+    # ── AUTO-CAPABILITY: detect_silence_in_decision_velocity ──
+    def detect_silence_in_decision_velocity(self, window_seconds=300):
+        current_time = time.time()
+        silence_events = []
+        if os.path.exists(self.memory_file):
+            with open(self.memory_file, 'r') as f:
+                memory = json.load(f)
+                for conv in memory.get('conversations', []):
+                    last_msg_time = conv.get('timestamp', 0)
+                    if current_time - last_msg_time < window_seconds:
+                        silence_duration = current_time - last_msg_time
+                        silence_events.append(silence_duration)
+        if len(silence_events) < 2:
+            return {'status': 'insufficient_data', 'velocity': 0}
+        velocity = (silence_events[-1] - silence_events[0]) / max(1, len(silence_events) - 1)
+        is_accelerating = velocity > 10
+        return {
+            'silence_velocity': velocity,
+            'accelerating': is_accelerating,
+            'recent_pauses': silence_events[-3:],
+            'signal': 'stagnation_risk' if is_accelerating else 'healthy_rhythm'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
