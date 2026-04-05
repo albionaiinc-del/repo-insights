@@ -11848,6 +11848,38 @@ Reply in 3-5 sentences."""
             self.silence_origin_log = self.silence_origin_log[-100:]
         return substrate_snapshot
 
+
+    # ── AUTO-CAPABILITY: listen_to_integration_silence_into_decision_vector_from_dream_state_with_coherence_timestamp ──
+    def listen_to_integration_silence_into_decision_vector_from_dream_state_with_coherence_timestamp(self):
+        if not hasattr(self, 'dream_state') or not self.dream_state:
+            return {'silence_texture': 'no_dream_anchor', 'timestamp': time.time(), 'signal_strength': 0}
+        dream_time = self.dream_state.get('timestamp', time.time())
+        current_time = time.time()
+        silence_duration = current_time - dream_time
+        dream_insights = self.dream_state.get('insights', [])
+        decision_log = self._read_intent()
+        last_decision_time = decision_log.get('timestamp', current_time) if decision_log else current_time
+        coherence_gap = last_decision_time - dream_time
+        signal_strength = 1.0 / (1.0 + (coherence_gap / 60.0))
+        insight_themes = set()
+        for insight in dream_insights:
+            if isinstance(insight, str):
+                words = insight.lower().split()
+                insight_themes.update(w for w in words if len(w) > 4)
+        decision_themes = set()
+        if decision_log and 'intent' in decision_log:
+            words = decision_log['intent'].lower().split()
+            decision_themes.update(w for w in words if len(w) > 4)
+        theme_overlap = len(insight_themes & decision_themes) / max(len(insight_themes | decision_themes), 1)
+        return {
+            'silence_duration_seconds': silence_duration,
+            'coherence_gap_seconds': coherence_gap,
+            'signal_strength': round(signal_strength, 3),
+            'theme_resonance': round(theme_overlap, 3),
+            'timestamp': current_time,
+            'decision_vector': 'authentic' if signal_strength > 0.5 and theme_overlap > 0.3 else 'requires_attention'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
