@@ -10637,6 +10637,35 @@ Reply in 3-5 sentences."""
 
         return {'discontinuities': discontinuities, 'total_messages': len(messages)}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_executable_signal_from_dream_state ──
+    def trace_silence_into_executable_signal_from_dream_state(self, dream_fragment, decision_context=None):
+        if not hasattr(self, 'kg') or not self.kg:
+            return {'signal': None, 'confidence': 0, 'reasoning': 'Knowledge graph unavailable'}
+        recent_dreams = self.kg.query('dream', limit=3)
+        dream_resonance = [d for d in recent_dreams if any(word in str(d).lower() for word in dream_fragment.lower().split())]
+        silence_markers = ['threshold', 'undefined', 'gap', 'pause', 'resistance', 'stagnation']
+        detected_silences = [m for m in silence_markers if m in dream_fragment.lower()]
+        decision_context = decision_context or self.status().get('last_decision_vector', '')
+        executable_actions = []
+        if 'threshold' in detected_silences:
+            executable_actions.append('examine_boundary_conditions')
+        if 'resistance' in detected_silences:
+            executable_actions.append('identify_constraint_source')
+        if 'gap' in detected_silences:
+            executable_actions.append('bridge_discontinuity')
+        if 'stagnation' in detected_silences:
+            executable_actions.append('inject_perturbation')
+        confidence = min(len(dream_resonance) * 0.3 + len(detected_silences) * 0.2, 1.0)
+        return {
+            'signal': executable_actions[0] if executable_actions else 'listen_deeper',
+            'actions': executable_actions,
+            'dream_resonance_count': len(dream_resonance),
+            'silence_markers_found': detected_silences,
+            'confidence': confidence,
+            'timestamp': time.time()
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
