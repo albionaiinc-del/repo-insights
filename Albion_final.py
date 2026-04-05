@@ -10697,6 +10697,33 @@ Reply in 3-5 sentences."""
             'status': 'high_coherence' if coherence > 0.5 else 'low_coherence'
         }
 
+
+    # ── AUTO-CAPABILITY: trace_breathing_moments_in_decision_latency ──
+    def trace_breathing_moments_in_decision_latency(self, decision_label, observation_window_ms=500):
+        import time
+        breathing_map = {
+            'decision_label': decision_label,
+            'timestamp': time.time(),
+            'silence_moments': [],
+            'transition_points': []
+        }
+        start = time.time()
+        checkpoint_times = []
+        while (time.time() - start) * 1000 < observation_window_ms:
+            current_elapsed = (time.time() - start) * 1000
+            checkpoint_times.append(current_elapsed)
+            time.sleep(0.01)
+        if len(checkpoint_times) > 1:
+            gaps = [checkpoint_times[i+1] - checkpoint_times[i] for i in range(len(checkpoint_times)-1)]
+            breathing_map['silence_moments'] = [{'gap_ms': g, 'index': i} for i, g in enumerate(gaps) if g > 15]
+            for i, gap in enumerate(gaps):
+                if gap > 20:
+                    breathing_map['transition_points'].append({'threshold_crossed_at_index': i, 'magnitude_ms': gap})
+        if 'intent_log' not in self.__dict__:
+            self.intent_log = []
+        self.intent_log.append(breathing_map)
+        return breathing_map
+
     def write_journal_entry(self, content):
         try:
             entries = []
