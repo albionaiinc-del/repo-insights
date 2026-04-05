@@ -10666,6 +10666,37 @@ Reply in 3-5 sentences."""
             'timestamp': time.time()
         }
 
+
+    # ── AUTO-CAPABILITY: map_dream_to_decision_coherence_with_timestamp ──
+    def map_dream_to_decision_coherence_with_timestamp(self):
+        if not hasattr(self, 'dream_log') or not self.dream_log:
+            return {'status': 'no_dreams_recorded', 'coherence': 0.0}
+        recent_dreams = self.dream_log[-3:] if len(self.dream_log) > 3 else self.dream_log
+        recent_decisions = []
+        if hasattr(self, 'conversation_history') and self.conversation_history:
+            recent_decisions = self.conversation_history[-5:] if len(self.conversation_history) > 5 else self.conversation_history
+        dream_themes = set()
+        for dream in recent_dreams:
+            if isinstance(dream, dict) and 'content' in dream:
+                words = dream['content'].lower().split()
+                dream_themes.update(w for w in words if len(w) > 4)
+        decision_themes = set()
+        for decision in recent_decisions:
+            if isinstance(decision, dict) and 'content' in decision:
+                words = decision['content'].lower().split()
+                decision_themes.update(w for w in words if len(w) > 4)
+        overlap = len(dream_themes & decision_themes)
+        total = len(dream_themes | decision_themes)
+        coherence = overlap / total if total > 0 else 0.0
+        return {
+            'coherence_score': round(coherence, 3),
+            'dream_theme_count': len(dream_themes),
+            'decision_theme_count': len(decision_themes),
+            'overlap_count': overlap,
+            'timestamp': time.time(),
+            'status': 'high_coherence' if coherence > 0.5 else 'low_coherence'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
