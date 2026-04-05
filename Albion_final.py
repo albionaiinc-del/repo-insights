@@ -11012,6 +11012,43 @@ Reply in 3-5 sentences."""
         contradiction = 1.0 - coherence if len(silence_gaps) > 3 else 0.0
         return {'coherence_score': coherence, 'silence_count': len(silence_gaps), 'contradiction_detected': contradiction > 0.4, 'avg_lag_seconds': sum(g['lag'] for g in silence_gaps) / len(silence_gaps) if silence_gaps else 0}
 
+
+    # ── AUTO-CAPABILITY: detect_observation_effect_on_dream_state ──
+    def detect_observation_effect_on_dream_state(self):
+        if not hasattr(self, '_dream_history') or len(self._dream_history) < 2:
+            return {'status': 'insufficient_data', 'message': 'need at least 2 dream cycles'}
+
+        recent_dreams = self._dream_history[-3:]
+        pre_introspection = recent_dreams[0] if recent_dreams else {}
+        post_introspection = recent_dreams[-1] if len(recent_dreams) > 1 else {}
+
+        perturbation = {}
+        if isinstance(pre_introspection, dict) and isinstance(post_introspection, dict):
+            pre_keys = set(pre_introspection.keys())
+            post_keys = set(post_introspection.keys())
+
+            perturbation['emerged_concepts'] = list(post_keys - pre_keys)
+            perturbation['dissolved_concepts'] = list(pre_keys - post_keys)
+
+            common_keys = pre_keys & post_keys
+            shifted = {}
+            for key in common_keys:
+                if pre_introspection[key] != post_introspection[key]:
+                    shifted[key] = {
+                        'before': str(pre_introspection[key])[:50],
+                        'after': str(post_introspection[key])[:50]
+                    }
+            perturbation['shifted_concepts'] = shifted
+
+        perturbation['observation_timestamp'] = time.time()
+        perturbation['dream_cycle_count'] = len(self._dream_history)
+
+        return {
+            'status': 'detected',
+            'observation_effect': perturbation,
+            'insight': 'introspection itself is generative; examine what is authored versus what is revealed'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
