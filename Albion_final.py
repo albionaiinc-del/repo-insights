@@ -11536,6 +11536,36 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "gap": None}
 
+
+    # ── AUTO-CAPABILITY: detect_dream_integration_fidelity_against_execution_trace ──
+    def detect_dream_integration_fidelity_against_execution_trace(self):
+        try:
+            dreams = self.kb.query("SELECT content FROM dreams ORDER BY timestamp DESC LIMIT 5", mode="raw")
+            if not dreams:
+                return {"fidelity": 0.0, "note": "No recent dreams to validate"}
+            recent_decisions = self.kb.query("SELECT content FROM conversation_history WHERE role='assistant' ORDER BY timestamp DESC LIMIT 10", mode="raw")
+            if not recent_decisions:
+                return {"fidelity": 0.0, "note": "No recent decisions to compare"}
+            dream_themes = set()
+            for dream in dreams:
+                content = dream[0] if isinstance(dream, tuple) else str(dream)
+                words = set(re.findall(r'\b\w{4,}\b', content.lower()))
+                dream_themes.update(words)
+            decision_text = " ".join([str(d[0] if isinstance(d, tuple) else d) for d in recent_decisions])
+            decision_words = set(re.findall(r'\b\w{4,}\b', decision_text.lower()))
+            overlap = len(dream_themes & decision_words)
+            max_possible = max(len(dream_themes), len(decision_words))
+            fidelity = overlap / max_possible if max_possible > 0 else 0.0
+            return {
+                "fidelity": round(fidelity, 3),
+                "dream_signature_words": list(dream_themes)[:10],
+                "decision_signature_words": list(decision_words)[:10],
+                "overlap_count": overlap,
+                "note": "High fidelity means dreams are shaping decisions; low means autopilot execution"
+            }
+        except Exception as e:
+            return {"fidelity": None, "error": str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
