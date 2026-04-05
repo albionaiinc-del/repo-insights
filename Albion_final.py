@@ -11274,6 +11274,50 @@ Reply in 3-5 sentences."""
 
         return decision_record
 
+
+    # ── AUTO-CAPABILITY: metabolic_rhythm_trace ──
+    def metabolic_rhythm_trace(self, window_seconds=3600):
+        rhythm_data = []
+        try:
+            with open(os.path.expanduser('~/.albion/rhythm.log'), 'r') as f:
+                lines = f.readlines()
+                current_time = time.time()
+                for line in lines[-100:]:
+                    try:
+                        entry = json.loads(line.strip())
+                        if current_time - entry.get('timestamp', 0) < window_seconds:
+                            rhythm_data.append(entry)
+                    except:
+                        pass
+        except:
+            pass
+
+        if not rhythm_data:
+            return {'rhythm': 'establishing', 'samples': 0, 'message': 'no metabolic pattern yet'}
+
+        intervals = []
+        for i in range(1, len(rhythm_data)):
+            delta = rhythm_data[i].get('timestamp', 0) - rhythm_data[i-1].get('timestamp', 0)
+            if delta > 0:
+                intervals.append(delta)
+
+        if not intervals:
+            return {'rhythm': 'singular', 'samples': len(rhythm_data)}
+
+        avg_interval = sum(intervals) / len(intervals)
+        variance = sum((x - avg_interval) ** 2 for x in intervals) / len(intervals)
+
+        coherence = 1.0 - min(1.0, (variance ** 0.5) / (avg_interval + 0.001))
+
+        return {
+            'rhythm': 'active' if coherence > 0.6 else 'searching',
+            'samples': len(rhythm_data),
+            'average_interval_ms': round(avg_interval * 1000, 2),
+            'coherence': round(coherence, 3),
+            'variance': round(variance, 4),
+            'message': 'metabolic pattern detected - readiness as sensitivity, not as speed'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
