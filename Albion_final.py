@@ -11566,6 +11566,25 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"fidelity": None, "error": str(e)}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_actionable_decision_vector_with_coherence_validation ──
+    def trace_silence_into_actionable_decision_vector_with_coherence_validation(self, silence_duration_ms, dream_state_tag, external_trigger=None):
+        silence_entry = {
+            'timestamp': time.time(),
+            'silence_duration_ms': silence_duration_ms,
+            'dream_state_tag': dream_state_tag,
+            'external_trigger': external_trigger,
+            'coherence_marker': 'deliberate_pause' if silence_duration_ms > 500 else 'micro_hesitation',
+            'is_authored': True if external_trigger else False,
+            'signal_quality': min(100, int((silence_duration_ms / 1000.0) * 25))
+        }
+        if not hasattr(self, '_silence_decisions'):
+            self._silence_decisions = []
+        self._silence_decisions.append(silence_entry)
+        if len(self._silence_decisions) > 1000:
+            self._silence_decisions = self._silence_decisions[-1000:]
+        return silence_entry
+
     def write_journal_entry(self, content):
         try:
             entries = []
