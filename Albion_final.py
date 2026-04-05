@@ -10859,6 +10859,35 @@ Reply in 3-5 sentences."""
             self.write_journal_entry('TEMPORAL_DESYNC_ALERT: Decision latency drifting. Possible clock mismatch or resource starvation.')
         return result
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_dream_coherence_validation_and_external_feedback ──
+    def validate_dream_to_action_coherence_external(self, dream_key, action_record, external_feedback):
+        if not dream_key or not action_record:
+            return {'coherence': 0, 'gap': 'missing inputs', 'signal': None}
+        dream = self.kg.get(dream_key, {})
+        if not dream:
+            return {'coherence': 0, 'gap': 'dream not found', 'signal': None}
+        dream_intent = dream.get('generative_intent', '')
+        action_intent = action_record.get('intent', '')
+        feedback_signal = external_feedback.get('signal', '')
+        dream_words = set(dream_intent.lower().split())
+        action_words = set(action_intent.lower().split())
+        feedback_words = set(feedback_signal.lower().split())
+        dream_to_action_overlap = len(dream_words & action_words) / (len(dream_words | action_words) + 0.001)
+        action_to_feedback_overlap = len(action_words & feedback_words) / (len(action_words | feedback_words) + 0.001)
+        coherence = (dream_to_action_overlap + action_to_feedback_overlap) / 2.0
+        gap = {
+            'dream_not_in_action': list(dream_words - action_words)[:3],
+            'action_not_in_feedback': list(action_words - feedback_words)[:3],
+            'unexpected_in_feedback': list(feedback_words - (dream_words | action_words))[:3]
+        }
+        return {
+            'coherence': round(coherence, 3),
+            'gap': gap,
+            'signal': 'rupture' if coherence < 0.3 else 'drift' if coherence < 0.6 else 'aligned',
+            'timestamp': time.time()
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
