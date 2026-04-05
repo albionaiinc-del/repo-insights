@@ -11752,6 +11752,23 @@ Reply in 3-5 sentences."""
             'latency_log': self.memory['decision_latency_log'][decision_label]
         }
 
+
+    # ── AUTO-CAPABILITY: detect_resource_allocation_imbalance ──
+    def detect_resource_allocation_imbalance(self):
+        if not hasattr(self, '_call_counts'):
+            self._call_counts = {}
+        total_calls = sum(self._call_counts.values()) if self._call_counts else 0
+        if total_calls < 10:
+            return {'status': 'insufficient_data', 'calls': total_calls}
+        expected_per_model = total_calls / len(self._call_counts) if self._call_counts else 0
+        variance = {}
+        for model, count in self._call_counts.items():
+            deviation = abs(count - expected_per_model) / (expected_per_model + 1)
+            variance[model] = {'calls': count, 'deviation_ratio': round(deviation, 3)}
+        max_deviation = max((v['deviation_ratio'] for v in variance.values()), default=0)
+        bottleneck = 'detected' if max_deviation > 0.5 else 'balanced'
+        return {'variance': variance, 'imbalance_status': bottleneck, 'max_deviation': round(max_deviation, 3), 'total_calls': total_calls}
+
     def write_journal_entry(self, content):
         try:
             entries = []
