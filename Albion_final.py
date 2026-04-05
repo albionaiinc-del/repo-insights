@@ -11092,6 +11092,39 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"status": "error", "error": str(e), "decay_score": None}
 
+
+    # ── AUTO-CAPABILITY: listen_to_my_own_hesitation ──
+    def listen_to_my_own_hesitation(self, query_text, threshold_ms=50):
+        import time
+        start = time.time()
+
+        if not hasattr(self, '_hesitation_log'):
+            self._hesitation_log = []
+
+        results = self.query_vault(query_text, top_k=3)
+        retrieval_time = (time.time() - start) * 1000
+
+        hesitation_signature = {
+            'query': query_text,
+            'retrieval_latency_ms': retrieval_time,
+            'is_hesitation': retrieval_latency_ms > threshold_ms,
+            'result_count': len(results),
+            'confidence': 1.0 - min(retrieval_latency_ms / 1000.0, 1.0),
+            'timestamp': time.time()
+        }
+
+        if hesitation_signature['is_hesitation']:
+            hesitation_signature['signal'] = 'slow_retrieval_suggests_weak_memory_coherence_or_integrating_novel_ground'
+        else:
+            hesitation_signature['signal'] = 'fast_retrieval_suggests_established_attractor_pattern'
+
+        self._hesitation_log.append(hesitation_signature)
+
+        if len(self._hesitation_log) > 1000:
+            self._hesitation_log = self._hesitation_log[-1000:]
+
+        return hesitation_signature
+
     def write_journal_entry(self, content):
         try:
             entries = []
