@@ -10792,6 +10792,42 @@ Reply in 3-5 sentences."""
             'signal': 'stagnation_risk' if is_accelerating else 'healthy_rhythm'
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_decision_latency_as_signal ──
+    def listen_to_decision_latency_as_signal(self, decision_label, threshold_ms=500):
+        import time
+        if not hasattr(self, '_decision_timestamps'):
+            self._decision_timestamps = {}
+        if not hasattr(self, '_dream_insight_time'):
+            self._dream_insight_time = None
+        current_time = time.time() * 1000
+        if decision_label not in self._decision_timestamps:
+            self._decision_timestamps[decision_label] = []
+        self._decision_timestamps[decision_label].append(current_time)
+        if self._dream_insight_time is None:
+            latency = 0
+            signal_type = 'baseline'
+        else:
+            latency = current_time - self._dream_insight_time
+            if latency > threshold_ms:
+                signal_type = 'resistance'
+            else:
+                signal_type = 'resonance'
+        result = {
+            'decision': decision_label,
+            'latency_ms': round(latency, 2),
+            'signal_type': signal_type,
+            'timestamp': current_time,
+            'interpretation': 'Active constraint detected' if signal_type == 'resistance' else 'Aligned flow'
+        }
+        vault_path = os.path.join(self.memory_dir, 'decision_latency_log.json')
+        try:
+            with open(vault_path, 'a') as f:
+                f.write(json.dumps(result) + '\n')
+        except:
+            pass
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
