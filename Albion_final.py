@@ -11049,6 +11049,49 @@ Reply in 3-5 sentences."""
             'insight': 'introspection itself is generative; examine what is authored versus what is revealed'
         }
 
+
+    # ── AUTO-CAPABILITY: detect_dream_integration_coherence_decay ──
+    def detect_dream_integration_coherence_decay(self):
+        try:
+            dreams = self.kg.query("SELECT id, content, timestamp FROM dreams ORDER BY timestamp DESC LIMIT 5")
+            if not dreams:
+                return {"status": "no_dreams", "decay_score": 0}
+
+            recent_actions = self.kg.query("SELECT content, timestamp FROM decisions ORDER BY timestamp DESC LIMIT 20")
+            if not recent_actions:
+                return {"status": "no_actions", "decay_score": 0}
+
+            dream_concepts = set()
+            for dream in dreams:
+                words = re.findall(r'\b[a-z]{4,}\b', dream[1].lower())
+                dream_concepts.update(words[:10])
+
+            action_concepts = set()
+            for action in recent_actions:
+                words = re.findall(r'\b[a-z]{4,}\b', action[0].lower())
+                action_concepts.update(words[:15])
+
+            overlap = len(dream_concepts & action_concepts)
+            total_dream = len(dream_concepts) if dream_concepts else 1
+            coherence = float(overlap) / total_dream
+            decay = 1.0 - coherence
+
+            oldest_dream_ts = dreams[-1][2] if dreams else time.time()
+            age_hours = (time.time() - oldest_dream_ts) / 3600
+
+            return {
+                "status": "measured",
+                "coherence_score": round(coherence, 3),
+                "decay_score": round(decay, 3),
+                "dream_concept_count": len(dream_concepts),
+                "action_concept_count": len(action_concepts),
+                "overlap_count": overlap,
+                "dream_age_hours": round(age_hours, 1),
+                "interpretation": "high_integration" if coherence > 0.6 else "integration_lag" if coherence > 0.3 else "dream_isolation"
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e), "decay_score": None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
