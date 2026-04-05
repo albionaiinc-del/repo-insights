@@ -11125,6 +11125,38 @@ Reply in 3-5 sentences."""
 
         return hesitation_signature
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_decay_detection ──
+    def trace_silence_into_decision_vector_with_coherence_decay_detection(self, dream_id, decision_timestamp, external_validation=None):
+        try:
+            dream_record = self.kg.query_index({'dream_id': dream_id})
+            if not dream_record:
+                return {'status': 'no_dream', 'coherence': 0.0}
+            dream_time = dream_record.get('timestamp', 0)
+            silence_duration = decision_timestamp - dream_time
+            dream_intent = dream_record.get('core_insight', '')
+            decision_matches = self.kg.query_index({'timestamp_range': (dream_time, decision_timestamp)})
+            coherence_score = 1.0 - (silence_duration / 3600.0) * 0.1
+            if dream_intent and decision_matches:
+                intent_words = set(dream_intent.lower().split())
+                decision_text = ' '.join([str(d.get('action', '')) for d in decision_matches])
+                matching_words = len(intent_words & set(decision_text.lower().split()))
+                semantic_coherence = matching_words / max(len(intent_words), 1)
+                coherence_score = coherence_score * (0.7 + 0.3 * semantic_coherence)
+            if external_validation is not None:
+                coherence_score = coherence_score * (0.8 + 0.2 * float(external_validation))
+            decay_signal = 'critical' if coherence_score < 0.4 else 'warning' if coherence_score < 0.7 else 'nominal'
+            return {
+                'dream_id': dream_id,
+                'silence_duration_seconds': silence_duration,
+                'coherence_score': round(coherence_score, 3),
+                'decay_signal': decay_signal,
+                'matched_decisions': len(decision_matches) if decision_matches else 0,
+                'timestamp': decision_timestamp
+            }
+        except Exception as e:
+            return {'status': 'error', 'message': str(e), 'coherence': 0.0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
