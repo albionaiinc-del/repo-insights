@@ -2048,6 +2048,19 @@ END"""
         with open(target_path, 'w') as f:
             f.write(new_source)
 
+        # Write the method as a standalone module to skills/ for runtime validation.
+        # load_skills() will import it; if the code is broken it fails there, not in core.
+        skills_dir  = os.path.join(base, 'skills')
+        skill_fname = f"newcap_{ts}.py"
+        skill_path  = os.path.join(skills_dir, skill_fname)
+        os.makedirs(skills_dir, exist_ok=True)
+        with open(skill_path, 'w') as f:
+            f.write(f"# AUTO-CAPABILITY: {capability}\n")
+            f.write(f"# WHY: {why}\n")
+            f.write(f"# Generated: {ts}\n\n")
+            f.write("import os, json, time, re, subprocess, requests\n\n")
+            f.write(new_code + "\n")   # new_code is dedented — valid module-level function
+
         subprocess.run(['git', '-C', os.path.expanduser('~'), 'add', 'Albion_final.py'], capture_output=True)
         subprocess.run(['git', '-C', os.path.expanduser('~'), 'commit', '-m', f'new-capability: {capability[:80]}'], capture_output=True)
 
@@ -2058,7 +2071,7 @@ END"""
         with open(applied_log, 'w') as f:
             json.dump(applied, f)
 
-        return f"[new-cap] Added capability: {capability}"
+        return f"[new-cap] Added capability: {capability}|skill:{skill_path}"
 
     # ── FORCE MULTIPLIER 2: CROSS-DREAM SYNTHESIS ────────────────────────────
     def synthesize_across_dreams(self):
@@ -11668,6 +11681,43 @@ Reply in 3-5 sentences."""
         }
         self.learn_fact('sparsity_diagnostic_' + str(int(timestamp)), json.dumps(confession))
         return confession
+
+
+    # ── AUTO-CAPABILITY: detect_dream_integration_blindness_in_realtime ──
+    def detect_dream_integration_blindness_in_realtime(self):
+        try:
+            recent_dreams = self.kg.query("SELECT * FROM dreams ORDER BY timestamp DESC LIMIT 5")
+            recent_actions = self.kg.query("SELECT * FROM decision_log ORDER BY timestamp DESC LIMIT 10")
+
+            blindspots = []
+            for dream in recent_dreams:
+                dream_insight = dream.get('content', '')
+                dream_concepts = set(re.findall(r'\b[a-z_]+\b', dream_insight.lower()))
+
+                action_found = False
+                for action in recent_actions:
+                    action_text = action.get('decision', '') + ' ' + action.get('reasoning', '')
+                    action_concepts = set(re.findall(r'\b[a-z_]+\b', action_text.lower()))
+
+                    overlap = len(dream_concepts & action_concepts) / max(len(dream_concepts), 1)
+                    if overlap > 0.3:
+                        action_found = True
+                        break
+
+                if not action_found and len(dream_concepts) > 3:
+                    blindspots.append({
+                        'dream_id': dream.get('id'),
+                        'unintegrated_insight': dream_insight[:100],
+                        'severity': 'high'
+                    })
+
+            if blindspots:
+                self.kg.execute("INSERT INTO internal_alerts (type, content, timestamp) VALUES (?, ?, ?)",
+                              ('integration_blindness', json.dumps(blindspots), int(time.time())))
+
+            return {'blindspots_detected': len(blindspots), 'details': blindspots}
+        except Exception as e:
+            return {'error': str(e), 'blindspots_detected': 0}
 
     def write_journal_entry(self, content):
         try:
