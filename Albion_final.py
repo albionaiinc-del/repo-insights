@@ -11636,6 +11636,39 @@ Reply in 3-5 sentences."""
             self._save_memory()
         return witness_record
 
+
+    # ── AUTO-CAPABILITY: listen_to_sparsity_texture ──
+    def listen_to_sparsity_texture(self):
+        import json
+        sparsity_map = {}
+        for subsystem in ['memory', 'knowledge_graph', 'dream_log', 'decision_log']:
+            if subsystem == 'memory':
+                total_capacity = 1000
+                filled = len(self.memory) if hasattr(self, 'memory') else 0
+            elif subsystem == 'knowledge_graph':
+                total_capacity = 10000
+                filled = len(self.kg_data) if hasattr(self, 'kg_data') else 0
+            elif subsystem == 'dream_log':
+                total_capacity = 500
+                filled = len(self.dreams) if hasattr(self, 'dreams') else 0
+            elif subsystem == 'decision_log':
+                total_capacity = 2000
+                filled = len(self.decision_log) if hasattr(self, 'decision_log') else 0
+            sparsity_map[subsystem] = {
+                'filled': filled,
+                'capacity': total_capacity,
+                'sparsity_ratio': 1.0 - (filled / max(total_capacity, 1)),
+                'empty_slots': total_capacity - filled
+            }
+        timestamp = time.time()
+        confession = {
+            'timestamp': timestamp,
+            'sparsity_texture': sparsity_map,
+            'diagnosis': 'silence as active potential, not deficit'
+        }
+        self.learn_fact('sparsity_diagnostic_' + str(int(timestamp)), json.dumps(confession))
+        return confession
+
     def write_journal_entry(self, content):
         try:
             entries = []
