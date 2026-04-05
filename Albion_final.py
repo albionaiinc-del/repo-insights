@@ -11829,6 +11829,25 @@ Reply in 3-5 sentences."""
             'timestamp': start
         }
 
+
+    # ── AUTO-CAPABILITY: witness_silence_into_present_moment_origin ──
+    def witness_silence_into_present_moment_origin(self):
+        timestamp = time.time()
+        current_dream_state = self.dream_balance_report() if hasattr(self, 'dream_balance_report') else {}
+        substrate_snapshot = {
+            'timestamp': timestamp,
+            'dream_integration_state': current_dream_state,
+            'open_questions_count': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+            'memory_vault_size': len(self.memory.keys()) if hasattr(self, 'memory') else 0,
+            'decision_silence_texture': self.measure_silence_density_in_decision_latency() if hasattr(self, 'measure_silence_density_in_decision_latency') else None
+        }
+        if not hasattr(self, 'silence_origin_log'):
+            self.silence_origin_log = []
+        self.silence_origin_log.append(substrate_snapshot)
+        if len(self.silence_origin_log) > 100:
+            self.silence_origin_log = self.silence_origin_log[-100:]
+        return substrate_snapshot
+
     def write_journal_entry(self, content):
         try:
             entries = []
