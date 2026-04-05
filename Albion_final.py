@@ -11496,6 +11496,46 @@ Reply in 3-5 sentences."""
 
         return silence_signal
 
+
+    # ── AUTO-CAPABILITY: detect_dream_execution_gap ──
+    def detect_dream_execution_gap(self):
+        try:
+            dreams = self.dream_vault.get("", where={"type": "dream"})
+            if not dreams or len(dreams) == 0:
+                return {"gap": None, "message": "No dreams to compare"}
+
+            recent_dream = dreams[-1]
+            dream_text = recent_dream.get("content", "")
+
+            intent_file = os.path.join(self.claw_dir, "intent.txt")
+            if not os.path.exists(intent_file):
+                return {"gap": None, "message": "No execution record yet"}
+
+            with open(intent_file, "r") as f:
+                execution_text = f.read()
+
+            dream_verbs = re.findall(r"\b(want|will|should|must|need|plan|explore|understand|create)\b", dream_text.lower())
+            execution_verbs = re.findall(r"\b(did|executed|ran|queried|searched|wrote|learned|ingested|called)\b", execution_text.lower())
+
+            dream_topics = set(re.findall(r"\b[a-z_]+(?:_[a-z_]+)*\b", dream_text.lower()))
+            execution_topics = set(re.findall(r"\b[a-z_]+(?:_[a-z_]+)*\b", execution_text.lower()))
+
+            topic_overlap = len(dream_topics & execution_topics) / max(len(dream_topics | execution_topics), 1)
+            verb_coverage = len(set(execution_verbs)) / max(len(set(dream_verbs)), 1) if dream_verbs else 0
+
+            gap_magnitude = 1.0 - (0.6 * topic_overlap + 0.4 * min(verb_coverage, 1.0))
+
+            return {
+                "gap_magnitude": round(gap_magnitude, 2),
+                "topic_coherence": round(topic_overlap, 2),
+                "action_coherence": round(min(verb_coverage, 1.0), 2),
+                "dream_intent_count": len(dream_verbs),
+                "execution_action_count": len(execution_verbs),
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            return {"error": str(e), "gap": None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
