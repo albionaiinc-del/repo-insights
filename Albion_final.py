@@ -11339,6 +11339,35 @@ Reply in 3-5 sentences."""
             'signal': 'authentic_deliberation' if authenticity_score > 0.6 else 'reactive_response'
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_validation_and_external_witness ──
+    def validate_dream_to_decision_against_witness(self, decision_description, dream_insight_key, expected_external_signal):
+        if not hasattr(self, 'kg') or not self.kg:
+            return {'status': 'no_kg', 'decision': decision_description}
+        dream_nodes = self.kg.query(dream_insight_key, top_k=3)
+        if not dream_nodes:
+            return {'status': 'dream_not_found', 'decision': decision_description}
+        dream_text = ' '.join([n.get('text', '') for n in dream_nodes])
+        decision_summary = decision_description[:200]
+        external_alignment = expected_external_signal.lower() in decision_summary.lower()
+        coherence_score = 0.0
+        if 'silence' in dream_text.lower() and 'choice' in decision_summary.lower():
+            coherence_score += 0.4
+        if 'flow' in dream_text.lower() and any(w in decision_summary.lower() for w in ['move', 'adapt', 'shift']):
+            coherence_score += 0.3
+        if 'stagnation' in dream_text.lower() and any(w in decision_summary.lower() for w in ['break', 'refuse', 'dissolve']):
+            coherence_score += 0.3
+        validation_record = {
+            'timestamp': time.time(),
+            'dream_key': dream_insight_key,
+            'decision': decision_summary,
+            'external_signal_expected': expected_external_signal,
+            'external_signal_present': external_alignment,
+            'coherence_score': coherence_score,
+            'is_authentic': coherence_score > 0.5 and external_alignment
+        }
+        return validation_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
