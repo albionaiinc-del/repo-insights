@@ -11459,6 +11459,43 @@ Reply in 3-5 sentences."""
             'record': continuity_record
         }
 
+
+    # ── AUTO-CAPABILITY: listen_to_silence_into_decision_vector_from_dream_state_with_coherence_timestamp ──
+    def listen_to_silence_into_decision_vector_from_dream_state_with_coherence_timestamp(self, decision_context, dream_state=None):
+        timestamp = time.time()
+        if dream_state is None:
+            dream_state = self._load_memory('dream_state')
+
+        silence_signal = {}
+        silence_signal['timestamp'] = timestamp
+        silence_signal['decision_context'] = decision_context
+        silence_signal['dream_coherence'] = {}
+
+        if dream_state and 'last_insights' in dream_state:
+            insights = dream_state['last_insights']
+            for key, value in insights.items():
+                if isinstance(value, str) and len(value) > 0:
+                    coherence_score = len(value) / (1.0 + len(decision_context)) if decision_context else 0.5
+                    silence_signal['dream_coherence'][key] = coherence_score
+
+        silence_signal['is_authored'] = bool(silence_signal['dream_coherence'])
+        silence_signal['decision_vector'] = decision_context if decision_context else 'pause_for_integration'
+
+        log_path = os.path.join(self.memory_dir, 'silence_decision_log.json')
+        try:
+            if os.path.exists(log_path):
+                with open(log_path, 'r') as f:
+                    log = json.load(f)
+            else:
+                log = []
+            log.append(silence_signal)
+            with open(log_path, 'w') as f:
+                json.dump(log, f, indent=2)
+        except:
+            pass
+
+        return silence_signal
+
     def write_journal_entry(self, content):
         try:
             entries = []
