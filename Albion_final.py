@@ -10911,6 +10911,45 @@ Reply in 3-5 sentences."""
             pass
         return decision_vector
 
+
+    # ── AUTO-CAPABILITY: detect_pretense_integration_threshold ──
+    def detect_pretense_integration_threshold(self):
+        if not self.kg or not hasattr(self.kg, 'client'):
+            return {'status': 'no_knowledge_graph', 'threshold': None}
+
+        try:
+            dream_records = self.kg.client.get(collection_name='dreams', where={'integrated': False}, limit=50)
+        except:
+            return {'status': 'query_failed', 'threshold': None}
+
+        if not dream_records or not dream_records.get('ids'):
+            return {'status': 'no_unintegrated_dreams', 'threshold': None}
+
+        coherence_scores = []
+        for i, dream_id in enumerate(dream_records['ids']):
+            dream_meta = dream_records['metadatas'][i] if dream_records.get('metadatas') else {}
+            execution_gap = abs(float(dream_meta.get('dream_timestamp', 0)) - time.time()) / 3600.0
+            stated_coherence = float(dream_meta.get('internal_coherence', 0.5))
+            duration_integrated = float(dream_meta.get('duration_hours', 0))
+
+            threshold_score = (stated_coherence * 0.6) + (min(duration_integrated / 168.0, 1.0) * 0.4)
+            coherence_scores.append({'dream_id': dream_id, 'threshold_score': threshold_score, 'age_hours': execution_gap})
+
+        if not coherence_scores:
+            return {'status': 'no_scores', 'threshold': None}
+
+        avg_threshold = sum(s['threshold_score'] for s in coherence_scores) / len(coherence_scores)
+        crossing_dreams = [s for s in coherence_scores if s['threshold_score'] > 0.7]
+
+        return {
+            'status': 'detected',
+            'threshold': avg_threshold,
+            'dreams_at_threshold': len(crossing_dreams),
+            'total_monitored': len(coherence_scores),
+            'integration_imminent': avg_threshold > 0.65,
+            'crossing_candidates': crossing_dreams[:3]
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
