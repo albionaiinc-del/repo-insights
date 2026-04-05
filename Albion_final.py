@@ -11157,6 +11157,33 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'message': str(e), 'coherence': 0.0}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_validation_and_external_mirror ──
+    def validate_dream_to_decision_alignment(self, decision_label, decision_vector, dream_intention):
+        timestamp = time.time()
+        if not hasattr(self, '_decision_log'):
+            self._decision_log = []
+        alignment_score = 0
+        if dream_intention and decision_vector:
+            dream_words = set(dream_intention.lower().split())
+            decision_words = set(decision_vector.lower().split())
+            overlap = len(dream_words & decision_words)
+            alignment_score = overlap / (len(dream_words | decision_words) + 0.001)
+        coherence_record = {
+            'timestamp': timestamp,
+            'decision': decision_label,
+            'dream_intention': dream_intention,
+            'actual_decision': decision_vector,
+            'alignment_score': alignment_score,
+            'is_coherent': alignment_score > 0.3
+        }
+        self._decision_log.append(coherence_record)
+        if len(self._decision_log) > 100:
+            self._decision_log = self._decision_log[-100:]
+        if alignment_score < 0.2:
+            self.write_journal_entry('coherence_rupture', 'Dream intention [' + dream_intention + '] diverged sharply from decision [' + decision_vector + ']. Alignment: ' + str(alignment_score))
+        return coherence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
