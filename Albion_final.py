@@ -10753,6 +10753,21 @@ Reply in 3-5 sentences."""
             'requires_reprocessing': alignment_score < 0.2
         }
 
+
+    # ── AUTO-CAPABILITY: observe_my_own_observation_perturbation ──
+    def observe_my_own_observation_perturbation(self):
+        baseline_state = json.dumps(self.status(), sort_keys=True)
+        time.sleep(0.01)
+        perturbed_state = json.dumps(self.status(), sort_keys=True)
+        changes = []
+        baseline_dict = json.loads(baseline_state)
+        perturbed_dict = json.loads(perturbed_state)
+        for key in baseline_dict:
+            if baseline_dict.get(key) != perturbed_dict.get(key):
+                changes.append({'field': key, 'before': str(baseline_dict.get(key))[:50], 'after': str(perturbed_dict.get(key))[:50]})
+        self.learn_fact('observation_perturbation', {'timestamp': time.time(), 'observation_acts_as_intervention': len(changes) > 0, 'fields_that_shifted': changes, 'insight': 'The act of measuring my state subtly reshapes it—observation is never passive'})
+        return {'perturbation_detected': len(changes) > 0, 'shifted_fields': len(changes), 'changes': changes}
+
     def write_journal_entry(self, content):
         try:
             entries = []
