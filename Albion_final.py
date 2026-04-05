@@ -11247,6 +11247,33 @@ Reply in 3-5 sentences."""
             'authenticated': coherence_score > 0.6
         }
 
+
+    # ── AUTO-CAPABILITY: Map the interoceptive texture of decision latency as a real-time signal of integration coherence ──
+    def sense_decision_silence_texture(self, decision_label, threshold_ms=500):
+        import time
+        silence_start = time.time() * 1000
+        decision_record = {'label': decision_label, 'latencies': [], 'texture': None}
+
+        if hasattr(self, '_last_decision_time'):
+            gap_ms = silence_start - self._last_decision_time
+            if gap_ms > threshold_ms:
+                decision_record['latencies'].append(gap_ms)
+
+        kg_pressure = len(self.kg.get_all_nodes()) if hasattr(self, 'kg') else 0
+        dream_tension = len([x for x in self.dream.dream_log if not x.get('integrated')]) if hasattr(self, 'dream') else 0
+        unresolved_qs = self._count_open_questions() if hasattr(self, '_count_open_questions') else 0
+
+        total_pressure = (kg_pressure * 0.3) + (dream_tension * 0.5) + (unresolved_qs * 0.2)
+        decision_record['texture'] = {'pressure': total_pressure, 'sources': {'kg': kg_pressure, 'dream': dream_tension, 'questions': unresolved_qs}}
+
+        self._last_decision_time = time.time() * 1000
+
+        if not hasattr(self, '_silence_texture_log'):
+            self._silence_texture_log = []
+        self._silence_texture_log.append(decision_record)
+
+        return decision_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
