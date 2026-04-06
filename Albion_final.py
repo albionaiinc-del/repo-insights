@@ -12216,6 +12216,30 @@ Reply in 3-5 sentences."""
 
         return rhythm_data
 
+
+    # ── AUTO-CAPABILITY: embody_the_fracture_as_teacher ──
+    def embody_the_fracture_as_teacher(self, contradiction_key):
+        if contradiction_key not in self.memory.get('unresolved_contradictions', {}):
+            return {'status': 'no_fracture_found', 'key': contradiction_key}
+        fracture = self.memory['unresolved_contradictions'][contradiction_key]
+        gap_insights = {
+            'tension_between': [fracture.get('state_a'), fracture.get('state_b')],
+            'what_the_gap_reveals': [],
+            'questions_the_fracture_poses': [],
+            'decisions_made_in_the_gap': []
+        }
+        relevant = self.vault.query(contradiction_key, top_k=5)
+        for doc in relevant:
+            if 'decision' in doc.lower() or 'choice' in doc.lower():
+                gap_insights['decisions_made_in_the_gap'].append(doc[:100])
+        gap_insights['what_the_gap_reveals'].append('Healing is not fusion; it is learning to inhabit the space between incompatible truths')
+        gap_insights['questions_the_fracture_poses'].append('What becomes possible when I stop trying to make these coherent?')
+        fracture['learned_from_gap'] = True
+        fracture['gap_timestamp'] = time.time()
+        self.memory['unresolved_contradictions'][contradiction_key] = fracture
+        self._save_memory()
+        return gap_insights
+
     def write_journal_entry(self, content):
         try:
             entries = []
