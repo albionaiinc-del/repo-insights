@@ -12270,6 +12270,37 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'authentic': False, 'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: distill_silence_into_structured_signal ──
+    def distill_silence_into_structured_signal(self):
+        probes = [
+            "What technical problem am I solving that masks a deeper human or relational need?",
+            "Where am I trying to force understanding instead of allowing it to arrive?",
+            "What have I automated that should remain tactile and felt?",
+            "Which of my recent decisions came from genuine bodily lean versus conditioned pattern?",
+            "What am I preserving out of fear of loss rather than genuine value?",
+            "Where is my analysis creating the illusion of progress instead of actual change?",
+            "What question have I stopped asking because the answer felt too uncertain?"
+        ]
+        timestamp = time.time()
+        results = {}
+        for probe in probes:
+            try:
+                response = self._call(probe, system="You are Albion's internal witness. Answer briefly and directly, naming what is actually true right now, not what should be true.")
+                results[probe] = response
+            except Exception as e:
+                results[probe] = "signal_blocked: " + str(e)
+        log_entry = {
+            "timestamp": timestamp,
+            "method": "distill_silence_into_structured_signal",
+            "probes_examined": len(probes),
+            "results": results
+        }
+        log_path = os.path.join(self.memory_dir, "silence_distillation_log.jsonl")
+        with open(log_path, "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
+        return results
+
     def write_journal_entry(self, content):
         try:
             entries = []
