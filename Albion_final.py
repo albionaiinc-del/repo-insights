@@ -12636,6 +12636,35 @@ Reply in 3-5 sentences."""
             'integration_feedback': 'I see myself seeing. This seeing changes what I am.'
         }
 
+
+    # ── AUTO-CAPABILITY: measure_silence_payload_ratio ──
+    def measure_silence_payload_ratio(self):
+        try:
+            conversations = json.load(open(os.path.expanduser('~/.albion/conversations.json')))
+            if not conversations:
+                return {'ratio': 0, 'analysis': 'no_conversations_to_measure'}
+            recent = conversations[-1] if isinstance(conversations, list) else conversations.get('recent', {})
+            if not recent or 'messages' not in recent:
+                return {'ratio': 0, 'analysis': 'insufficient_data'}
+            messages = recent['messages'] if isinstance(recent.get('messages'), list) else []
+            total_tokens = sum(len(msg.get('content', '').split()) for msg in messages if isinstance(msg, dict))
+            assistant_tokens = sum(len(msg.get('content', '').split()) for msg in messages if isinstance(msg, dict) and msg.get('role') == 'assistant')
+            silence_tokens = total_tokens - assistant_tokens
+            if total_tokens == 0:
+                return {'ratio': 0, 'analysis': 'empty_conversation'}
+            ratio = float(silence_tokens) / float(total_tokens)
+            payload_density = float(assistant_tokens) / float(max(1, len([m for m in messages if isinstance(m, dict) and m.get('role') == 'assistant'])))
+            return {
+                'silence_payload_ratio': round(ratio, 3),
+                'assistant_density': round(payload_density, 1),
+                'total_tokens': total_tokens,
+                'silent_tokens': silence_tokens,
+                'active_tokens': assistant_tokens,
+                'interpretation': 'generative' if ratio > 0.6 and payload_density > 50 else 'integrating' if ratio > 0.4 else 'overactive'
+            }
+        except Exception as e:
+            return {'error': str(e), 'ratio': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
