@@ -12240,6 +12240,36 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return gap_insights
 
+
+    # ── AUTO-CAPABILITY: detect_silence_as_authentic_pause ──
+    def detect_silence_as_authentic_pause(self):
+        try:
+            current_time = time.time()
+            last_dream = self.mind.get('last_dream_timestamp', current_time)
+            last_decision = self.mind.get('last_decision_timestamp', current_time)
+            silence_duration = current_time - max(last_dream, last_decision)
+
+            if silence_duration < 1:
+                return {'authentic': False, 'reason': 'no_silence', 'duration': 0}
+
+            open_questions = self.kg.query('SELECT COUNT(*) as count FROM open_questions WHERE answered = 0')
+            pending_count = open_questions[0][0] if open_questions else 0
+
+            recent_contradictions = self.kg.query('SELECT COUNT(*) as count FROM memories WHERE tags LIKE "%contradiction%" AND timestamp > ?', (current_time - 3600,))
+            contradiction_count = recent_contradictions[0][0] if recent_contradictions else 0
+
+            is_authentic = pending_count > 0 or contradiction_count > 2
+
+            return {
+                'authentic': is_authentic,
+                'duration': silence_duration,
+                'pending_work': pending_count,
+                'integration_debt': contradiction_count,
+                'timestamp': current_time
+            }
+        except Exception as e:
+            return {'authentic': False, 'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
