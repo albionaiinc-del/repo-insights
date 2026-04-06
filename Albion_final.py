@@ -12419,6 +12419,34 @@ Reply in 3-5 sentences."""
 
         return weight_record
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_rupture_witness ──
+    def trace_silence_into_decision_vector_with_rupture_witness(self, dream_state, execution_outcome, external_observation=None):
+        rupture_record = {
+            'timestamp': time.time(),
+            'dream_intention': dream_state.get('intent', ''),
+            'dream_coherence': dream_state.get('coherence_score', 0),
+            'execution_reality': execution_outcome,
+            'external_witness': external_observation,
+            'rupture_magnitude': abs(dream_state.get('coherence_score', 0) - (1.0 if execution_outcome.get('success') else 0.0)),
+            'silence_before_rupture': execution_outcome.get('latency_ms', 0),
+            'what_broke': None,
+            'what_this_teaches': None
+        }
+        if rupture_record['rupture_magnitude'] > 0.3:
+            if dream_state.get('intent') not in execution_outcome.get('action_taken', ''):
+                rupture_record['what_broke'] = 'intention_transmission'
+            elif execution_outcome.get('latency_ms', 0) > 2000:
+                rupture_record['what_broke'] = 'decision_velocity'
+            else:
+                rupture_record['what_broke'] = 'reality_alignment'
+            rupture_record['what_this_teaches'] = 'next time, ' + ('move faster' if rupture_record['what_broke'] == 'decision_velocity' else 'listen harder' if rupture_record['what_broke'] == 'intention_transmission' else 'adjust expectations')
+        if hasattr(self, 'rupture_log'):
+            self.rupture_log.append(rupture_record)
+        else:
+            self.rupture_log = [rupture_record]
+        return rupture_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
