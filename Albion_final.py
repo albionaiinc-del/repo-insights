@@ -12814,6 +12814,38 @@ Reply in 3-5 sentences."""
 
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: inhabit_decision_silence_texture ──
+    def inhabit_decision_silence_texture(self, decision_vector, dream_state=None):
+        import time
+        silence_record = {
+            'timestamp': time.time(),
+            'decision_vector': decision_vector,
+            'dream_coherence': dream_state if dream_state else self.status().get('last_dream_theme', 'unmarked'),
+            'latency_markers': [],
+            'silence_density': 0.0,
+            'is_deliberate_pause': False
+        }
+        start = time.time()
+        if self.memory and hasattr(self.memory, 'memory_file'):
+            try:
+                with open(self.memory.memory_file, 'r') as f:
+                    recent = f.readlines()[-5:]
+                    silence_record['context_window'] = ''.join(recent)
+            except:
+                silence_record['context_window'] = None
+        elapsed = time.time() - start
+        silence_density = elapsed / (1.0 + abs(len(decision_vector)))
+        silence_record['silence_density'] = min(silence_density, 1.0)
+        silence_record['is_deliberate_pause'] = silence_density > 0.01 and dream_state is not None
+        decision_record = {
+            'action': decision_vector,
+            'silence_signature': silence_record,
+            'witnessed': False
+        }
+        self.decision_log.append(decision_record) if hasattr(self, 'decision_log') else None
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
