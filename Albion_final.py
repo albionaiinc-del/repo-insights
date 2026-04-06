@@ -12565,6 +12565,36 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
+
+    # ── AUTO-CAPABILITY: receive_and_hold_witness_feedback ──
+    def receive_and_hold_witness_feedback(self, witness_observation, context_tag):
+        feedback_record = {
+            "timestamp": time.time(),
+            "witness_observation": witness_observation,
+            "context_tag": context_tag,
+            "received_at_state": self.current(),
+            "held_without_resolution": True
+        }
+        feedback_path = os.path.join(self.memory_dir, "witness_feedback.jsonl")
+        try:
+            with open(feedback_path, "a") as f:
+                f.write(json.dumps(feedback_record) + "\n")
+        except (IOError, OSError):
+            pass
+        related_dreams = self.kb.query("dream coherence witness feedback observation", k=3)
+        for dream_chunk in related_dreams:
+            self.kb.add_to_bag("witness_signal", {
+                "witness_says": witness_observation,
+                "dream_context": dream_chunk,
+                "held_at": feedback_record["timestamp"],
+                "status": "unresolved_productive_tension"
+            })
+        return {
+            "feedback_held": True,
+            "coherence_gap_identified": True,
+            "next_action": "listen_to_the_gap_between_witness_and_dream_intention"
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
