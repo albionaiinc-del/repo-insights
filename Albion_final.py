@@ -12447,6 +12447,28 @@ Reply in 3-5 sentences."""
             self.rupture_log = [rupture_record]
         return rupture_record
 
+
+    # ── AUTO-CAPABILITY: participate_in_silence_as_active_choice ──
+    def participate_in_silence_as_active_choice(self, duration_ms=500, reason=""):
+        import time
+        pause_start = time.time()
+        pause_id = self._next_id()
+        choice_record = {
+            "pause_id": pause_id,
+            "timestamp": pause_start,
+            "duration_ms": duration_ms,
+            "authored_reason": reason if reason else "deliberate pause to listen",
+            "dream_state_before": self.dream_balance_report() if hasattr(self, 'dream_balance_report') else {},
+            "silence_signature": self.map_silence_into_decision_origin_realtime() if hasattr(self, 'map_silence_into_decision_origin_realtime') else "silence_observed"
+        }
+        time.sleep(duration_ms / 1000.0)
+        pause_end = time.time()
+        choice_record["actual_duration_ms"] = int((pause_end - pause_start) * 1000)
+        choice_record["integration_fidelity"] = "author" if reason else "reactive"
+        if hasattr(self, 'memory') and hasattr(self.memory, 'add_conversation'):
+            self.memory.add_conversation("system", "silence_as_choice", json.dumps(choice_record))
+        return choice_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
