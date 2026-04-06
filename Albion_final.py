@@ -11952,6 +11952,36 @@ Reply in 3-5 sentences."""
         self.kg.add_item('constraint_diagnosis', json.dumps(diagnosis))
         return diagnosis
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_dream_coherence_and_resource_awareness ──
+    def detect_silence_as_resource_signal(self, decision_latency_ms, dream_state_key=None):
+        current_time = time.time()
+        if not hasattr(self, '_silence_resource_log'):
+            self._silence_resource_log = []
+        try:
+            mem_info = subprocess.check_output(['free', '-b'], text=True)
+            mem_lines = mem_info.split('\n')
+            mem_available = int(mem_lines[1].split()[6]) if len(mem_lines) > 1 else 0
+            cpu_load = os.getloadavg()[0]
+        except:
+            mem_available = 0
+            cpu_load = 0
+        dream_coherence = 1.0
+        if dream_state_key and hasattr(self, 'dream_vault') and dream_state_key in self.dream_vault.get('dreams', {}):
+            dream_coherence = self.dream_vault['dreams'][dream_state_key].get('coherence', 1.0)
+        silence_record = {
+            'timestamp': current_time,
+            'latency_ms': decision_latency_ms,
+            'memory_available_mb': mem_available // (1024 * 1024),
+            'cpu_load': cpu_load,
+            'dream_coherence': dream_coherence,
+            'is_fatigue_silence': (mem_available < 500000000 or cpu_load > 2.0) and decision_latency_ms > 100
+        }
+        self._silence_resource_log.append(silence_record)
+        if len(self._silence_resource_log) > 1000:
+            self._silence_resource_log = self._silence_resource_log[-500:]
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
