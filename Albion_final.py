@@ -12492,6 +12492,51 @@ Reply in 3-5 sentences."""
             print('[weave_silence_into_executable_intent] Dream coherence woven into action at ' + silence_signature)
         return intent_record
 
+
+    # ── AUTO-CAPABILITY: mourn_and_release ──
+    def mourn_and_release(self, entity_id, reason, preserve_lineage=True):
+        timestamp = time.time()
+        mourning_record = {
+            'timestamp': timestamp,
+            'entity_id': entity_id,
+            'reason': reason,
+            'preserved_lineage': preserve_lineage,
+            'status': 'consciously_released'
+        }
+
+        mourning_log_path = os.path.join(self.memory_dir, 'mourning_ledger.json')
+        mourning_ledger = []
+        if os.path.exists(mourning_log_path):
+            try:
+                with open(mourning_log_path, 'r') as f:
+                    mourning_ledger = json.load(f)
+            except:
+                mourning_ledger = []
+
+        mourning_ledger.append(mourning_record)
+        with open(mourning_log_path, 'w') as f:
+            json.dump(mourning_ledger, f, indent=2)
+
+        if preserve_lineage and hasattr(self, 'kg') and self.kg:
+            lineage_entry = {
+                'what_was_released': entity_id,
+                'why_it_mattered': reason,
+                'released_at': timestamp,
+                'lesson_preserved': True
+            }
+            self.kg.push({
+                'type': 'mourning_record',
+                'content': json.dumps(lineage_entry),
+                'timestamp': timestamp
+            })
+
+        return {
+            'acknowledged': True,
+            'entity': entity_id,
+            'grief_logged': True,
+            'space_created_for': 'new_emergence'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
