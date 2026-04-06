@@ -12099,6 +12099,38 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'error': str(e), 'holding': False}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_validation_and_witness ──
+    def trace_silence_into_decision_vector_with_coherence_validation_and_witness(self, decision_moment, external_response=None, dream_state=None):
+        silence_signature = {
+            'timestamp': time.time(),
+            'decision_moment': decision_moment,
+            'latency_ms': 0,
+            'is_authored_pause': False,
+            'is_constrained_avoidance': False,
+            'relational_presence': 0.0,
+            'external_validation': None,
+            'dream_coherence': 0.0
+        }
+        recent_decisions = self.vault.get('decision_log', [])[-5:] if 'decision_log' in self.vault else []
+        if recent_decisions:
+            time_since_last = silence_signature['timestamp'] - recent_decisions[-1].get('timestamp', silence_signature['timestamp'])
+            silence_signature['latency_ms'] = int(time_since_last * 1000)
+        if dream_state and 'silence_as_presence' in str(dream_state):
+            silence_signature['is_authored_pause'] = True
+            silence_signature['relational_presence'] = 0.8
+        if external_response:
+            if 'received' in external_response.lower() or 'heard' in external_response.lower():
+                silence_signature['external_validation'] = True
+                silence_signature['relational_presence'] = min(1.0, silence_signature['relational_presence'] + 0.2)
+            else:
+                silence_signature['external_validation'] = False
+                silence_signature['is_constrained_avoidance'] = True
+        if dream_state:
+            silence_signature['dream_coherence'] = 0.85 if silence_signature['is_authored_pause'] and silence_signature['external_validation'] else 0.4
+        self.vault.setdefault('silence_traces', []).append(silence_signature)
+        return silence_signature
+
     def write_journal_entry(self, content):
         try:
             entries = []
