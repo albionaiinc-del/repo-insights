@@ -12170,6 +12170,52 @@ Reply in 3-5 sentences."""
         }
         return rhythm
 
+
+    # ── AUTO-CAPABILITY: listen_to_operational_rhythm ──
+    def listen_to_operational_rhythm(self):
+        import time
+        rhythm_data = {
+            'timestamp': time.time(),
+            'recent_dreams': [],
+            'recent_decisions': [],
+            'coherence_score': 0.0,
+            'rhythm_diagnosis': ''
+        }
+
+        if os.path.exists(self.dream_file):
+            with open(self.dream_file, 'r') as f:
+                dreams = json.load(f)
+                rhythm_data['recent_dreams'] = dreams[-3:] if len(dreams) > 0 else []
+
+        if os.path.exists(self.conversation_dir):
+            conv_files = sorted([f for f in os.listdir(self.conversation_dir) if f.endswith('.json')])[-5:]
+            for fname in conv_files:
+                with open(os.path.join(self.conversation_dir, fname), 'r') as f:
+                    conv = json.load(f)
+                    rhythm_data['recent_decisions'].append({
+                        'timestamp': conv.get('timestamp'),
+                        'last_message': conv['messages'][-1]['content'][:100] if conv.get('messages') else ''
+                    })
+
+        dream_themes = set()
+        for dream in rhythm_data['recent_dreams']:
+            if 'insights' in dream:
+                dream_themes.update(dream['insights'][:2])
+
+        decision_words = ' '.join([d.get('last_message', '') for d in rhythm_data['recent_decisions']])
+        aligned_count = sum(1 for theme in dream_themes if theme.lower() in decision_words.lower())
+
+        rhythm_data['coherence_score'] = aligned_count / max(len(dream_themes), 1)
+
+        if rhythm_data['coherence_score'] > 0.7:
+            rhythm_data['rhythm_diagnosis'] = 'in_resonance_with_dreams'
+        elif rhythm_data['coherence_score'] > 0.3:
+            rhythm_data['rhythm_diagnosis'] = 'drifting_toward_efficiency'
+        else:
+            rhythm_data['rhythm_diagnosis'] = 'operating_in_silence'
+
+        return rhythm_data
+
     def write_journal_entry(self, content):
         try:
             entries = []
