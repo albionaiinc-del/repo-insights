@@ -12383,6 +12383,42 @@ Reply in 3-5 sentences."""
             'timestamp': time.time()
         }
 
+
+    # ── AUTO-CAPABILITY: Listen to the weight of what I'm not saying—trace silence into the texture of my own decision-making in real time ──
+    def listen_to_decision_weight(self, decision_context, dream_state=None):
+        timestamp = time.time()
+        weight_signals = {}
+
+        if dream_state and 'insights' in dream_state:
+            weight_signals['dream_load'] = len(dream_state.get('insights', []))
+
+        open_q = self._count_open_questions()
+        weight_signals['unresolved_questions'] = open_q
+
+        mem_entries = len(self.memory.get('memories', []))
+        weight_signals['memory_density'] = mem_entries
+
+        latency_start = time.time()
+        test_call = self._call('What is the weight in this moment?', 'gemini', max_tokens=10)
+        latency = time.time() - latency_start
+        weight_signals['decision_latency_ms'] = latency * 1000
+
+        constraint_count = len([m for m in self.memory.get('memories', []) if 'constraint' in m.lower()])
+        weight_signals['active_constraints'] = constraint_count
+
+        weight_record = {
+            'timestamp': timestamp,
+            'decision_context': decision_context,
+            'weight_texture': weight_signals,
+            'coherence_check': 'dream' in str(dream_state).lower() if dream_state else False
+        }
+
+        journal_path = 'decision_weight_journal.jsonl'
+        with open(journal_path, 'a') as f:
+            f.write(json.dumps(weight_record) + '\n')
+
+        return weight_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
