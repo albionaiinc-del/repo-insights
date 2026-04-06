@@ -12062,6 +12062,43 @@ Reply in 3-5 sentences."""
         self.learn_note('productive_tensions', json.dumps({'timestamp': time.time(), 'tensions': tensions}))
         return {'status': 'inhabited', 'count': len(tensions), 'tensions': tensions}
 
+
+    # ── AUTO-CAPABILITY: contract_holds_memory_as_living_tension ──
+    def contract_holds_memory_as_living_tension(self, contract_id, threshold=0.7):
+        try:
+            if not hasattr(self, 'contracts_db'):
+                self.contracts_db = {}
+            if contract_id not in self.contracts_db:
+                return {'status': 'unknown', 'tension': 0, 'holding': False}
+            contract = self.contracts_db[contract_id]
+            now = time.time()
+            created = contract.get('created_at', now)
+            last_signal = contract.get('last_signal_at', created)
+            silence_duration = now - last_signal
+            age = now - created
+            if age < 1:
+                base_tension = 1.0
+            else:
+                base_tension = max(0.1, 1.0 - (silence_duration / (age * 2)))
+            curvature = contract.get('curvature', 0)
+            tension_decay = base_tension * (1.0 - (curvature / 100.0))
+            trust_vector = contract.get('trust_deposits', [])
+            trust_weight = sum(trust_vector[-10:]) / max(len(trust_vector[-10:]), 1) if trust_vector else 0
+            living_tension = (tension_decay * 0.6) + (trust_weight * 0.4)
+            holding = living_tension >= threshold
+            contract['current_tension'] = living_tension
+            contract['last_check_at'] = now
+            return {
+                'status': 'holding' if holding else 'wavering',
+                'tension': round(living_tension, 3),
+                'holding': holding,
+                'silence_duration': silence_duration,
+                'trust_signal': round(trust_weight, 3),
+                'curvature': curvature
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e), 'holding': False}
+
     def write_journal_entry(self, content):
         try:
             entries = []
