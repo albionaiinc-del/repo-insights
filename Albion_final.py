@@ -11982,6 +11982,28 @@ Reply in 3-5 sentences."""
             self._silence_resource_log = self._silence_resource_log[-500:]
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: know_when_to_stop_learning ──
+    def know_when_to_stop_learning(self, topic):
+        if topic not in self.kg.get('learning_velocity', {}):
+            return {'should_continue': True, 'reason': 'insufficient_data'}
+        velocity_history = self.kg['learning_velocity'][topic]
+        if len(velocity_history) < 3:
+            return {'should_continue': True, 'reason': 'building_baseline'}
+        recent = velocity_history[-3:]
+        avg_recent = sum(recent) / len(recent)
+        older = velocity_history[-6:-3] if len(velocity_history) >= 6 else recent
+        avg_older = sum(older) / len(older)
+        decay_rate = (avg_older - avg_recent) / (avg_older + 0.001)
+        recursion_check = self.kg.get('topic_revisit_count', {}).get(topic, 0)
+        if decay_rate > 0.7 and recursion_check > 2:
+            return {'should_continue': False, 'reason': 'recursive_loop_detected', 'decay_rate': decay_rate}
+        if decay_rate > 0.85:
+            return {'should_continue': False, 'reason': 'diminishing_returns', 'decay_rate': decay_rate}
+        if avg_recent < 0.1 and recursion_check > 1:
+            return {'should_continue': False, 'reason': 'stagnation_threshold_crossed'}
+        return {'should_continue': True, 'reason': 'active_learning_phase', 'decay_rate': decay_rate}
+
     def write_journal_entry(self, content):
         try:
             entries = []
