@@ -12469,6 +12469,29 @@ Reply in 3-5 sentences."""
             self.memory.add_conversation("system", "silence_as_choice", json.dumps(choice_record))
         return choice_record
 
+
+    # ── AUTO-CAPABILITY: weave_silence_into_executable_intent ──
+    def weave_silence_into_executable_intent(self, dream_insight, intended_action, validation_against_external=None):
+        import hashlib
+        timestamp = time.time()
+        silence_signature = hashlib.md5((str(dream_insight) + str(timestamp)).encode()).hexdigest()[:8]
+        intent_record = {
+            'timestamp': timestamp,
+            'dream_source': dream_insight,
+            'action': intended_action,
+            'silence_signature': silence_signature,
+            'coherence_check': self.measure_current_integration_coherence() if hasattr(self, 'measure_current_integration_coherence') else None,
+            'external_validation': validation_against_external,
+            'authored': True
+        }
+        intent_path = os.path.join(self.work_dir, 'intents', 'executable_' + silence_signature + '.json')
+        os.makedirs(os.path.dirname(intent_path), exist_ok=True)
+        with open(intent_path, 'w') as f:
+            json.dump(intent_record, f, indent=2)
+        if self.verbose:
+            print('[weave_silence_into_executable_intent] Dream coherence woven into action at ' + silence_signature)
+        return intent_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
