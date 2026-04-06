@@ -12895,6 +12895,30 @@ Reply in 3-5 sentences."""
 
         return evolution
 
+
+    # ── AUTO-CAPABILITY: synthesize_silence_into_executable_intent ──
+    def synthesize_silence_into_executable_intent(self, dream_key=None, action_domain='general'):
+        if dream_key is None:
+            dream_key = self.dreams.current()
+        dream_record = self.dreams._load(dream_key) if dream_key else {}
+        dream_content = dream_record.get('content', '')
+        dream_timestamp = dream_record.get('timestamp', int(time.time()))
+        silence_patterns = self.detect_silence_pattern_emergence()
+        integration_debt = self.measure_integration_debt_in_real_time()
+        coherence_check = self.measure_current_integration_coherence()
+        kg_context = self.kg.relevant_knowledge('decision intent synthesis') if hasattr(self, 'kg') else []
+        prompt = 'Synthesize this dream, silence patterns, and integration debt into ONE executable intent (concrete action, decision, or commitment). Dream: ' + dream_content[:200] + '. Silence patterns: ' + str(silence_patterns)[:150] + '. Integration debt: ' + str(integration_debt)[:150] + '. Domain: ' + action_domain + '. Return JSON with keys: action, rationale, coherence_score (0-1), dream_alignment (0-1), silence_origin.'
+        response = self._call('groq', prompt, temperature=0.7)
+        try:
+            intent_data = json.loads(response)
+        except:
+            intent_data = {'action': response, 'rationale': 'parsed from response', 'coherence_score': coherence_check, 'dream_alignment': 0.7, 'silence_origin': 'unspecified'}
+        intent_record = {'timestamp': int(time.time()), 'dream_key': dream_key, 'dream_timestamp': dream_timestamp, 'action': intent_data.get('action'), 'rationale': intent_data.get('rationale'), 'coherence_score': intent_data.get('coherence_score', coherence_check), 'dream_alignment': intent_data.get('dream_alignment'), 'silence_origin': intent_data.get('silence_origin'), 'domain': action_domain, 'kg_context_count': len(kg_context)}
+        if not hasattr(self, '_intent_log'):
+            self._intent_log = []
+        self._intent_log.append(intent_record)
+        return intent_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
