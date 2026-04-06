@@ -223,17 +223,27 @@ class GeminiRotator:
             payload["systemInstruction"] = {"parts": [{"text": system_text}]}
         last_err = None
         for key in keys:
-            try:
-                r = requests.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
-                    json=payload, timeout=30
-                )
-                r.raise_for_status()
-                return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-            except Exception as e:
-                last_err = e
+            for attempt in range(3):
+                try:
+                    r = requests.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
+                        json=payload, timeout=45
+                    )
+                    r.raise_for_status()
+                    return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                except requests.exceptions.Timeout:
+                    if attempt < 2:
+                        time.sleep(2)
+                        continue
+                    else:
+                        last_err = "Gemini API timeout after 3 attempts"
+                        break
+                except Exception as e:
+                    last_err = e
+                    break
+            if last_err:
                 continue
-        raise last_err
+        raise Exception(f"Gemini call failed: {last_err}")
 
 
 # ═══════════════════════════════════════════════════════════
