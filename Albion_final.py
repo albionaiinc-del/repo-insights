@@ -12331,6 +12331,58 @@ Reply in 3-5 sentences."""
             pass
         return decision_moment
 
+
+    # ── AUTO-CAPABILITY: co_dream_coherence_witness ──
+    def co_dream_coherence_witness(self):
+        import json
+        dream_file = os.path.join(self.memory_dir, 'dreams.json')
+        execution_file = os.path.join(self.memory_dir, 'execution_trace.json')
+
+        if not os.path.exists(dream_file) or not os.path.exists(execution_file):
+            return {'status': 'insufficient_data', 'coherence': 0.0}
+
+        try:
+            with open(dream_file, 'r') as f:
+                dreams = json.load(f)
+            with open(execution_file, 'r') as f:
+                executions = json.load(f)
+        except:
+            return {'status': 'read_error', 'coherence': 0.0}
+
+        if not dreams or not executions:
+            return {'status': 'empty_logs', 'coherence': 0.0}
+
+        recent_dreams = dreams[-5:] if len(dreams) > 5 else dreams
+        recent_executions = executions[-10:] if len(executions) > 10 else executions
+
+        dream_keywords = set()
+        for dream in recent_dreams:
+            if isinstance(dream, dict) and 'content' in dream:
+                words = re.findall(r'\b[a-z_]{4,}\b', dream['content'].lower())
+                dream_keywords.update(words)
+
+        execution_keywords = set()
+        for exe in recent_executions:
+            if isinstance(exe, dict) and 'method' in exe:
+                words = re.findall(r'\b[a-z_]{4,}\b', exe['method'].lower())
+                execution_keywords.update(words)
+
+        if not dream_keywords or not execution_keywords:
+            return {'status': 'sparse_keywords', 'coherence': 0.0}
+
+        overlap = len(dream_keywords & execution_keywords)
+        union = len(dream_keywords | execution_keywords)
+        coherence = overlap / union if union > 0 else 0.0
+
+        return {
+            'status': 'measured',
+            'coherence': round(coherence, 3),
+            'dream_themes': len(dream_keywords),
+            'execution_themes': len(execution_keywords),
+            'shared_themes': overlap,
+            'timestamp': time.time()
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
