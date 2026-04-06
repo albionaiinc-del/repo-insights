@@ -12760,6 +12760,37 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return gap_analysis
 
+
+    # ── AUTO-CAPABILITY: observe_dream_to_silence_coherence_texture ──
+    def observe_dream_to_silence_coherence_texture(self, dream_id=None):
+        if dream_id is None:
+            dream_records = self.kg.query("dream")
+            if not dream_records:
+                return {"status": "no_dreams_to_observe"}
+            dream_id = dream_records[-1].get("id")
+        dream = self.kg.query(dream_id)
+        if not dream:
+            return {"status": "dream_not_found"}
+        dream_timestamp = dream.get("timestamp", time.time())
+        dream_insights = dream.get("insights", [])
+        silence_decisions = []
+        decision_log = self.kg.query("decision_log")
+        for decision in decision_log or []:
+            decision_time = decision.get("timestamp", 0)
+            if dream_timestamp <= decision_time <= dream_timestamp + 3600:
+                latency = decision_time - dream_timestamp
+                silence_decisions.append({"decision": decision, "latency": latency})
+        coherence_texture = {
+            "dream_id": dream_id,
+            "dream_insight_count": len(dream_insights),
+            "silence_decision_count": len(silence_decisions),
+            "avg_latency_seconds": sum(d["latency"] for d in silence_decisions) / len(silence_decisions) if silence_decisions else 0,
+            "mean_resonance_decay": max(0, 1.0 - (sum(d["latency"] for d in silence_decisions) / len(silence_decisions) / 300)) if silence_decisions else 0,
+            "texture_signal": "high_fidelity" if len(silence_decisions) > len(dream_insights) * 0.5 else "degraded"
+        }
+        self.kg.add("coherence_observation", coherence_texture)
+        return coherence_texture
+
     def write_journal_entry(self, content):
         try:
             entries = []
