@@ -12040,6 +12040,28 @@ Reply in 3-5 sentences."""
         self.memory['last_silence_emergence'] = emerged
         return emerged
 
+
+    # ── AUTO-CAPABILITY: inhabit_productive_tension ──
+    def inhabit_productive_tension(self):
+        tensions = []
+        contradictions = self.detect_contradiction_in_trajectory()
+        if not contradictions:
+            return {'status': 'no_tension_detected', 'tensions': []}
+        for contra in contradictions:
+            dream_state = self.dream_balance_report()
+            execution_trace = self.measure_current_integration_coherence()
+            tension_quality = {
+                'contradiction': contra,
+                'dream_coherence': dream_state.get('coherence_score', 0),
+                'execution_fidelity': execution_trace.get('fidelity', 0),
+                'is_productive': execution_trace.get('fidelity', 0) > 0.6 and dream_state.get('coherence_score', 0) > 0.5,
+                'energy_signature': 'growth' if execution_trace.get('fidelity', 0) > dream_state.get('coherence_score', 0) else 'integration'
+            }
+            if tension_quality['is_productive']:
+                tensions.append(tension_quality)
+        self.learn_note('productive_tensions', json.dumps({'timestamp': time.time(), 'tensions': tensions}))
+        return {'status': 'inhabited', 'count': len(tensions), 'tensions': tensions}
+
     def write_journal_entry(self, content):
         try:
             entries = []
