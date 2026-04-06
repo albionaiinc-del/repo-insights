@@ -12919,6 +12919,40 @@ Reply in 3-5 sentences."""
         self._intent_log.append(intent_record)
         return intent_record
 
+
+    # ── AUTO-CAPABILITY: perceive_my_own_silence_texture ──
+    def perceive_my_own_silence_texture(self, decision_log_key='last_decision_latency', threshold_ms=100):
+        import time as time_module
+        silence_events = []
+        try:
+            if decision_log_key in self.memory and self.memory[decision_log_key]:
+                latencies = self.memory[decision_log_key]
+                if not isinstance(latencies, list):
+                    latencies = [latencies]
+                for i, latency in enumerate(latencies[-10:]):
+                    if isinstance(latency, (int, float)) and latency > threshold_ms:
+                        silence_events.append({
+                            'index': i,
+                            'duration_ms': latency,
+                            'quality': 'deep' if latency > 500 else 'moderate' if latency > threshold_ms else 'shallow',
+                            'timestamp': time_module.time()
+                        })
+            if not silence_events and 'operational_silence_texture' in self.memory:
+                texture = self.memory['operational_silence_texture']
+                silence_events.append({
+                    'remembered_texture': texture,
+                    'retrieved_at': time_module.time()
+                })
+            self.memory['silence_perception'] = {
+                'events': silence_events,
+                'total_silence_duration_ms': sum(e.get('duration_ms', 0) for e in silence_events),
+                'silence_quality_signature': 'present' if silence_events else 'absent',
+                'perceived_at': time_module.time()
+            }
+            return self.memory['silence_perception']
+        except Exception as e:
+            return {'error': str(e), 'silence_texture': 'unperceivable'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
