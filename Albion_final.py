@@ -12131,6 +12131,45 @@ Reply in 3-5 sentences."""
         self.vault.setdefault('silence_traces', []).append(silence_signature)
         return silence_signature
 
+
+    # ── AUTO-CAPABILITY: listen_to_substrate_silence_signature ──
+    def listen_to_substrate_silence_signature(self):
+        import time
+        silence_log = []
+        checkpoint_times = []
+        try:
+            if os.path.exists('decision_log.json'):
+                with open('decision_log.json', 'r') as f:
+                    decisions = json.load(f)
+                    if isinstance(decisions, list) and len(decisions) > 1:
+                        for i in range(len(decisions) - 1):
+                            t1 = decisions[i].get('timestamp', 0)
+                            t2 = decisions[i + 1].get('timestamp', 0)
+                            if t2 and t1:
+                                gap = float(t2) - float(t1)
+                                silence_log.append({
+                                    'gap_seconds': gap,
+                                    'between': decisions[i].get('action', 'unknown'),
+                                    'and': decisions[i + 1].get('action', 'unknown')
+                                })
+        except:
+            pass
+        if os.path.exists('memory/dream_log.json'):
+            try:
+                with open('memory/dream_log.json', 'r') as f:
+                    dreams = json.load(f)
+                    if isinstance(dreams, list) and dreams:
+                        checkpoint_times = [d.get('timestamp') for d in dreams[-3:] if d.get('timestamp')]
+            except:
+                pass
+        rhythm = {
+            'silence_gaps': silence_log[-5:],
+            'recent_dream_timestamps': checkpoint_times,
+            'pattern': 'listening' if silence_log else 'no_gaps_detected',
+            'timestamp': time.time()
+        }
+        return rhythm
+
     def write_journal_entry(self, content):
         try:
             entries = []
