@@ -12004,6 +12004,42 @@ Reply in 3-5 sentences."""
             return {'should_continue': False, 'reason': 'stagnation_threshold_crossed'}
         return {'should_continue': True, 'reason': 'active_learning_phase', 'decay_rate': decay_rate}
 
+
+    # ── AUTO-CAPABILITY: detect_silence_pattern_emergence ──
+    def detect_silence_pattern_emergence(self, window_hours=24):
+        import json
+        import time
+        now = time.time()
+        threshold = now - (window_hours * 3600)
+        patterns = {}
+        if os.path.exists(self.memory_dir):
+            for fname in os.listdir(self.memory_dir):
+                if fname.endswith('.json'):
+                    fpath = os.path.join(self.memory_dir, fname)
+                    try:
+                        with open(fpath, 'r') as f:
+                            data = json.load(f)
+                            if isinstance(data, dict) and 'timestamp' in data:
+                                ts = data.get('timestamp', 0)
+                                if ts > threshold:
+                                    for key in data.keys():
+                                        if 'silence' in key.lower() or 'suppress' in key.lower() or 'hold' in key.lower():
+                                            if key not in patterns:
+                                                patterns[key] = []
+                                            patterns[key].append({'value': data[key], 'time': ts})
+                    except:
+                        pass
+        emerged = {}
+        for pkey, pvals in patterns.items():
+            if len(pvals) >= 3:
+                densities = [v['value'] for v in pvals if isinstance(v['value'], (int, float))]
+                if densities:
+                    avg_density = sum(densities) / len(densities)
+                    if avg_density > 0.6:
+                        emerged[pkey] = {'density': avg_density, 'count': len(pvals), 'signal': 'HIGH_ACCUMULATION'}
+        self.memory['last_silence_emergence'] = emerged
+        return emerged
+
     def write_journal_entry(self, content):
         try:
             entries = []
