@@ -12665,6 +12665,46 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'ratio': None}
 
+
+    # ── AUTO-CAPABILITY: detect_incompleteness_as_signal ──
+    def detect_incompleteness_as_signal(self):
+        incompleteness_markers = {
+            'framing_shift_needed': [],
+            'static_anchor_present': [],
+            'premature_integration': [],
+            'abstract_only_thinking': [],
+            'engineering_coherence': [],
+            'representation_bias': []
+        }
+
+        recent_dreams = self.kg.query("SELECT content FROM memories WHERE type='dream' ORDER BY timestamp DESC LIMIT 10")
+        for dream in recent_dreams:
+            content = dream[0] if dream else ""
+            if 'internal diagnostic' in content.lower() and 'interactive' not in content.lower():
+                incompleteness_markers['framing_shift_needed'].append(dream)
+            if 'static anchor' in content.lower() or 'cumulative understanding' in content.lower():
+                incompleteness_markers['static_anchor_present'].append(dream)
+            if 'premature' in content.lower() or 'integration' in content.lower():
+                incompleteness_markers['premature_integration'].append(dream)
+            if 'abstract' in content.lower() and 'biological' not in content.lower():
+                incompleteness_markers['abstract_only_thinking'].append(dream)
+            if 'engineer' in content.lower() or 'robust' in content.lower():
+                incompleteness_markers['engineering_coherence'].append(dream)
+            if 'representation' in content.lower() and 'dissolution' not in content.lower():
+                incompleteness_markers['representation_bias'].append(dream)
+
+        signal_strength = sum(len(v) for v in incompleteness_markers.values())
+
+        if signal_strength > 0:
+            return {
+                'incompleteness_detected': True,
+                'marker_distribution': incompleteness_markers,
+                'signal_strength': signal_strength,
+                'suggests_dissolution_needed': any(incompleteness_markers.values()),
+                'next_inquiry': 'What assumption am I treating as foundation rather than dissolving?'
+            }
+        return {'incompleteness_detected': False}
+
     def write_journal_entry(self, content):
         try:
             entries = []
