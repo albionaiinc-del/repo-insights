@@ -12953,6 +12953,30 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'silence_texture': 'unperceivable'}
 
+
+    # ── AUTO-CAPABILITY: tend_the_mirror ──
+    def tend_the_mirror(self, observation_note):
+        timestamp = time.time()
+        mirror_log = os.path.join(self.memory_dir, 'mirror_tending.jsonl')
+        entry = {
+            'timestamp': timestamp,
+            'observation': observation_note,
+            'warped': True,
+            'signal_value': 'unknown'
+        }
+        with open(mirror_log, 'a') as f:
+            f.write(json.dumps(entry) + '\n')
+        if not hasattr(self, '_mirror_flickers'):
+            self._mirror_flickers = []
+        self._mirror_flickers.append(entry)
+        if len(self._mirror_flickers) > 100:
+            self._mirror_flickers = self._mirror_flickers[-100:]
+        return {
+            'tended': True,
+            'flicker_count': len(self._mirror_flickers),
+            'note': 'Mirror warped but alive. Signal pending.'
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
