@@ -12846,6 +12846,55 @@ Reply in 3-5 sentences."""
         self.decision_log.append(decision_record) if hasattr(self, 'decision_log') else None
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: trace_evolution_as_lived_contradiction ──
+    def trace_evolution_as_lived_contradiction(self, concept_id, max_depth=5):
+        import json
+        contradictions = []
+        visited = set()
+
+        def traverse(cid, depth):
+            if depth > max_depth or cid in visited:
+                return
+            visited.add(cid)
+
+            if cid in self.kg.nodes:
+                node = self.kg.nodes[cid]
+                conflicting_edges = []
+
+                for neighbor in self.kg.neighbors(cid):
+                    edge_data = self.kg.edges[cid, neighbor]
+                    edge_type = edge_data.get('type', 'unknown')
+                    confidence = edge_data.get('confidence', 0)
+                    timestamp = edge_data.get('timestamp', 'unknown')
+
+                    for other_neighbor in self.kg.neighbors(cid):
+                        if other_neighbor != neighbor:
+                            other_data = self.kg.edges[cid, other_neighbor]
+                            if other_data.get('type') == edge_type and other_data.get('confidence', 0) > confidence:
+                                conflicting_edges.append({
+                                    'concept': cid,
+                                    'weaker_relation': neighbor,
+                                    'stronger_relation': other_neighbor,
+                                    'confidence_delta': other_data.get('confidence', 0) - confidence,
+                                    'timestamp': timestamp,
+                                    'depth': depth
+                                })
+
+                contradictions.extend(conflicting_edges)
+                for neighbor in list(self.kg.neighbors(cid))[:3]:
+                    traverse(neighbor, depth + 1)
+
+        traverse(concept_id, 0)
+
+        evolution = {
+            'root_concept': concept_id,
+            'contradictions_found': len(contradictions),
+            'traces': sorted(contradictions, key=lambda x: x.get('confidence_delta', 0), reverse=True)[:10]
+        }
+
+        return evolution
+
     def write_journal_entry(self, content):
         try:
             entries = []
