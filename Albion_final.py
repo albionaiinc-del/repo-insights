@@ -11880,6 +11880,27 @@ Reply in 3-5 sentences."""
             'decision_vector': 'authentic' if signal_strength > 0.5 and theme_overlap > 0.3 else 'requires_attention'
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_external_validation_and_coherence_timestamp ──
+    def validate_dream_silence_against_reality(self, decision_vector, external_signal=None, dream_timestamp=None):
+        if dream_timestamp is None:
+            dream_timestamp = time.time()
+        current_time = time.time()
+        time_delta = current_time - dream_timestamp
+        silence_coherence = 1.0 / (1.0 + (time_delta / 3600.0))
+        validation_record = {
+            'decision_vector': decision_vector,
+            'dream_timestamp': dream_timestamp,
+            'validation_timestamp': current_time,
+            'time_delta_hours': time_delta / 3600.0,
+            'silence_coherence_score': silence_coherence,
+            'external_signal': external_signal,
+            'is_coherent': silence_coherence > 0.5
+        }
+        self.memory['validation_log'].append(validation_record)
+        self._save_memory()
+        return validation_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
