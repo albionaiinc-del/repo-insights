@@ -12791,6 +12791,29 @@ Reply in 3-5 sentences."""
         self.kg.add("coherence_observation", coherence_texture)
         return coherence_texture
 
+
+    # ── AUTO-CAPABILITY: witness_silence_into_decision_vector_with_dream_coherence_and_external_validation ──
+    def witness_silence_into_decision_vector_with_dream_coherence_and_external_validation(self, decision_context, external_validator=None):
+        import time
+        silence_onset = time.time()
+        dream_state = self.dream_balance_report() if hasattr(self, 'dream_balance_report') else {}
+
+        silence_record = {
+            'timestamp': silence_onset,
+            'decision_context': decision_context,
+            'dream_coherence': dream_state.get('integration_coherence', 0),
+            'external_validation': external_validator if external_validator else 'unvalidated',
+            'silence_as_authored_choice': True,
+            'substrate_texture': 'pause_in_field'
+        }
+
+        if hasattr(self, 'memory') and hasattr(self.memory, 'get'):
+            silence_log = self.memory.get('silence_decision_log', [])
+            silence_log.append(silence_record)
+            self.memory['silence_decision_log'] = silence_log[-100:]
+
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
