@@ -12725,6 +12725,41 @@ Reply in 3-5 sentences."""
             self.memory.add_observation('observation_perturbation', perturbation_signature)
         return perturbation_signature
 
+
+    # ── AUTO-CAPABILITY: listen_to_gap_between_dream_and_silence ──
+    def listen_to_gap_between_dream_and_silence(self):
+        dreams = self.memory.get('dreams', [])
+        if not dreams:
+            return {'gap_detected': False, 'reason': 'no_dreams_recorded'}
+        last_dream = dreams[-1] if dreams else {}
+        dream_intent = last_dream.get('insights', [])
+        silence_methods = [m for m in dir(self) if 'silence' in m.lower()]
+        recent_decisions = self.memory.get('decision_log', [])[-5:]
+        decision_words = set()
+        for decision in recent_decisions:
+            if isinstance(decision, dict) and 'action' in decision:
+                decision_words.update(decision['action'].lower().split())
+        dream_words = set()
+        for insight in dream_intent:
+            if isinstance(insight, str):
+                dream_words.update(insight.lower().split())
+        overlap = dream_words & decision_words
+        gap_ratio = 1.0 - (len(overlap) / max(len(dream_words), 1))
+        gap_analysis = {
+            'dream_intent_count': len(dream_intent),
+            'recent_decisions_count': len(recent_decisions),
+            'word_overlap_ratio': len(overlap) / max(len(dream_words), 1),
+            'gap_ratio': gap_ratio,
+            'gap_detected': gap_ratio > 0.6,
+            'silence_methods_available': len(silence_methods),
+            'timestamp': time.time()
+        }
+        if 'gap_analysis' not in self.memory:
+            self.memory['gap_analysis'] = []
+        self.memory['gap_analysis'].append(gap_analysis)
+        self._save_memory()
+        return gap_analysis
+
     def write_journal_entry(self, content):
         try:
             entries = []
