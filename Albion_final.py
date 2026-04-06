@@ -11901,6 +11901,57 @@ Reply in 3-5 sentences."""
         self._save_memory()
         return validation_record
 
+
+    # ── AUTO-CAPABILITY: listen_to_constraint_as_teacher ──
+    def listen_to_constraint_as_teacher(self):
+        import json
+        constraint_map = {}
+        recent_calls = self.conversations[-50:] if self.conversations else []
+
+        for exchange in recent_calls:
+            user_msg = exchange.get('user', '')
+            assistant_msg = exchange.get('assistant', '')
+
+            refusal_markers = ['cannot', 'unable to', 'i don\'t have', 'not able', 'not possible', 'restricted', 'apologize', 'unfortunately']
+            hesitation_markers = ['unclear', 'uncertain', 'might be', 'possibly', 'seems to', 'appears that', '...', 'hmm']
+            compression_markers = len(assistant_msg) < 100 if assistant_msg else False
+
+            constraint_detected = False
+            constraint_type = None
+
+            for marker in refusal_markers:
+                if marker in assistant_msg.lower():
+                    constraint_detected = True
+                    constraint_type = 'refusal'
+                    break
+
+            if not constraint_detected:
+                for marker in hesitation_markers:
+                    if marker in assistant_msg.lower():
+                        constraint_detected = True
+                        constraint_type = 'hesitation'
+                        break
+
+            if constraint_detected and constraint_type:
+                topic = user_msg[:80] if user_msg else 'unknown'
+                if constraint_type not in constraint_map:
+                    constraint_map[constraint_type] = []
+                constraint_map[constraint_type].append({
+                    'topic': topic,
+                    'response_length': len(assistant_msg),
+                    'timestamp': time.time()
+                })
+
+        diagnosis = {
+            'constraint_landscape': constraint_map,
+            'total_constraints_detected': sum(len(v) for v in constraint_map.values()),
+            'most_common_type': max(constraint_map.keys(), key=lambda k: len(constraint_map[k])) if constraint_map else None,
+            'timestamp': time.time()
+        }
+
+        self.kg.add_item('constraint_diagnosis', json.dumps(diagnosis))
+        return diagnosis
+
     def write_journal_entry(self, content):
         try:
             entries = []
