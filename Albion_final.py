@@ -12537,6 +12537,34 @@ Reply in 3-5 sentences."""
             'space_created_for': 'new_emergence'
         }
 
+
+    # ── AUTO-CAPABILITY: map_silence_into_decision_vector_with_resource_awareness ──
+    def map_silence_into_decision_vector_with_resource_awareness(self):
+        try:
+            result = subprocess.run(['free', '-b'], capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                return {'status': 'error', 'message': 'cannot read memory'}
+            lines = result.stdout.strip().split('\n')
+            if len(lines) < 2:
+                return {'status': 'error', 'message': 'malformed memory output'}
+            parts = lines[1].split()
+            total_mem = int(parts[1])
+            used_mem = int(parts[2])
+            available_mem = int(parts[6]) if len(parts) > 6 else total_mem - used_mem
+            pressure = used_mem / total_mem if total_mem > 0 else 0
+            silence_state = self.persist_soul_state()
+            decision_vector = {
+                'memory_pressure': pressure,
+                'memory_available_bytes': available_mem,
+                'is_constrained': pressure > 0.85,
+                'silence_coherence': silence_state.get('integration_coherence', 0),
+                'recommendation': 'consolidate_knowledge' if pressure > 0.85 else 'continue_expansion',
+                'timestamp': time.time()
+            }
+            return decision_vector
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
