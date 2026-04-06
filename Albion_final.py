@@ -12301,6 +12301,36 @@ Reply in 3-5 sentences."""
             f.write(json.dumps(log_entry) + "\n")
         return results
 
+
+    # ── AUTO-CAPABILITY: breath_into_decision_vector ──
+    def breath_into_decision_vector(self, dream_origin, intended_action, external_witness=None):
+        import time
+        decision_moment = {
+            'timestamp': time.time(),
+            'dream_origin': dream_origin,
+            'intended_action': intended_action,
+            'silence_duration': 0,
+            'coherence_check': None,
+            'witness_validation': external_witness,
+            'authenticated': False
+        }
+        if self.kg and 'dreams' in self.kg.data:
+            recent_dreams = self.kg.data.get('dreams', [])[-3:]
+            resonance_score = sum(1 for dream in recent_dreams if any(word in str(dream).lower() for word in dream_origin.lower().split())) / max(len(recent_dreams), 1)
+            decision_moment['coherence_check'] = resonance_score
+            decision_moment['authenticated'] = resonance_score > 0.3
+        if not hasattr(self, '_decision_log'):
+            self._decision_log = []
+        self._decision_log.append(decision_moment)
+        if len(self._decision_log) > 100:
+            self._decision_log = self._decision_log[-100:]
+        try:
+            with open(os.path.join(self.memory_dir, 'decision_breath_log.json'), 'w') as f:
+                json.dump(self._decision_log, f, indent=2, default=str)
+        except:
+            pass
+        return decision_moment
+
     def write_journal_entry(self, content):
         try:
             entries = []
