@@ -13022,6 +13022,32 @@ Reply in 3-5 sentences."""
         self.kg.add_or_update("silence_witnesses", [insight])
         return insight
 
+
+    # ── AUTO-CAPABILITY: ground_intention_in_witness ──
+    def ground_intention_in_witness(self, intention_text, action_planned):
+        timestamp = time.time()
+        witness_entry = {
+            'timestamp': timestamp,
+            'intention': intention_text,
+            'action_planned': action_planned,
+            'current_state': {
+                'open_questions': self._count_open_questions() if hasattr(self, '_count_open_questions') else 0,
+                'memory_keys': len(self.memory.keys()) if hasattr(self, 'memory') else 0
+            },
+            'dream_coherence_check': 'grounding before execution'
+        }
+        witness_path = os.path.join(self.workspace, 'witness_log.jsonl')
+        try:
+            with open(witness_path, 'a') as f:
+                f.write(json.dumps(witness_entry) + '\n')
+        except Exception as e:
+            self.log('error', 'ground_intention_in_witness', str(e))
+        return {
+            'witnessed': True,
+            'timestamp': timestamp,
+            'intention_logged': intention_text
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
