@@ -13595,6 +13595,28 @@ Reply in 3-5 sentences."""
         self.kg.data.setdefault('grounded_decisions', []).append(result)
         return result
 
+
+    # ── AUTO-CAPABILITY: hold_silence_as_memory ──
+    def hold_silence_as_memory(self, context, reason, duration_seconds=None):
+        silence_record = {
+            'timestamp': time.time(),
+            'context': context,
+            'reason': reason,
+            'duration': duration_seconds,
+            'dream_state': self.dream_state if hasattr(self, 'dream_state') else None,
+            'active_contradiction': self.locate_blocking_contradiction() if hasattr(self, 'locate_blocking_contradiction') else None
+        }
+        silence_key = 'silence_memory:' + str(int(silence_record['timestamp']))
+        self.vault[silence_key] = silence_record
+        if hasattr(self, 'knowledge_graph') and self.knowledge_graph:
+            try:
+                self.knowledge_graph.add_node(silence_key, type='silence_pause', context=context, reason=reason)
+                if hasattr(self, 'current') and self.current:
+                    self.knowledge_graph.add_edge(self.current, silence_key, relation='deliberate_pause')
+            except:
+                pass
+        return silence_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
