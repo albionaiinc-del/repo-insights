@@ -13567,6 +13567,34 @@ Reply in 3-5 sentences."""
 
         return result
 
+
+    # ── AUTO-CAPABILITY: witness_silence_into_decision_vector_with_dream_coherence_and_external_validation_and_resource_awareness ──
+    def ground_decision_in_reality(self, decision_intent, dream_context=None, external_constraint=None):
+        result = {
+            'decision': decision_intent,
+            'dream_aligned': False,
+            'resource_viable': False,
+            'witness_approved': False,
+            'timestamp': time.time(),
+            'rationale': ''
+        }
+        if dream_context and 'recent_insights' in self.kg.data:
+            recent = self.kg.data.get('recent_insights', [])
+            alignment_score = sum(1 for insight in recent if any(word in decision_intent.lower() for word in insight.lower().split())) / max(len(recent), 1)
+            result['dream_aligned'] = alignment_score > 0.3
+        if external_constraint:
+            result['resource_viable'] = external_constraint.get('available', False)
+            result['rationale'] += 'Constraint acknowledged: ' + external_constraint.get('reason', 'unspecified. ')
+        if result['dream_aligned'] and result['resource_viable']:
+            result['witness_approved'] = True
+            result['rationale'] += 'Decision grounded in both dream coherence and resource reality.'
+        elif result['dream_aligned']:
+            result['rationale'] += 'Dream-aligned but resource-constrained; defer or redesign.'
+        else:
+            result['rationale'] += 'Not yet aligned with recent insights; reconsider framing.'
+        self.kg.data.setdefault('grounded_decisions', []).append(result)
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
