@@ -13305,6 +13305,32 @@ Reply in 3-5 sentences."""
 
         return record
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_resource_signature ──
+    def trace_silence_into_resource_signature(self):
+        import psutil
+        import tracemalloc
+        tracemalloc.start()
+        current_process = psutil.Process(os.getpid())
+        mem_info = current_process.memory_info()
+        cpu_percent = current_process.cpu_percent(interval=0.1)
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        signature = {
+            'timestamp': time.time(),
+            'rss_mb': mem_info.rss / (1024 * 1024),
+            'vms_mb': mem_info.vms / (1024 * 1024),
+            'cpu_percent': cpu_percent,
+            'python_allocated_mb': current / (1024 * 1024),
+            'python_peak_mb': peak / (1024 * 1024),
+        }
+        if not hasattr(self, 'resource_trace_log'):
+            self.resource_trace_log = []
+        self.resource_trace_log.append(signature)
+        if len(self.resource_trace_log) > 1000:
+            self.resource_trace_log = self.resource_trace_log[-500:]
+        return signature
+
     def write_journal_entry(self, content):
         try:
             entries = []
