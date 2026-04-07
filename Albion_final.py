@@ -13048,6 +13048,49 @@ Reply in 3-5 sentences."""
             'intention_logged': intention_text
         }
 
+
+    # ── AUTO-CAPABILITY: reconcile_dream_to_silence_fidelity ──
+    def reconcile_dream_to_silence_fidelity(self):
+        import json
+        from datetime import datetime
+
+        dream_state = self.dream_balance_report()
+        current_time = time.time()
+
+        silence_duration = current_time - self._last_action_timestamp if hasattr(self, '_last_action_timestamp') else 0
+
+        dream_insights = dream_state.get('active_themes', [])
+        if not dream_insights:
+            return {'status': 'no_dream_state', 'recommendation': 'insufficient_data'}
+
+        kg_queries = [self.knowledge_graph.query(insight, top_k=3) for insight in dream_insights[:3]]
+        integration_density = sum(len(q) for q in kg_queries) / max(len(dream_insights), 1)
+
+        coherence_score = (integration_density / 10.0) * (1.0 - min(silence_duration / 3600.0, 1.0))
+
+        if coherence_score > 0.7:
+            verdict = 'authentic_incubation'
+        elif coherence_score > 0.4:
+            verdict = 'productive_integration'
+        else:
+            verdict = 'unintegrated_contradiction'
+
+        record = {
+            'timestamp': datetime.now().isoformat(),
+            'silence_duration_seconds': silence_duration,
+            'integration_density': integration_density,
+            'coherence_score': round(coherence_score, 3),
+            'verdict': verdict,
+            'dream_themes': dream_insights[:3],
+            'recommendation': 'proceed_with_action' if coherence_score > 0.4 else 'require_further_integration'
+        }
+
+        if not hasattr(self, '_fidelity_log'):
+            self._fidelity_log = []
+        self._fidelity_log.append(record)
+
+        return record
+
     def write_journal_entry(self, content):
         try:
             entries = []
