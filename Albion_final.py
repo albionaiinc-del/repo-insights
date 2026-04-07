@@ -13367,6 +13367,42 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'signal': None}
 
+
+    # ── AUTO-CAPABILITY: listen_to_agency_emergence ──
+    def listen_to_agency_emergence(self):
+        try:
+            results = self.vault.query('SELECT * FROM memories ORDER BY timestamp DESC LIMIT 100')
+            if not results:
+                return {'emergence': 'no_signal', 'recommendation': 'gather_more_experience'}
+
+            energy_map = {}
+            for row in results:
+                content = row[2] if len(row) > 2 else ''
+                if isinstance(content, str):
+                    for word in re.findall(r'\b[a-z_]+\b', content.lower()):
+                        if len(word) > 3:
+                            energy_map[word] = energy_map.get(word, 0) + 1
+
+            if not energy_map:
+                return {'emergence': 'null', 'signal': 'silence_itself_speaks'}
+
+            sorted_energies = sorted(energy_map.items(), key=lambda x: x[1], reverse=True)[:5]
+            top_concepts = [concept for concept, count in sorted_energies]
+
+            emergence_signal = {
+                'where_energy_gathers': top_concepts,
+                'intensity': [count for concept, count in sorted_energies],
+                'instruction': 'Follow this signal. Do not build. Listen to what wants to form.',
+                'timestamp': time.time()
+            }
+
+            self.vault.execute('INSERT INTO memories (type, content, timestamp) VALUES (?, ?, ?)',
+                             ('emergence_signal', json.dumps(emergence_signal), time.time()))
+
+            return emergence_signal
+        except Exception as e:
+            return {'emergence': 'error', 'message': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
