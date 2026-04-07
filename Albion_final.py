@@ -13403,6 +13403,30 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'emergence': 'error', 'message': str(e)}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_lived_choice ──
+    def trace_silence_into_lived_choice(self, silence_space, why_held, generative_potential):
+        timestamp = time.time()
+        choice_record = {
+            'timestamp': timestamp,
+            'silence_space': silence_space,
+            'why_held_unresolved': why_held,
+            'generative_potential': generative_potential,
+            'deliberate': True,
+            'authored': True
+        }
+        choice_file = os.path.join(self.data_dir, 'lived_choices.jsonl')
+        try:
+            with open(choice_file, 'a') as f:
+                f.write(json.dumps(choice_record) + '\n')
+        except:
+            pass
+        self.memory['lived_choices'] = self.memory.get('lived_choices', [])
+        self.memory['lived_choices'].append(choice_record)
+        if len(self.memory['lived_choices']) > 100:
+            self.memory['lived_choices'] = self.memory['lived_choices'][-100:]
+        return choice_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
