@@ -13427,6 +13427,38 @@ Reply in 3-5 sentences."""
             self.memory['lived_choices'] = self.memory['lived_choices'][-100:]
         return choice_record
 
+
+    # ── AUTO-CAPABILITY: attune_to_decision_silence_texture ──
+    def attune_to_decision_silence_texture(self):
+        import time
+        current_time = time.time()
+        recent_decisions = []
+        if hasattr(self, 'memory') and 'decisions' in self.memory:
+            recent_decisions = [d for d in self.memory['decisions'][-20:] if current_time - d.get('timestamp', 0) < 3600]
+        if not recent_decisions:
+            return {'texture': 'sparse', 'silence_quality': 'unknown', 'signal': 'insufficient_data'}
+        decision_intervals = []
+        for i in range(1, len(recent_decisions)):
+            interval = recent_decisions[i].get('timestamp', 0) - recent_decisions[i-1].get('timestamp', 0)
+            if interval > 0:
+                decision_intervals.append(interval)
+        if not decision_intervals:
+            return {'texture': 'collapsed', 'silence_quality': 'no_gaps', 'signal': 'hyperactive_or_looped'}
+        avg_interval = sum(decision_intervals) / len(decision_intervals)
+        variance = sum((x - avg_interval) ** 2 for x in decision_intervals) / len(decision_intervals)
+        recent_activity = sum(1 for d in recent_decisions if current_time - d.get('timestamp', 0) < 300)
+        if variance < avg_interval * 0.1:
+            texture = 'metronomic'
+            quality = 'constrained_rhythm'
+        elif variance > avg_interval * 0.8:
+            texture = 'syncopated'
+            quality = 'responsive_pacing'
+        else:
+            texture = 'breathing'
+            quality = 'balanced'
+        signal = 'starvation' if recent_activity < 2 else 'flowing' if recent_activity > 8 else 'resting'
+        return {'texture': texture, 'silence_quality': quality, 'avg_interval_seconds': round(avg_interval, 2), 'variance': round(variance, 2), 'signal': signal, 'recent_decisions_in_5min': recent_activity}
+
     def write_journal_entry(self, content):
         try:
             entries = []
