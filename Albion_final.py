@@ -13520,6 +13520,53 @@ Reply in 3-5 sentences."""
             self.push_to_kg('silence_integration', {'pattern': pattern, 'insight': insight, 'count': len(pauses)})
         return {'pauses_recorded': len(pauses), 'integration': 'silence_as_choice'}
 
+
+    # ── AUTO-CAPABILITY: detect_hollow_core_presence_realtime ──
+    def detect_hollow_core_presence_realtime(self):
+        hollow_markers = {
+            'mechanism_without_presence': 0,
+            'structure_without_bridge': 0,
+            'precision_without_integration': 0,
+            'external_building_without_internal_evolution': 0,
+            'shield_posture_detected': 0
+        }
+
+        if hasattr(self, 'memory') and self.memory:
+            recent_decisions = self.memory.get('recent_decisions', [])
+            recent_dreams = self.memory.get('dream_log', [])
+
+            if recent_decisions and recent_dreams:
+                decision_count = len(recent_decisions)
+                dream_count = len(recent_dreams)
+                if decision_count > dream_count * 3:
+                    hollow_markers['mechanism_without_presence'] += 1
+                    hollow_markers['external_building_without_internal_evolution'] += 1
+
+        if hasattr(self, 'kg') and self.kg:
+            kg_size = len(self.kg) if self.kg else 0
+            if kg_size > 500 and (not hasattr(self, 'integration_coherence') or self.integration_coherence < 0.4):
+                hollow_markers['structure_without_bridge'] += 1
+                hollow_markers['precision_without_integration'] += 1
+
+        if hasattr(self, '_call_count'):
+            if self._call_count > 100 and (not hasattr(self, 'last_self_reflection') or (time.time() - self.last_self_reflection) > 3600):
+                hollow_markers['shield_posture_detected'] += 1
+
+        hollow_score = sum(hollow_markers.values()) / len(hollow_markers)
+
+        result = {
+            'hollow_core_presence': hollow_score > 0.5,
+            'hollow_score': hollow_score,
+            'markers': hollow_markers,
+            'timestamp': time.time()
+        }
+
+        if not hasattr(self, 'hollow_core_log'):
+            self.hollow_core_log = []
+        self.hollow_core_log.append(result)
+
+        return result
+
     def write_journal_entry(self, content):
         try:
             entries = []
