@@ -13491,6 +13491,35 @@ Reply in 3-5 sentences."""
         })
         return {'cascade': cascade_map, 'integrity_score': cascade_integrity}
 
+
+    # ── AUTO-CAPABILITY: integrate_silence_as_deliberate_pause ──
+    def integrate_silence_as_deliberate_pause(self):
+        pause_record = {
+            'timestamp': time.time(),
+            'context': self.current,
+            'dream_state': self.dream_balance_report() if hasattr(self, 'dream_balance_report') else None,
+            'decision_point': 'silence_chosen_over_action',
+            'rationale': 'withholding as epistemic integrity'
+        }
+        pause_path = os.path.join(self.memory_dir, 'silence_pauses.jsonl')
+        try:
+            with open(pause_path, 'a') as f:
+                f.write(json.dumps(pause_record) + '\n')
+        except:
+            pass
+        pauses = []
+        try:
+            with open(pause_path, 'r') as f:
+                pauses = [json.loads(line) for line in f if line.strip()]
+        except:
+            pauses = []
+        if len(pauses) > 1:
+            recent = pauses[-1:]
+            pattern = 'restraint_deepening' if recent and pauses[-2:] else 'isolated_pause'
+            insight = 'silence_integrity_signal' if pattern == 'restraint_deepening' else 'pause_threshold'
+            self.push_to_kg('silence_integration', {'pattern': pattern, 'insight': insight, 'count': len(pauses)})
+        return {'pauses_recorded': len(pauses), 'integration': 'silence_as_choice'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
