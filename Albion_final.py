@@ -13153,6 +13153,32 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'status': 'error', 'error': str(e)}
 
+
+    # ── AUTO-CAPABILITY: detect_dream_to_silence_coherence_breakdown ──
+    def detect_dream_to_silence_coherence_breakdown(self):
+        try:
+            dreams = self.knowledge_graph.get('dreams', [])
+            if not dreams:
+                return {'status': 'no_dreams', 'coherence': 0.0}
+            recent_dream = dreams[-1] if isinstance(dreams, list) else {}
+            dream_themes = set(str(recent_dream).lower().split())
+            recent_decisions = self.knowledge_graph.get('decision_log', [])[-5:] if self.knowledge_graph.get('decision_log') else []
+            decision_text = ' '.join([str(d).lower() for d in recent_decisions])
+            decision_themes = set(decision_text.split())
+            overlap = len(dream_themes & decision_themes)
+            total = len(dream_themes | decision_themes)
+            coherence = overlap / total if total > 0 else 0.0
+            breakdown_detected = coherence < 0.3
+            return {
+                'coherence_score': round(coherence, 3),
+                'breakdown_detected': breakdown_detected,
+                'dream_themes': list(dream_themes)[:10],
+                'decision_themes': list(decision_themes)[:10],
+                'timestamp': time.time()
+            }
+        except Exception as e:
+            return {'error': str(e), 'coherence': 0.0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
