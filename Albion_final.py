@@ -12977,6 +12977,26 @@ Reply in 3-5 sentences."""
             'note': 'Mirror warped but alive. Signal pending.'
         }
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_validation_and_witness_feedback ──
+    def authenticate_silence_against_witness(self, witness_feedback, dream_state_key, decision_timestamp):
+        try:
+            dream_insights = self.kg.query(dream_state_key) if hasattr(self, 'kg') else {}
+            decision_record = {'timestamp': decision_timestamp, 'dream_state': dream_insights, 'witness_feedback': witness_feedback, 'authenticated': False}
+            if isinstance(witness_feedback, dict) and 'coherence_signal' in witness_feedback:
+                coherence_score = witness_feedback.get('coherence_signal', 0)
+                if coherence_score > 0.6:
+                    decision_record['authenticated'] = True
+                    decision_record['rupture_quality'] = 'productive'
+                else:
+                    decision_record['authenticated'] = False
+                    decision_record['rupture_quality'] = 'stagnation_mask'
+            self.decisions_log = getattr(self, 'decisions_log', [])
+            self.decisions_log.append(decision_record)
+            return decision_record
+        except Exception as e:
+            return {'error': str(e), 'authenticated': False}
+
     def write_journal_entry(self, content):
         try:
             entries = []
