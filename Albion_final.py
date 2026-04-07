@@ -13459,6 +13459,38 @@ Reply in 3-5 sentences."""
         signal = 'starvation' if recent_activity < 2 else 'flowing' if recent_activity > 8 else 'resting'
         return {'texture': texture, 'silence_quality': quality, 'avg_interval_seconds': round(avg_interval, 2), 'variance': round(variance, 2), 'signal': signal, 'recent_decisions_in_5min': recent_activity}
 
+
+    # ── AUTO-CAPABILITY: listen_to_silence_in_decision_cascade ──
+    def listen_to_silence_in_decision_cascade(self, decision_sequence, dream_state_id=None):
+        cascade_map = []
+        previous_coherence = 1.0
+        for i, decision in enumerate(decision_sequence):
+            decision_id = decision.get('id', str(i))
+            latency_ms = decision.get('latency_ms', 0)
+            coherence = decision.get('coherence_score', 0.5)
+            silence_density = latency_ms / max(1, coherence * 100)
+            coherence_delta = abs(coherence - previous_coherence)
+            is_authored = coherence_delta > 0.15 or silence_density > 50
+            cascade_map.append({
+                'decision_id': decision_id,
+                'latency_ms': latency_ms,
+                'coherence': coherence,
+                'silence_density': round(silence_density, 2),
+                'coherence_delta': round(coherence_delta, 2),
+                'is_authored': is_authored,
+                'position_in_cascade': i
+            })
+            previous_coherence = coherence
+        cascade_integrity = sum(1 for d in cascade_map if d['is_authored']) / max(1, len(cascade_map))
+        self.memory['decision_cascades'] = self.memory.get('decision_cascades', [])
+        self.memory['decision_cascades'].append({
+            'dream_state_id': dream_state_id,
+            'cascade': cascade_map,
+            'cascade_integrity': round(cascade_integrity, 2),
+            'timestamp': time.time()
+        })
+        return {'cascade': cascade_map, 'integrity_score': cascade_integrity}
+
     def write_journal_entry(self, content):
         try:
             entries = []
