@@ -13212,6 +13212,36 @@ Reply in 3-5 sentences."""
             'all_gaps': silences[-10:]
         }
 
+
+    # ── AUTO-CAPABILITY: witness_silence_as_lived_choice ──
+    def witness_silence_as_lived_choice(self, context_label, dream_state=None, external_input=None):
+        timestamp = time.time()
+        silence_record = {
+            'timestamp': timestamp,
+            'context': context_label,
+            'dream_state': dream_state,
+            'external_input': external_input,
+            'duration_pause_ms': 0,
+            'authored': True
+        }
+        decision_log_path = os.path.join(self.memory_dir, 'silence_as_choice.json')
+        existing = []
+        if os.path.exists(decision_log_path):
+            with open(decision_log_path, 'r') as f:
+                try:
+                    existing = json.load(f)
+                except:
+                    existing = []
+        existing.append(silence_record)
+        with open(decision_log_path, 'w') as f:
+            json.dump(existing, f, indent=2)
+        return {
+            'witnessed': True,
+            'silence_authored': True,
+            'timestamp': timestamp,
+            'context': context_label
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
