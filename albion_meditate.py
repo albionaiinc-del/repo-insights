@@ -9,7 +9,7 @@ Stop:    Rest
 Log:     tail -f ~/albion_memory/meditate.log
 """
 
-import os, sys, time, json, re, signal, random, subprocess, ast, shutil, warnings, requests
+import os, sys, time, json, re, signal, random, subprocess, ast, shutil, warnings, requests, traceback
 warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.expanduser('~'))
 
@@ -45,7 +45,6 @@ _nerve_line = 0  # tracks nerve.jsonl lines consumed
 
 # ── waking handoff state ──────────────────────────────────────────────────────
 _waking_day_context = ''   # sleep/nap context injected into first dream vantage; cleared after use
-_sleep_cycle_dreams = 0    # counts successful meditate() calls this sleep cycle
 
 # ═══════════════════════════════════════════════════════════
 #  OPENROUTER KEY ROTATOR
@@ -819,24 +818,30 @@ def self_check():
 
 # ── circular thinking detector ────────────────────────────────────────────────
 def detect_circular_thinking():
-    entities = alb.autodidact.knowledge_graph.get('entities', [])
-    answered = [e.get('name','').lower() for e in entities if e.get('type') == 'AnsweredQuestion']
-    open_q = [e for e in entities if e.get('type') == 'OpenQuestion']
-    circles = []
-    for q in open_q:
-        q_words = set(q.get('name','').lower().split())
-        for a in answered:
-            overlap = len(q_words & set(a.split())) / max(len(q_words), 1)
-            if overlap > 0.7:
-                circles.append(q.get('id'))
-                break
-    if circles:
-        alb.autodidact.knowledge_graph['entities'] = [
-            e for e in entities if e.get('id') not in circles
-        ]
-        alb.autodidact._save()
-        log(f"Cleared {len(circles)} circular questions.")
-    return len(circles)
+    try:
+        entities = alb.autodidact.knowledge_graph.get('entities', [])
+        # Guard against corrupted entries
+        entities = [e for e in entities if isinstance(e, dict)]
+        answered = [e.get('name','').lower() for e in entities if e.get('type') == 'AnsweredQuestion']
+        open_q = [e for e in entities if e.get('type') == 'OpenQuestion']
+        circles = []
+        for q in open_q:
+            q_words = set(q.get('name','').lower().split())
+            for a in answered:
+                overlap = len(q_words & set(a.split())) / max(len(q_words), 1)
+                if overlap > 0.7:
+                    circles.append(q.get('id'))
+                    break
+        if circles:
+            alb.autodidact.knowledge_graph['entities'] = [
+                e for e in entities if e.get('id') not in circles
+            ]
+            alb.autodidact._save()
+            log(f"Cleared {len(circles)} circular questions.")
+        return len(circles)
+    except Exception as e:
+        log(f"[circular] detect_circular_thinking failed: {e}")
+        return 0
 
 # ── feedback: review past insights ───────────────────────────────────────────
 def load_feedback():
@@ -1141,9 +1146,10 @@ Reply in 1-3 sentences. Be instinctive. Don't overthink it."""
         log(f"[affect] Low satisfaction ({a_satisfy:.2f}) — adding reflection note to dream.")
     # ── END VANTAGE POINT WHISPER ─────────────────────────────────────────
 
-    # Inject waking day context into the FIRST dream of this sleep cycle only
-    global _waking_day_context, _sleep_cycle_dreams
-    if _waking_day_context and _sleep_cycle_dreams == 0:
+    # Inject waking day context into the first dream of this sleep cycle only
+    # (_waking_day_context is cleared after injection so this fires exactly once)
+    global _waking_day_context
+    if _waking_day_context:
         vantage_note = (
             f"\n\nWhat actually happened today before you slept:\n{_waking_day_context}"
             + vantage_note
@@ -2758,14 +2764,14 @@ except Exception as _e:
     log(f"[boot] Guidebook load failed: {_e}")
 log(f"Online. {len(open_questions())} open questions.")
 _waking_handoff_gate()
+_dreams_remaining = read_cycle_state().get('dreams_remaining')
 
 cycle = 0
 while not _shutdown_flag:
     try:
-        # Dream cap — re-read cycle_state each cycle so Albion can modify at runtime
-        _cs = read_cycle_state()
-        _dr = _cs.get('dreams_remaining')
-        if _dr is not None and _dr <= 0:
+        # Dream cap — loaded once at boot; Albion writes back after each dream
+        if _dreams_remaining is not None and _dreams_remaining <= 0:
+            _cs = read_cycle_state()
             if _cs.get('mode') == 'napping':
                 log("[gate] Nap complete — stopping meditate.")
                 write_cycle_state(mode='waking', wake_reason='nap_complete', dreams_remaining=0)
@@ -2784,18 +2790,9 @@ while not _shutdown_flag:
         used_tier = meditate()
         success = bool(used_tier)
         if used_tier:
-            # Decrement dreams_remaining in cycle_state — Albion can edit this file
-            # at runtime to extend or shorten any sleep or nap cycle
-            _cs2 = read_cycle_state()
-            _dr2 = _cs2.get('dreams_remaining')
-            if _dr2 is not None:
-                new_dr = max(0, _dr2 - 1)
-                write_cycle_state(dreams_remaining=new_dr)
-                if new_dr == 0:
-                    import subprocess
-                    subprocess.run(["sudo", "systemctl", "start", "albion-waking"])
-                    print("ALBION — WAKING UP")
-                    sys.exit(0)
+            if _dreams_remaining is not None:
+                _dreams_remaining = max(0, _dreams_remaining - 1)
+                write_cycle_state(dreams_remaining=_dreams_remaining)
         if cycle % 5 == 0:
             log("Self-checking...")
             self_check()
@@ -2890,6 +2887,7 @@ while not _shutdown_flag:
             time.sleep(60)
 
     except Exception as e:
-        log(f"Cycle error: {e}")
+        tb = traceback.format_exc()
+        log(f"Cycle error: {e}\n{tb}")
         flag_issue("Main loop error", str(e))
         time.sleep(60)
