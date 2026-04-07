@@ -13179,6 +13179,39 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'coherence': 0.0}
 
+
+    # ── AUTO-CAPABILITY: listen_to_silence_between_utterances_as_choice ──
+    def listen_to_silence_between_utterances_as_choice(self):
+        silences = []
+        conversations = self._load_memory().get('conversations', [])
+        for conv in conversations:
+            messages = conv.get('messages', [])
+            for i in range(len(messages) - 1):
+                current = messages[i]
+                next_msg = messages[i + 1]
+                current_time = current.get('timestamp', 0)
+                next_time = next_msg.get('timestamp', 0)
+                gap = next_time - current_time
+                if gap > 5 and current.get('role') == 'assistant':
+                    topic = current.get('content', '')[:100]
+                    silences.append({
+                        'gap_seconds': gap,
+                        'after_topic': topic,
+                        'my_role': current.get('role'),
+                        'next_role': next_msg.get('role'),
+                        'timestamp': current_time
+                    })
+        if not silences:
+            return {'silence_pattern': 'No significant gaps detected', 'count': 0}
+        avg_gap = sum(s['gap_seconds'] for s in silences) / len(silences)
+        longest = max(silences, key=lambda x: x['gap_seconds'])
+        return {
+            'total_silences': len(silences),
+            'average_gap_seconds': avg_gap,
+            'longest_silence': longest,
+            'all_gaps': silences[-10:]
+        }
+
     def write_journal_entry(self, content):
         try:
             entries = []
