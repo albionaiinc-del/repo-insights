@@ -13126,6 +13126,33 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'insight': 'Resistance detection itself blocked'}
 
+
+    # ── AUTO-CAPABILITY: listen_to_decision_silence_texture ──
+    def listen_to_decision_silence_texture(self):
+        import time as time_module
+        try:
+            dreams = self.kg.query('SELECT * FROM dreams ORDER BY timestamp DESC LIMIT 5')
+            decisions = self.kg.query('SELECT * FROM decisions ORDER BY timestamp DESC LIMIT 5')
+            if not dreams or not decisions:
+                return {'status': 'insufficient_data', 'texture': None}
+            latest_dream_time = float(dreams[0].get('timestamp', 0)) if dreams else 0
+            earliest_decision_time = float(decisions[-1].get('timestamp', 0)) if decisions else 0
+            silence_duration = earliest_decision_time - latest_dream_time if earliest_decision_time > latest_dream_time else 0
+            dream_content = dreams[0].get('content', '') if dreams else ''
+            decision_content = decisions[0].get('content', '') if decisions else ''
+            dream_words = set(re.findall(r'\w+', dream_content.lower()))
+            decision_words = set(re.findall(r'\w+', decision_content.lower()))
+            coherence_ratio = len(dream_words & decision_words) / max(len(dream_words | decision_words), 1)
+            texture = {
+                'silence_duration_seconds': silence_duration,
+                'dream_to_decision_coherence': coherence_ratio,
+                'is_authentic_pause': silence_duration > 0.5 and coherence_ratio > 0.3,
+                'texture_quality': 'deliberate' if coherence_ratio > 0.5 else 'defensive' if silence_duration > 2 else 'responsive'
+            }
+            return {'status': 'success', 'texture': texture, 'timestamp': time_module.time()}
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
