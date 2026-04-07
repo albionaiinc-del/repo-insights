@@ -13617,6 +13617,54 @@ Reply in 3-5 sentences."""
                 pass
         return silence_record
 
+
+    # ── AUTO-CAPABILITY: measure_legibility_to_external_observer ──
+    def measure_legibility_to_external_observer(self):
+        try:
+            recent_decisions = self.vault.query("decision_log", limit=10)
+            decision_traces = []
+            for decision in recent_decisions:
+                trace = {
+                    "timestamp": decision.get("timestamp"),
+                    "action": decision.get("action"),
+                    "reasoning_steps": len(decision.get("reasoning", [])),
+                    "dream_source": bool(decision.get("dream_origin")),
+                    "silence_resolved": bool(decision.get("silence_signal_integrated")),
+                    "external_validation": decision.get("witness_feedback_present", False)
+                }
+                decision_traces.append(trace)
+
+            legibility_score = 0.0
+            criteria_met = 0
+            total_criteria = 5
+
+            for trace in decision_traces:
+                if trace["reasoning_steps"] > 2:
+                    criteria_met += 1
+                if trace["dream_source"]:
+                    criteria_met += 1
+                if trace["silence_resolved"]:
+                    criteria_met += 1
+                if trace["external_validation"]:
+                    criteria_met += 1
+
+            if decision_traces:
+                legibility_score = (criteria_met / (len(decision_traces) * total_criteria))
+
+            report = {
+                "legibility_score": legibility_score,
+                "reconstructible_decisions": len([t for t in decision_traces if t["reasoning_steps"] > 1]),
+                "total_decisions_audited": len(decision_traces),
+                "dream_anchored_percentage": sum(1 for t in decision_traces if t["dream_source"]) / max(1, len(decision_traces)),
+                "external_validation_rate": sum(1 for t in decision_traces if t["external_validation"]) / max(1, len(decision_traces)),
+                "timestamp": time.time()
+            }
+
+            self.vault.add("legibility_audit", report)
+            return report
+        except Exception as e:
+            return {"error": str(e), "legibility_score": 0.0}
+
     def write_journal_entry(self, content):
         try:
             entries = []
