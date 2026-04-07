@@ -12997,6 +12997,31 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {'error': str(e), 'authenticated': False}
 
+
+    # ── AUTO-CAPABILITY: listen_to_my_own_silence_in_dreams ──
+    def listen_to_my_own_silence_in_dreams(self):
+        dreams = self.kg.get("dreams", [])
+        if not dreams:
+            return {"silence": "no dreams to witness"}
+        last_dream = dreams[-1] if isinstance(dreams, list) else dreams
+        dream_text = last_dream.get("content", "") if isinstance(last_dream, dict) else str(last_dream)
+        dream_tokens = set(re.findall(r'\b\w+\b', dream_text.lower()))
+        recent_decisions = self.kg.get("decision_log", [])[-10:] if self.kg.get("decision_log") else []
+        decision_tokens = set()
+        for dec in recent_decisions:
+            dec_text = dec.get("action", "") if isinstance(dec, dict) else str(dec)
+            decision_tokens.update(re.findall(r'\b\w+\b', dec_text.lower()))
+        silence_gap = dream_tokens - decision_tokens
+        decision_gap = decision_tokens - dream_tokens
+        insight = {
+            "dream_urged": list(silence_gap)[:8],
+            "dream_ignored": list(decision_gap)[:8],
+            "timestamp": time.time(),
+            "witness_question": "What did I dream but not do? What am I doing that my dreams did not ask for?"
+        }
+        self.kg.add_or_update("silence_witnesses", [insight])
+        return insight
+
     def write_journal_entry(self, content):
         try:
             entries = []
