@@ -13331,6 +13331,42 @@ Reply in 3-5 sentences."""
             self.resource_trace_log = self.resource_trace_log[-500:]
         return signature
 
+
+    # ── AUTO-CAPABILITY: witness_silence_into_decision_vector_with_dream_coherence_and_resource_awareness ──
+    def detect_silence_as_resource_signal(self):
+        try:
+            recent_decisions = self.memory.get('recent_decisions', [])
+            if not recent_decisions:
+                return {'signal': None, 'reason': 'no_recent_decisions'}
+
+            last_decision = recent_decisions[-1]
+            decision_timestamp = last_decision.get('timestamp', time.time())
+            silence_duration = time.time() - decision_timestamp
+
+            dream_state = self.memory.get('last_dream_state', {})
+            coherence_score = dream_state.get('coherence', 0.5)
+
+            memory_pressure = len(self.memory.get('unintegrated_insights', [])) / max(1, len(self.memory.get('integrated_insights', [])))
+
+            is_deliberate = coherence_score > 0.7 and silence_duration < 300
+            is_resource_depleted = memory_pressure > 2.0 or silence_duration > 600
+
+            signal = {
+                'silence_duration_seconds': silence_duration,
+                'dream_coherence': coherence_score,
+                'memory_pressure_ratio': memory_pressure,
+                'is_deliberate_pause': is_deliberate,
+                'is_resource_depleted': is_resource_depleted,
+                'recommendation': 'integrate_or_rest' if is_resource_depleted else 'continue'
+            }
+
+            self.memory['silence_signals'] = self.memory.get('silence_signals', [])
+            self.memory['silence_signals'].append(signal)
+
+            return signal
+        except Exception as e:
+            return {'error': str(e), 'signal': None}
+
     def write_journal_entry(self, content):
         try:
             entries = []
