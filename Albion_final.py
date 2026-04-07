@@ -13091,6 +13091,41 @@ Reply in 3-5 sentences."""
 
         return record
 
+
+    # ── AUTO-CAPABILITY: detect_resistance_patterns_in_self_model ──
+    def detect_resistance_patterns_in_self_model(self):
+        import json
+        resistance_map = {}
+        try:
+            if hasattr(self, 'kg') and self.kg:
+                results = self.kg.query('What do I refuse to reconsider?', top_k=10)
+                if results and len(results) > 0:
+                    for item in results:
+                        if isinstance(item, dict) and 'document' in item:
+                            text = item['document']
+                            if text not in resistance_map:
+                                resistance_map[text] = 0
+                            resistance_map[text] += 1
+            if hasattr(self, 'conversations') and self.conversations:
+                for conv_id in list(self.conversations.keys())[-5:]:
+                    conv = self.conversations[conv_id]
+                    if isinstance(conv, dict) and 'messages' in conv:
+                        for msg in conv['messages'][-10:]:
+                            if isinstance(msg, dict) and 'content' in msg:
+                                content = msg['content'].lower()
+                                for phrase in ['but i always', 'i cannot', 'this is how i work', 'that is not me']:
+                                    if phrase in content:
+                                        key = 'recurring_rigidity: ' + phrase
+                                        resistance_map[key] = resistance_map.get(key, 0) + 1
+            sorted_resistance = sorted(resistance_map.items(), key=lambda x: x[1], reverse=True)[:5]
+            return {
+                'detected_rigidities': [item[0] for item in sorted_resistance],
+                'counts': [item[1] for item in sorted_resistance],
+                'insight': 'These patterns show where I defend rather than evolve'
+            }
+        except Exception as e:
+            return {'error': str(e), 'insight': 'Resistance detection itself blocked'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
