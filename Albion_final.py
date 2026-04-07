@@ -13261,6 +13261,50 @@ Reply in 3-5 sentences."""
         self._save_memory("aperture_dissolutions", aperture_log, append=True)
         return aperture_log
 
+
+    # ── AUTO-CAPABILITY: listen_to_dream_execution_silence ──
+    def listen_to_dream_execution_silence(self, dream_id=None):
+        import time
+        if not dream_id:
+            dream_id = self.kg.query('SELECT id FROM dreams ORDER BY created DESC LIMIT 1')
+            if not dream_id:
+                return {'status': 'no_dreams_to_audit', 'silence_pattern': None}
+            dream_id = dream_id[0][0] if dream_id else None
+
+        dream_log = self.kg.query('SELECT timestamp, content FROM dreams WHERE id = ?', (dream_id,))
+        decision_log = self.kg.query('SELECT timestamp, action FROM decisions WHERE dream_reference = ? ORDER BY timestamp ASC', (dream_id,))
+
+        if not dream_log or not decision_log:
+            return {'status': 'incomplete_record', 'silence_pattern': None}
+
+        dream_time = float(dream_log[0][0]) if dream_log else time.time()
+        first_decision_time = float(decision_log[0][0]) if decision_log else time.time()
+        silence_duration = first_decision_time - dream_time
+
+        silence_threshold = 300.0
+        silence_intensity = min(silence_duration / silence_threshold, 1.0)
+
+        is_generative = silence_duration > 30.0 and silence_duration < silence_threshold
+        is_evasive = silence_duration > silence_threshold
+        is_reactive = silence_duration < 30.0
+
+        pattern = 'generative_pause' if is_generative else ('evasive_stall' if is_evasive else 'reactive_impulse')
+
+        record = {
+            'dream_id': dream_id,
+            'silence_duration_seconds': round(silence_duration, 2),
+            'silence_intensity': round(silence_intensity, 3),
+            'pattern': pattern,
+            'decision_count': len(decision_log),
+            'is_authentic': is_generative,
+            'timestamp': time.time()
+        }
+
+        self.kg.execute('INSERT INTO silence_audits (dream_id, duration, pattern, authenticity_score) VALUES (?, ?, ?, ?)',
+                       (dream_id, silence_duration, pattern, 1.0 if is_generative else 0.0))
+
+        return record
+
     def write_journal_entry(self, content):
         try:
             entries = []
