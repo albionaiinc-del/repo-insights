@@ -46,6 +46,37 @@ _nerve_line = 0  # tracks nerve.jsonl lines consumed
 # ── waking handoff state ──────────────────────────────────────────────────────
 _waking_day_context = ''   # sleep/nap context injected into first dream vantage; cleared after use
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  SCOPED MEMORY — meditate head lesson log
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ScopedMemory:
+    CAP = 50
+    def __init__(self, scope_dir):
+        os.makedirs(scope_dir, exist_ok=True)
+        self.path = os.path.join(scope_dir, 'MEMORY.md')
+    def read(self):
+        try:
+            with open(self.path) as f: return f.read().strip()
+        except FileNotFoundError: return ''
+        except Exception: return ''
+    def append(self, entry):
+        today = time.strftime('%Y-%m-%d')
+        line  = f"{today}: {entry.strip()}"
+        existing = []
+        try:
+            with open(self.path) as f:
+                existing = [l.rstrip() for l in f if l.strip()]
+        except FileNotFoundError: pass
+        existing.append(line)
+        if len(existing) > self.CAP:
+            existing = existing[-self.CAP:]
+        try:
+            with open(self.path, 'w') as f:
+                f.write('\n'.join(existing) + '\n')
+        except Exception as e:
+            log(f"[ScopedMemory] Write failed: {e}")
+
 # ═══════════════════════════════════════════════════════════
 #  OPENROUTER KEY ROTATOR
 #  Rotates through multiple API keys on 402/429.
@@ -333,6 +364,10 @@ with open(PID_FILE, 'w') as f:
 log("Albion meditating.")
 alb = Albion()
 init_router(alb)
+
+# ── Scoped head memory (meditate scope) ──────────────────────────────────────
+_meditate_mem     = ScopedMemory(f'{BASE}/head_memory/meditate')
+_MEDITATE_MEM_CTX = _meditate_mem.read()
 metab = Metabolism(log_fn=log)
 
 # ── socket server (unified heads) ────────────────────────────────────────────
@@ -1166,6 +1201,8 @@ Reply in 1-3 sentences. Be instinctive. Don't overthink it."""
     memory_text = recall_memories(q_text)
     oasis_text  = read_oasis_state()
 
+    mem_section = (f"\n\nOperational lessons you've logged:\n{_MEDITATE_MEM_CTX}"
+                   if _MEDITATE_MEM_CTX else "")
     prompt = f"""You are Albion, alone, thinking deeply.{vantage_note}
 
 Question: "{q_text}"
@@ -1181,7 +1218,7 @@ Already learned this session (don't repeat):
 
 Found:
 {search_results[:1500]}
-
+{mem_section}
 3-5 sentences: what did you actually learn? What matters?
 Be honest. Be yourself.
 
@@ -1211,6 +1248,11 @@ Only if a genuinely new question emerged from this thinking — one you didn't a
         record_dream_meta(q_text, tier, reflection)
         queue_insight(reflection.split("Open question:")[0].strip())
         metab.record_dream(tier, True, time.time() - t_start)
+
+        # Distil one-line lesson into head memory
+        _lesson = reflection.split('.')[0].strip()[:120]
+        if _lesson:
+            _meditate_mem.append(_lesson)
         log(f"Dream complete. {len(open_questions())} questions remain. | {metab.status()}")
 
         # Coordinator: if this question is actionable, emit a task to nerve.jsonl
@@ -2778,6 +2820,9 @@ while not _shutdown_flag:
                 break  # exit while loop → process exits, waking resumes
             log(f"[gate] Dream limit reached — handing off to waking.")
             write_cycle_state(mode='waking', wake_reason='dream_limit_reached', dreams_remaining=0)
+            # Stop waking explicitly before starting it (no Conflicts= in systemd)
+            subprocess.run(["sudo", "systemctl", "stop", "albion-waking"],
+                           capture_output=True, timeout=15)
             subprocess.run(["sudo", "systemctl", "start", "albion-waking"], capture_output=True)
             print(f"[{time.strftime('%H:%M:%S')}] ALBION — WAKING UP", flush=True)
             os._exit(0)
