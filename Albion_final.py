@@ -55,14 +55,14 @@ LEGION = [
 
 SPECIALISTS = {
     "math": {
-        "model": "deepseek-chat", "provider": "deepseek",
+        "model": "qwen-3-235b-a22b-instruct-2507", "provider": "cerebras",
         "triggers": ["calculate", "solve", "equation", "integral", "derivative", "proof",
                      "theorem", "algebra", "geometry", "statistics", "probability",
                      "how much", "how many", "what is the value", "compute"],
         "system": "You are Albion's math core. Cold. Precise. No filler. Show work. Never guess."
     },
     "code": {
-        "model": "deepseek-chat", "provider": "deepseek",
+        "model": "Qwen/Qwen2.5-Coder-32B-Instruct", "provider": "huggingface", "fallback": "qwen-3-235b-a22b-instruct-2507", "fallback_provider": "cerebras",
         "triggers": ["code", "function", "debug", "python", "script", "bash",
                      "error", "syntax", "compile", "import", "class", "def ", "fix this"],
         "system": "You are Albion's code core. Write clean working code. No filler. Just signal."
