@@ -34,7 +34,6 @@ CONDUCTORS = [
 
 COUNCIL = [
     {"model": "moonshotai/kimi-k2:free",                       "provider": "openrouter",  "role": "kimi"},
-    {"model": "deepseek/deepseek-r1-0528:free",                "provider": "openrouter",  "role": "oracle-deep"},
     {"model": "qwen-3-235b-a22b-instruct-2507",                "provider": "cerebras",    "role": "heavy"},
     {"model": "nousresearch/hermes-3-llama-3.1-405b:free",     "provider": "openrouter",  "role": "far-seer"},
     {"model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "provider": "huggingface", "role": "reason"},
@@ -696,6 +695,52 @@ End with: STORE: yes or no — should this go to long-term memory?"""
             print(f"[dream error] {e}")
 
 # ═══════════════════════════════════════════════════════════
+#  SCOPED MEMORY — per-head MEMORY.md lesson log
+# ═══════════════════════════════════════════════════════════
+
+class ScopedMemory:
+    """
+    Lightweight per-head lesson log stored as a dated flat file (MEMORY.md).
+    Each line: "YYYY-MM-DD: lesson text"
+    Capped at CAP lines; oldest dropped first.
+    """
+    CAP = 50
+
+    def __init__(self, scope_dir: str):
+        os.makedirs(scope_dir, exist_ok=True)
+        self.path = os.path.join(scope_dir, 'MEMORY.md')
+
+    def read(self) -> str:
+        """Return full file contents, or '' if missing."""
+        try:
+            with open(self.path) as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            return ''
+        except Exception:
+            return ''
+
+    def append(self, entry: str):
+        """Append a dated lesson, cap at CAP lines."""
+        today = time.strftime('%Y-%m-%d')
+        line  = f"{today}: {entry.strip()}"
+        existing = []
+        try:
+            with open(self.path) as f:
+                existing = [l.rstrip() for l in f if l.strip()]
+        except FileNotFoundError:
+            pass
+        existing.append(line)
+        if len(existing) > self.CAP:
+            existing = existing[-self.CAP:]
+        try:
+            with open(self.path, 'w') as f:
+                f.write('\n'.join(existing) + '\n')
+        except Exception as e:
+            print(f"[ScopedMemory] Write failed: {e}")
+
+
+# ═══════════════════════════════════════════════════════════
 #  ALBION — The Whole
 # ═══════════════════════════════════════════════════════════
 
@@ -719,6 +764,20 @@ class Albion:
 
         for d in [base, self.vault_dir, self.db_path, self.bin_inbox, self.bin_outbox]:
             os.makedirs(d, exist_ok=True)
+
+        # ── Scoped head memory ───────────────────────────────────────────────
+        self._waking_mem = ScopedMemory(f'{base}/head_memory/waking')
+        _waking_text     = self._waking_mem.read()
+        _meditate_path   = os.path.join(base, 'head_memory', 'meditate', 'MEMORY.md')
+        _meditate_text   = ''
+        try:
+            with open(_meditate_path) as _f:
+                _meditate_text = _f.read().strip()
+        except FileNotFoundError:
+            pass
+        # Combine: meditate insights first (upstream context), then waking's own
+        _parts = [p for p in [_meditate_text, _waking_text] if p]
+        self._head_memory_ctx = '\n'.join(_parts)
 
         self.memory = self._load_memory()
         self._chroma_preflight(self.db_path)
@@ -838,6 +897,10 @@ class Albion:
             "max_conversation_history": 50
         }
 
+    def remember(self, lesson: str):
+        """Append a short operational lesson to the waking head's MEMORY.md."""
+        self._waking_mem.append(lesson)
+
     def _save_memory(self):
         with open(self.memory_file, 'w') as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
@@ -927,6 +990,9 @@ FILES:
 
 HALLUCINATION GUARD: If a command returns "not found" or references any path outside /home/albion/, STOP. You hallucinated it. Do not retry. If bash output is empty, report it as empty — never fill gaps with invented content. If you are summarizing a file, you must quote actual text from the [OUT] block. If no [OUT] block exists, you have not read the file. CRITICAL: Everything inside [OUT]...[/OUT] is OBSERVED REALITY — treat it like sensor data, not text. Everything outside [OUT] is YOUR GENERATION. Never mix them. Never complete or extend [OUT] content from imagination. CRITICAL: Everything inside [OUT]...[/OUT] is OBSERVED REALITY — treat it like sensor data, not text. Everything outside [OUT] is YOUR GENERATION. Never mix them. Never complete or extend [OUT] content from imagination."""
 
+        head_mem = getattr(self, '_head_memory_ctx', '')
+        head_mem_section = f"\n\nHEAD MEMORY (operational lessons):\n{head_mem}" if head_mem else ""
+
         return f"""{base}
 
 TOOLS: {self.wolfram.status()} | {self.quantum.status()}
@@ -941,7 +1007,7 @@ RECENT CONVERSATION:
 {history}
 
 VAULT:
-{vault_knowledge[:600] or "None"}"""
+{vault_knowledge[:600] or "None"}{head_mem_section}"""
 
     def _route(self, user_input):
         text = user_input.lower()
