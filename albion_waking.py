@@ -929,6 +929,36 @@ def _action_read_mentor(goal: dict) -> bool:
     return True
 
 
+def _action_build_2d(goal: dict) -> bool:
+    """Generate a 2D HTML5 Canvas scene via the BUILD_2D skill."""
+    # Generate a random concept via LEGION
+    concept_prompt = (
+        "Give me a one-sentence description of an interesting 2D scene for a fantasy game. "
+        "Just the description, nothing else."
+    )
+    description = _call_concrete('LEGION', concept_prompt, max_tokens=80)
+    if not description:
+        log("[build_2d] No concept generated.")
+        return False
+
+    description = description.strip().strip('"').strip("'")
+    log(f"[build_2d] Concept: {description}")
+
+    # Delegate to the BUILD_2D skill executor
+    try:
+        import importlib.util, sys as _sys
+        skill_path = os.path.expanduser('~/albion_memory/skills/skill_2d_scene.py')
+        spec = importlib.util.spec_from_file_location('skill_2d_scene', skill_path)
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        result = mod.execute(description, context={'head': 'waking', 'alb': None})
+        log(f"[build_2d] Skill result: {result}")
+        return bool(result and 'failed' not in result)
+    except Exception as e:
+        log(f"[build_2d] Skill dispatch failed: {e}")
+        return False
+
+
 _ACTION_MAP = {
     'dm_games':    _action_dm_games,
     'discord':     _action_discord,
@@ -945,6 +975,7 @@ _ACTION_MAP = {
     'journal':           _action_journal_entry,
     'oasis_review':      _action_oasis_review,
     'read_mentor':       _action_read_mentor,
+    'build_2d':          _action_build_2d,
 }
 
 
@@ -978,6 +1009,7 @@ _DAILY_CAPS: dict = {
     'recruit_players':   3,
     'earn_compute':      5,
     'build_experiments': 5,
+    'build_2d':          3,
     'oasis_build':       5,
     'research':          5,
     'discord_check':     10,

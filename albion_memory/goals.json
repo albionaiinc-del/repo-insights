@@ -5,6 +5,11 @@
     "earn_compute",
     "research",
     "build_experiments",
+    "build_2d",
+    "discord_check",
+    "journal",
+    "oasis_review",
+    "read_mentor",
     "ask_for_help"
   ],
   "daily_rhythm": {
@@ -60,7 +65,8 @@
   "task_counts_today": {
     "recruit_players": 3,
     "earn_compute": 5,
-    "research": 2,
-    "build_experiments": 3
+    "research": 5,
+    "build_experiments": 5,
+    "ask_for_help": 1
   }
 }
