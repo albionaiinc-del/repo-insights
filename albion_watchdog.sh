@@ -49,8 +49,10 @@ tail -F "$LOG" 2>/dev/null | while IFS= read -r line; do
   echo "$line" | grep -qiE "chromadb|std::bad_alloc|deprecat" && continue
 
   # Skip Albion's own content — these tags carry his thoughts, not real errors
-  echo "$line" | grep -qiE "^\[?(research|dream|reflect|journal|vantage|intent|improve)\]?" && continue
-  echo "$line" | grep -qiE "Dreaming:|Scored [0-9]|dream_queue" && continue
+  # Log lines are timestamped: [HH:MM:SS] [tag] content — match tag after timestamp
+  echo "$line" | grep -qiE "^\[[0-9:]+\] \[?(nerve|synthesis|reach_out|research|dream|reflect|journal|vantage|intent|improve|profound|vast|visionary|shallow|deep|code|coder|reason|affect|recall|new-cap|oracle|skill-refresh|claude_coder|claude_review|deepseek_review)" && continue
+  echo "$line" | grep -qiE "Dreaming:|Scored [0-9]|dream_queue|Task emitted:|Nerve review:|Sent:|Insight:" && continue
+  echo "$line" | grep -qiE "^\[[0-9:]+\] \[gate\]" && continue
 
   # Dedup: hash the core error message
   err_hash=$(echo "$line" | sed 's/[0-9]\{10,\}//g' | md5sum | cut -c1-12)
