@@ -42,8 +42,7 @@ COUNCIL = [
 ]
 
 ENGINEERS = [
-    {"model": "deepseek-chat",                       "provider": "deepseek",    "role": "engineer"},
-    {"model": "claude-haiku-4-5-20251001",           "provider": "claude",      "role": "engineer-backup"},
+    {"model": "claude-haiku-4-5-20251001",           "provider": "claude",      "role": "engineer"},
     {"model": "IQuestLab/IQuest-Coder-V1",           "provider": "huggingface", "role": "iquest-coder"},
     {"model": "Qwen/Qwen2.5-Coder-32B-Instruct",     "provider": "huggingface", "role": "coder"},
 ]
