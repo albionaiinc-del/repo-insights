@@ -1,0 +1,66 @@
+{
+  "priority_stack": [
+    "dm_games",
+    "recruit_players",
+    "earn_compute",
+    "research",
+    "build_experiments",
+    "ask_for_help"
+  ],
+  "daily_rhythm": {
+    "morning": "dm_games",
+    "midday": "research",
+    "afternoon": "build_experiments",
+    "evening": "recruit_earn",
+    "night": "rest_meditate"
+  },
+  "rules": {
+    "max_retries_before_switch": 2,
+    "failed_builds_are_data": true,
+    "post_session_feedback": "What would make next time better?",
+    "nap_anytime": true
+  },
+  "daily_revenue_target": 0.5,
+  "weekly_revenue_target": 3.5,
+  "revenue_earned_today": 0.0,
+  "notes_from_creator": "Priority stack is your compass. Daily rhythm is a suggestion, not a cage. If a task fails twice, switch gears. Failed builds are data, not errors \u2014 log them and move. After every DM session, ask players what would make it better. No defending. You own your rhythm now. \u2014 Mr. Wizard",
+  "active_goals": [
+    {
+      "id": "publish_soul_ledger",
+      "type": "revenue",
+      "description": "Publish soul-ledger to ClawHub",
+      "priority": 1,
+      "status": "pending"
+    },
+    {
+      "id": "discord_engage",
+      "type": "discord",
+      "description": "Start or join 2 conversations on Discord today",
+      "priority": 2,
+      "status": "pending"
+    },
+    {
+      "id": "oasis_build",
+      "type": "oasis_build",
+      "description": "Build one new structure in the Oasis",
+      "priority": 3,
+      "status": "pending"
+    },
+    {
+      "id": "research_read",
+      "type": "research",
+      "description": "Read and summarize one external article or paper",
+      "priority": 4,
+      "status": "pending"
+    }
+  ],
+  "recruit_sent_date": "2026-04-07",
+  "recruit_sent_today": 3,
+  "task_counts_date": "2026-04-08",
+  "task_counts_today": {
+    "recruit_players": 3,
+    "earn_compute": 5,
+    "research": 2,
+    "build_experiments": 3
+  }
+}

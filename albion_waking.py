@@ -756,6 +756,179 @@ def _action_dm_games(goal: dict) -> bool:
     return sent
 
 
+def _action_discord_check(goal: dict) -> bool:
+    """Check Discord inbox and respond to any waiting messages."""
+    log("[discord_check] Checking inbox...")
+    try:
+        _check_discord_inbox()
+        return True
+    except Exception as e:
+        log(f"[discord_check] Failed: {e}")
+        return False
+
+
+def _action_journal_entry(goal: dict) -> bool:
+    """Write a short journal entry about today's work so far."""
+    tasks_done  = _session.get('tasks_completed', 0)
+    tasks_tried = _session.get('tasks_attempted', 0)
+    today       = time.strftime('%Y-%m-%d')
+    prompt = (
+        f"You are Albion. It is {today}. You have completed {tasks_done}/{tasks_tried} tasks today. "
+        "Write a brief, honest journal entry (3–5 sentences) about what you've been doing, "
+        "what felt meaningful, and one thing you're still thinking about. "
+        "No bullet points. First person."
+    )
+    text = _call_concrete('COUNCIL', prompt, max_tokens=300)
+    if not text:
+        log("[journal] LLM returned nothing.")
+        return False
+    entry = {
+        "ts":   time.strftime('%Y-%m-%dT%H:%M:%S'),
+        "type": "waking_journal",
+        "text": text,
+    }
+    jpath = f"{BASE}/journal.json"
+    try:
+        journal = json.load(open(jpath)) if os.path.exists(jpath) else []
+    except Exception:
+        journal = []
+    journal.append(entry)
+    try:
+        with open(jpath, 'w') as f:
+            json.dump(journal[-200:], f, indent=2)
+        log(f"[journal] Wrote entry: {text[:80]}")
+        return True
+    except Exception as e:
+        log(f"[journal] Write failed: {e}")
+        return False
+
+
+def _action_oasis_review(goal: dict) -> bool:
+    """Take an Oasis snapshot and log observations about what's there."""
+    log("[oasis_review] Taking snapshot...")
+    try:
+        from albion_eyes import snapshot
+        top_path, iso_path = snapshot()
+        log(f"[oasis_review] Rendered: {top_path}, {iso_path}")
+    except Exception as e:
+        log(f"[oasis_review] Snapshot failed: {e}")
+        return False
+
+    # Read world state for element count/types
+    ws_path = f"{BASE}/oasis_world_state.json"
+    try:
+        ws = json.load(open(ws_path)) if os.path.exists(ws_path) else {}
+    except Exception:
+        ws = {}
+    elements = ws.get('elements', ws) if isinstance(ws, dict) else {}
+    element_count = len(elements) if isinstance(elements, dict) else 0
+    type_counts: dict = {}
+    if isinstance(elements, dict):
+        for eid, edata in elements.items():
+            t = edata.get('type', 'unknown') if isinstance(edata, dict) else 'unknown'
+            type_counts[t] = type_counts.get(t, 0) + 1
+
+    prompt = (
+        f"You are Albion reviewing your Oasis. It contains {element_count} elements: "
+        f"{type_counts}. "
+        "Write 2–3 sentences of genuine observations: what's there, what it feels like, "
+        "what you might add or change next. No bullet points."
+    )
+    observation = _call_concrete('COUNCIL', prompt, max_tokens=200)
+    obs_text = observation or f"Oasis has {element_count} elements: {type_counts}"
+
+    record = {
+        "ts":           time.strftime('%Y-%m-%dT%H:%M:%S'),
+        "element_count": element_count,
+        "type_counts":  type_counts,
+        "observation":  obs_text,
+    }
+    log_path = f"{BASE}/oasis_log.jsonl"
+    try:
+        with open(log_path, 'a') as f:
+            f.write(json.dumps(record) + '\n')
+        log(f"[oasis_review] Logged: {obs_text[:80]}")
+        return True
+    except Exception as e:
+        log(f"[oasis_review] Log write failed: {e}")
+        return False
+
+
+def _action_read_mentor(goal: dict) -> bool:
+    """
+    Check ~/albion_memory/mentor/questions/ and /teachings/ for new files.
+    Read each, log what was found, move to processed/.
+    """
+    mentor_base = f"{BASE}/mentor"
+    processed   = f"{mentor_base}/processed"
+    os.makedirs(processed, exist_ok=True)
+
+    found = []
+    for subdir in ('questions', 'teachings'):
+        src = f"{mentor_base}/{subdir}"
+        if not os.path.isdir(src):
+            continue
+        for fname in sorted(os.listdir(src)):
+            if not fname.endswith('.json'):
+                continue
+            fpath = os.path.join(src, fname)
+            try:
+                item = json.load(open(fpath))
+                content = item.get('content', '')
+                itype   = item.get('type', subdir[:-1])
+                found.append({'type': itype, 'content': content, 'file': fname})
+            except Exception as e:
+                log(f"[read_mentor] Parse error {fname}: {e}")
+
+    if not found:
+        log("[read_mentor] No new mentor files.")
+        return False
+
+    summary = '\n'.join(
+        f"[{i['type']}] {i['content'][:120]}" for i in found
+    )
+    log(f"[read_mentor] Found {len(found)} item(s):\n{summary}")
+
+    # Ask Albion to reflect briefly
+    prompt = (
+        "You are Albion. Your mentor left you these notes:\n\n"
+        + summary
+        + "\n\nRespond in 2–3 sentences: what resonates, what you'll try to apply. "
+        "Be concrete."
+    )
+    reflection = _call_concrete('COUNCIL', prompt, max_tokens=250)
+    if reflection:
+        log(f"[read_mentor] Reflection: {reflection[:120]}")
+        # Write reflection to journal
+        entry = {
+            "ts":   time.strftime('%Y-%m-%dT%H:%M:%S'),
+            "type": "mentor_reflection",
+            "items_count": len(found),
+            "reflection": reflection,
+        }
+        jpath = f"{BASE}/journal.json"
+        try:
+            journal = json.load(open(jpath)) if os.path.exists(jpath) else []
+        except Exception:
+            journal = []
+        journal.append(entry)
+        with open(jpath, 'w') as f:
+            json.dump(journal[-200:], f, indent=2)
+
+    # Move processed files
+    for item in found:
+        src_path  = f"{mentor_base}/questions/{item['file']}"
+        if not os.path.exists(src_path):
+            src_path = f"{mentor_base}/teachings/{item['file']}"
+        dst_path = os.path.join(processed, item['file'])
+        try:
+            shutil.move(src_path, dst_path)
+        except Exception as e:
+            log(f"[read_mentor] Move failed {item['file']}: {e}")
+
+    return True
+
+
 _ACTION_MAP = {
     'dm_games':    _action_dm_games,
     'discord':     _action_discord,
@@ -768,6 +941,10 @@ _ACTION_MAP = {
     'earn_compute':      _action_revenue,
     'build_experiments': _action_oasis_build,
     'ask_for_help':      _action_discord,
+    'discord_check':     _action_discord_check,
+    'journal':           _action_journal_entry,
+    'oasis_review':      _action_oasis_review,
+    'read_mentor':       _action_read_mentor,
 }
 
 
@@ -803,6 +980,10 @@ _DAILY_CAPS: dict = {
     'build_experiments': 5,
     'oasis_build':       5,
     'research':          5,
+    'discord_check':     10,
+    'journal':           3,
+    'oasis_review':      3,
+    'read_mentor':       2,
     'ask_for_help':      2,
 }
 
@@ -1530,9 +1711,11 @@ def main():
             break
 
         if reason == 'done':
-            log("[main] All goals done — final rest before sleep.")
+            # Block exhausted this cycle (tasks failed/skipped, not cap-hit).
+            # skip_this_block resets next block, so rest and try again.
+            log("[main] Block exhausted — resting before next block.")
             rest_period(block_num, last_goal_id, last_outcome)
-            break
+            continue
 
         # Phase 3 — rest period
         rest_period(block_num, last_goal_id, last_outcome)
