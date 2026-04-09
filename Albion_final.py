@@ -306,6 +306,7 @@ class FactChecker:
         self.model = "llama-3.1-8b-instant"  
         self.smart_model = "deepseek-chat"  
         self.gemini = None  # FactChecker does not use Gemini directly
+        self.tier_counts = {}  # initialize tier_counts dictionary
 
     def check(self, user_input, response, vault_context, kg_context):
         prompt = f"""You are Albion's internal fact-checker. Today's date is {datetime.now().strftime("%B %d, %Y")}. Any date before today is valid. Rules:
