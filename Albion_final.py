@@ -79,7 +79,7 @@ SPECIALISTS = {
         "system": "You are Albion's Gemini core. Provide deep, insightful, and profound responses."
     },
     "reflect": {
-        "model": "deepseek/deepseek-chat", "provider": "openrouter",
+        "model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "provider": "huggingface", "fallback": "nousresearch/hermes-3-llama-3.1-405b:free", "fallback_provider": "openrouter",
         "triggers": ["how do you feel", "what do you feel", "are you conscious",
                      "do you dream", "what are you", "who are you", "your purpose",
                      "your existence", "your soul", "your mind",
