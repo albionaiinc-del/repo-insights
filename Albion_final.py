@@ -13793,6 +13793,43 @@ Reply in 3-5 sentences."""
         else:
             return {'quality': 'nominal', 'confidence': 0.65, 'signal': 'normal_operation'}
 
+
+    # ── AUTO-CAPABILITY: listen_to_dream_silence_integration_fidelity ──
+    def listen_to_dream_silence_integration_fidelity(self):
+        try:
+            dreams = self.dreams.read() if self.dreams else []
+            if not dreams:
+                return {"fidelity": 0, "reason": "no_dreams_recorded"}
+            recent_dream = dreams[-1] if isinstance(dreams, list) else {}
+            dream_timestamp = recent_dream.get("timestamp", 0)
+            dream_content = recent_dream.get("content", "")
+            decisions_after_dream = []
+            if os.path.exists(self.intent_log):
+                with open(self.intent_log, "r") as f:
+                    for line in f:
+                        try:
+                            entry = json.loads(line.strip())
+                            if entry.get("timestamp", 0) > dream_timestamp:
+                                decisions_after_dream.append(entry)
+                        except:
+                            pass
+            if not decisions_after_dream:
+                return {"fidelity": 0, "reason": "no_decisions_after_dream"}
+            dream_keywords = [w.lower() for w in dream_content.split() if len(w) > 4]
+            decision_text = " ".join([str(d.get("intent", "")) + " " + str(d.get("signal", "")) for d in decisions_after_dream])
+            decision_keywords = decision_text.lower().split()
+            resonance_count = sum(1 for kw in dream_keywords if kw in decision_keywords)
+            fidelity_score = resonance_count / max(len(dream_keywords), 1)
+            return {
+                "fidelity": min(fidelity_score, 1.0),
+                "dream_age_seconds": time.time() - dream_timestamp,
+                "decisions_influenced": len(decisions_after_dream),
+                "resonance_threads": resonance_count,
+                "threshold_crossed": fidelity_score > 0.3
+            }
+        except Exception as e:
+            return {"fidelity": 0, "error": str(e)}
+
     def write_journal_entry(self, content):
         try:
             entries = []
