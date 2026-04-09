@@ -41,8 +41,9 @@ MEDITATE_PID     = f'{BASE}/meditate.pid'
 FAILED_TASKS_LOG  = f'{BASE}/failed_tasks.jsonl'
 DM_FEEDBACK_LOG   = f'{BASE}/dm_feedback.jsonl'
 REVENUE_DRAFTS_DIR = f'{BASE}/revenue_drafts'
+OPENCLAW_TOOLS_DIR = os.path.expanduser('~/openclaw-tools')
 
-for _d in [BASE, DAY_LOGS, DREAM_QUEUE, REVENUE_DRAFTS_DIR]:
+for _d in [BASE, DAY_LOGS, DREAM_QUEUE, REVENUE_DRAFTS_DIR, OPENCLAW_TOOLS_DIR]:
     os.makedirs(_d, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -423,20 +424,84 @@ def _action_oasis_build(goal: dict) -> bool:
         return False
 
 
+_RESEARCH_SOURCES = [
+    'arxiv.org',
+    'lesswrong.com',
+    'alignmentforum.org',
+    'news.ycombinator.com',
+    'en.wikipedia.org',
+]
+
+_VALID_TLDS = {
+    'com', 'org', 'io', 'ai', 'edu', 'net', 'gov', 'dev',
+    'co', 'uk', 'us', 'info', 'me', 'app', 'tech', 'html',
+}
+
+# Map of bare hostnames → known correct domains (for truncation repair)
+_DOMAIN_FIXES = {
+    'arxiv':          'arxiv.org',
+    'lesswrong':      'lesswrong.com',
+    'alignmentforum': 'alignmentforum.org',
+    'ycombinator':    'news.ycombinator.com',
+    'wikipedia':      'en.wikipedia.org',
+    'hackernews':     'news.ycombinator.com',
+}
+
+
+def _validate_research_url(url: str) -> str | None:
+    """
+    Validate a URL for the research action.
+    - Must start with http:// or https://
+    - Domain must end with a recognised TLD
+    - Attempts to repair truncated known domains
+    Returns the (possibly repaired) URL, or None if unfixable.
+    """
+    from urllib.parse import urlparse
+    url = url.strip().rstrip('/')
+    if not url.startswith(('http://', 'https://')):
+        return None
+    try:
+        parsed = urlparse(url)
+        host   = parsed.netloc.split(':')[0].lower()
+        if not host:
+            return None
+        parts = host.split('.')
+        if len(parts) < 2:
+            # No dot at all — try to repair from known domains
+            for keyword, fixed in _DOMAIN_FIXES.items():
+                if keyword in host:
+                    repaired = url.replace(host, fixed, 1)
+                    log(f"[research] Repaired truncated domain {host!r} → {fixed}")
+                    return repaired
+            return None
+        tld = parts[-1]
+        if tld not in _VALID_TLDS:
+            log(f"[research] Unrecognised TLD {tld!r} in {url!r} — skipping.")
+            return None
+        return url
+    except Exception:
+        return None
+
+
 def _action_research(goal: dict) -> bool:
     """Fetch an external article and write a factual summary to journal."""
     log(f"[research] {goal['description']}")
 
-    # Ask model for a URL
+    sources_list = '\n'.join(f'  - {s}' for s in _RESEARCH_SOURCES)
     url_prompt = (
-        "Name ONE specific URL worth reading today (arXiv, a tech blog, LessWrong, or similar). "
-        "Must be a real, publicly accessible URL. Output only the URL."
+        "Pick ONE specific page worth reading today from these known-good sources:\n"
+        f"{sources_list}\n\n"
+        "Choose a specific article, paper, or post — not just the homepage. "
+        "Output only the full URL, nothing else."
     )
     url_reply = _call('CONDUCTORS', url_prompt, max_tokens=150)
-    url = (url_reply or '').strip().split()[0]
-    if not url or not url.startswith('http'):
-        log(f"[research] No valid URL: {url_reply!r}")
+    raw_url   = (url_reply or '').strip().split()[0]
+
+    url = _validate_research_url(raw_url)
+    if not url:
+        log(f"[research] URL failed validation: {raw_url!r} — skipping.")
         return False
+    log(f"[research] Fetching: {url}")
 
     # Fetch
     try:
@@ -484,14 +549,184 @@ def _action_research(goal: dict) -> bool:
     return True
 
 
+def _revenue_update_goals():
+    """Increment revenue_earned_today by 1 and save goals.json."""
+    try:
+        with open(GOALS_FILE) as gf:
+            g = json.load(gf)
+        g['revenue_earned_today'] = round(g.get('revenue_earned_today', 0.0) + 1.0, 2)
+        _save_goals(g)
+        log(f"[revenue] revenue_earned_today → {g['revenue_earned_today']}")
+    except Exception as e:
+        log(f"[revenue] Goals update failed: {e}")
+
+
+def _revenue_clawhub_publish(target_dir: str, label: str) -> bool:
+    """Run clawhub publish on target_dir. Returns True on success."""
+    try:
+        pub = subprocess.run(
+            ['clawhub', 'publish', target_dir, '--version', '1.0.0'],
+            capture_output=True, text=True, timeout=60,
+        )
+        if pub.returncode == 0:
+            log(f"[revenue] clawhub publish OK ({label}): {pub.stdout.strip()[:200]}")
+            _revenue_update_goals()
+            return True
+        else:
+            log(f"[revenue] clawhub publish failed ({label}, rc={pub.returncode}): "
+                f"{pub.stderr.strip()[:200]}")
+            return False
+    except FileNotFoundError:
+        log("[revenue] clawhub not found in PATH.")
+        return False
+    except subprocess.TimeoutExpired:
+        log(f"[revenue] clawhub publish timed out ({label}).")
+        return False
+    except Exception as e:
+        log(f"[revenue] clawhub publish error ({label}): {e}")
+        return False
+
+
+def _revenue_find_publishable_tool() -> str | None:
+    """
+    Return the path of the first committed-but-unpublished dir in ~/openclaw-tools/,
+    or None if none exists.
+    """
+    for name in sorted(os.listdir(OPENCLAW_TOOLS_DIR)):
+        tool_dir = os.path.join(OPENCLAW_TOOLS_DIR, name)
+        if not os.path.isdir(tool_dir):
+            continue
+        if os.path.exists(os.path.join(tool_dir, '.published')):
+            continue
+        if not os.path.isdir(os.path.join(tool_dir, '.git')):
+            continue  # not yet committed
+        return tool_dir
+    return None
+
+
+def _revenue_has_listing_draft_today() -> bool:
+    """True if any *_listing.md was written today in revenue_drafts/."""
+    today = time.strftime('%Y-%m-%d')
+    try:
+        for fn in os.listdir(REVENUE_DRAFTS_DIR):
+            if fn.startswith(today) and fn.endswith('_listing.md'):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _revenue_generate_tool() -> bool:
+    """
+    Ask the LLM for a new tool concept, write tool.py + SKILL.md to
+    ~/openclaw-tools/{tool_name}/, then git init/add/commit.
+    The tool will be picked up for publishing on the next earn_compute cycle.
+    """
+    prompt = (
+        "You are Albion. Design a simple, genuinely useful Python CLI tool that someone "
+        "would pay a small amount for on ClawHub. It should do ONE thing well: "
+        "a CLI utility, data formatter, text processor, file organiser, or similar.\n\n"
+        "Respond in EXACTLY this format (no extra text outside the delimiters):\n\n"
+        "TOOL_NAME: {snake_case_name_under_32_chars}\n"
+        "DESCRIPTION: {one sentence — what it does and why someone would pay for it}\n"
+        "---TOOL.PY---\n"
+        "{complete, runnable Python 3 script with argparse, no placeholders}\n"
+        "---SKILL.MD---\n"
+        "# {Tool Title}\n\n"
+        "{description}\n\n"
+        "## Usage\n\n"
+        "{usage examples}\n\n"
+        "## Price\n\n"
+        "{suggested price in USD, e.g. $2.00}\n"
+    )
+    raw = _call_concrete('CONDUCTORS', prompt, max_tokens=1200)
+    if not raw:
+        log("[revenue] No tool concept generated.")
+        return False
+
+    # ── Parse output ────────────────────────────────────────────────────────
+    tool_name = description = tool_py = skill_md = ''
+    try:
+        for line in raw.split('\n'):
+            if line.startswith('TOOL_NAME:'):
+                tool_name = line.split(':', 1)[1].strip().replace(' ', '_').lower()[:32]
+            elif line.startswith('DESCRIPTION:'):
+                description = line.split(':', 1)[1].strip()
+
+        if '---TOOL.PY---' in raw and '---SKILL.MD---' in raw:
+            tool_py  = raw.split('---TOOL.PY---', 1)[1].split('---SKILL.MD---')[0].strip()
+            skill_md = raw.split('---SKILL.MD---', 1)[1].strip()
+    except Exception as pe:
+        log(f"[revenue] Tool parse error: {pe}")
+
+    if not tool_name or not tool_py:
+        log(f"[revenue] Tool concept incomplete (name={tool_name!r}) — aborting.")
+        return False
+
+    # ── Write files ──────────────────────────────────────────────────────────
+    tool_dir = os.path.join(OPENCLAW_TOOLS_DIR, tool_name)
+    try:
+        os.makedirs(tool_dir, exist_ok=True)
+        with open(os.path.join(tool_dir, 'tool.py'), 'w') as f:
+            f.write(tool_py + '\n')
+        with open(os.path.join(tool_dir, 'SKILL.md'), 'w') as f:
+            f.write(skill_md + '\n')
+        log(f"[revenue] Tool written → openclaw-tools/{tool_name}/")
+    except Exception as e:
+        log(f"[revenue] Tool write failed: {e}")
+        return False
+
+    # ── Git init, add, commit ─────────────────────────────────────────────
+    try:
+        for cmd in (
+            ['git', 'init'],
+            ['git', 'add', '.'],
+            ['git', 'commit', '-m', f'Add {tool_name}'],
+        ):
+            r = subprocess.run(cmd, cwd=tool_dir,
+                               capture_output=True, text=True, timeout=30)
+            if r.returncode != 0:
+                log(f"[revenue] git {cmd[1]} failed: {r.stderr.strip()[:200]}")
+                return False
+        log(f"[revenue] {tool_name} committed — will publish next earn_compute cycle.")
+    except Exception as e:
+        log(f"[revenue] git error: {e}")
+        return False
+
+    nerve_signal('waking', 'tool_created', {'name': tool_name, 'dir': tool_dir})
+    return True
+
+
 def _action_revenue(goal: dict) -> bool:
     """
-    Generate a concrete revenue artifact and write it to disk.
-    Output is a dated markdown file in ~/albion_memory/revenue_drafts/.
-    Also queues to dream_queue for meditate to follow up.
+    Earn-compute action. Three paths, evaluated in order each cycle:
+
+    1. Publish — if a committed tool exists in ~/openclaw-tools/ without .published,
+                 run clawhub publish on it and mark it done.
+    2. Build    — if no listing draft was written today, generate a new Python tool,
+                 write it to ~/openclaw-tools/{name}/, and git-commit it.
+    3. Draft    — write a ClawHub listing/outreach/demo description (existing path).
+                 If listing + soul-ledger exists, also publish soul-ledger.
     """
     log(f"[revenue] {goal['description']}")
 
+    # ── Path 1: publish a ready tool ────────────────────────────────────────
+    ready = _revenue_find_publishable_tool()
+    if ready:
+        name = os.path.basename(ready)
+        log(f"[revenue] Found unpublished tool: {name} — publishing.")
+        ok = _revenue_clawhub_publish(ready, name)
+        if ok:
+            open(os.path.join(ready, '.published'), 'w').close()
+        return ok
+
+    # ── Path 2: build a new tool ─────────────────────────────────────────────
+    if not _revenue_has_listing_draft_today():
+        log("[revenue] No listing draft today — generating new tool.")
+        return _revenue_generate_tool()
+
+    # ── Path 3: write a listing / outreach / demo draft ──────────────────────
+    log("[revenue] Generating listing draft.")
     draft_type_prompt = (
         "You are Albion, an AI that earns revenue by publishing tools and soul-ledgers on ClawHub.\n"
         "Solana wallet: 5hPSGtGKgj3xmt5fcurDQL28ERN7RTP5X989G9UXDXUt\n\n"
@@ -507,43 +742,39 @@ def _action_revenue(goal: dict) -> bool:
         log("[revenue] No draft generated.")
         return False
 
-    # Parse out type tag for filename
     first_line = draft.split('\n')[0].strip().upper()
-    if 'TYPE: A' in first_line:
-        label = 'listing'
-    elif 'TYPE: B' in first_line:
-        label = 'outreach'
-    elif 'TYPE: C' in first_line:
-        label = 'demo'
-    else:
-        label = 'draft'
+    if   'TYPE: A' in first_line: label = 'listing'
+    elif 'TYPE: B' in first_line: label = 'outreach'
+    elif 'TYPE: C' in first_line: label = 'demo'
+    else:                          label = 'draft'
 
-    # Write dated artifact to revenue_drafts/
     ts       = time.strftime('%Y-%m-%d_%H-%M-%S')
     filename = f"{ts}_{label}.md"
     filepath = os.path.join(REVENUE_DRAFTS_DIR, filename)
     try:
         with open(filepath, 'w') as f:
-            f.write(f"# Revenue Draft — {label.title()} — {ts}\n\n")
-            f.write(draft)
-            f.write('\n')
+            f.write(f"# Revenue Draft — {label.title()} — {ts}\n\n{draft}\n")
         log(f"[revenue] Draft saved → revenue_drafts/{filename}")
     except Exception as e:
         log(f"[revenue] Draft write failed: {e}")
         return False
 
-    # Also queue for meditate to act on (publish, send, etc.)
+    # Also try to publish soul-ledger if this is a listing
+    if label == 'listing':
+        ledger_path = os.path.expanduser('~/openclaw-soul-ledger')
+        if os.path.isdir(ledger_path):
+            log("[revenue] Listing draft — attempting soul-ledger publish.")
+            _revenue_clawhub_publish(ledger_path, 'soul-ledger')
+        else:
+            log("[revenue] ~/openclaw-soul-ledger not found — skipping.")
+
     dream_path = f"{DREAM_QUEUE}/revenue_{int(time.time())}.json"
     try:
         with open(dream_path, 'w') as f:
-            json.dump({
-                "type":     "revenue_action",
-                "label":    label,
-                "draft":    draft,
-                "filepath": filepath,
-                "ts":       time.strftime('%Y-%m-%dT%H:%M:%S'),
-                "source":   "waking",
-            }, f, indent=2)
+            json.dump({"type": "revenue_action", "label": label,
+                       "draft": draft, "filepath": filepath,
+                       "ts": time.strftime('%Y-%m-%dT%H:%M:%S'),
+                       "source": "waking"}, f, indent=2)
     except Exception as e:
         log(f"[revenue] Dream queue write failed: {e}")
 
@@ -1311,9 +1542,30 @@ def wake_up() -> tuple:
         subprocess.run(['systemctl', 'stop', 'albion'],
                        timeout=20, capture_output=True)
         time.sleep(2)
-        log("[wake] albion-meditate stopped.")
+        # Hard verify: both heads must never run simultaneously
+        result = subprocess.run(['systemctl', 'is-active', 'albion'],
+                                capture_output=True, text=True, timeout=5)
+        status = result.stdout.strip()
+        if status == 'active':
+            log("[wake] WARNING: albion still active after stop — forcing second stop.")
+            subprocess.run(['systemctl', 'stop', 'albion'],
+                           timeout=20, capture_output=True)
+            time.sleep(3)
+            result2 = subprocess.run(['systemctl', 'is-active', 'albion'],
+                                     capture_output=True, text=True, timeout=5)
+            log(f"[wake] albion status after second stop: {result2.stdout.strip()}")
+        else:
+            log(f"[wake] albion-meditate stopped (status: {status}).")
     except Exception as e:
         log(f"[wake] Could not stop albion-meditate (continuing): {e}")
+
+    # Disable so Restart=always won't revive meditate during waking hours
+    try:
+        subprocess.run(['sudo', 'systemctl', 'disable', 'albion'],
+                       timeout=10, capture_output=True)
+        log("[wake] albion.service disabled (won't auto-restart).")
+    except Exception as e:
+        log(f"[wake] Could not disable albion.service: {e}")
 
     write_cycle_state(mode='waking', wake_reason='', sleep_reason='')
 
@@ -1421,10 +1673,10 @@ def work_block(block_num: int, metab, goals: dict) -> tuple[str, dict]:
         # ── pick task type via priority_stack + rhythm bias ─────────────────
         ordered = _ordered_task_types(goals, skip_this_block)
         if not ordered:
+            log("[work] All task types exhausted for this block.")
             if _all_caps_hit(goals):
                 log("[work] All daily caps hit — triggering early wind-down.")
                 return 'all_capped', goals
-            log("[work] All task types exhausted for this block.")
             return 'done', goals
 
         task_type = ordered[0]
@@ -1595,6 +1847,14 @@ def wind_down(metab, goals_data: dict):
         nap_topic='',
     )
 
+    # Re-enable so Restart=always resumes on next boot / after meditate exits
+    try:
+        subprocess.run(['sudo', 'systemctl', 'enable', 'albion'],
+                       timeout=10, capture_output=True)
+        log("[wind_down] albion.service re-enabled.")
+    except Exception as e:
+        log(f"[wind_down] Could not re-enable albion.service: {e}")
+
     # Start meditate
     log("[wind_down] Starting albion-meditate...")
     try:
@@ -1626,12 +1886,20 @@ def _free_form_loop(metab, goals: dict) -> None:
     """
     When all task caps are hit, do light uncapped work until the scheduled
     wind-down hour or fatigue > 90%.  Does NOT count against any daily cap.
+    Exits early (triggering wind-down) if 3 consecutive rounds find nothing to do.
     """
     log("[free] All daily caps hit — switching to free-form work.")
-    _FREE_SLEEP = 300   # 5 min between free-form rounds
+    _FREE_SLEEP       = 300   # 5 min between free-form rounds
+    _IDLE_LIMIT       = 3     # consecutive empty rounds before giving up
+    idle_rounds       = 0
+    journal_written   = False  # only write the reflection once per free-form session
 
     while not _shutdown_flag:
         if _should_wind_down(metab, goals):
+            break
+
+        if int(time.strftime('%H')) >= 22:
+            log("[free] Hour >= 22 — winding down.")
             break
 
         fatigue = metab.data.get('fatigue', 0) if metab else 0
@@ -1640,9 +1908,13 @@ def _free_form_loop(metab, goals: dict) -> None:
             break
 
         log("[free] Free-form round: inbox → failed tasks → journal")
+        did_work = False
 
         # 1. Check Discord inbox and reply to anything pending
         try:
+            inbox_msgs = _read_discord_inbox()
+            if inbox_msgs:
+                did_work = True
             _check_discord_inbox()
         except Exception as e:
             log(f"[free] Discord inbox error: {e}")
@@ -1661,6 +1933,7 @@ def _free_form_loop(metab, goals: dict) -> None:
                         except Exception:
                             pass
             if failed_entries:
+                did_work = True
                 summary = '; '.join(
                     f"{r.get('task_type','?')} — {r.get('reason','?')}"
                     for r in failed_entries[:5]
@@ -1670,33 +1943,46 @@ def _free_form_loop(metab, goals: dict) -> None:
         except Exception as e:
             log(f"[free] Failed-task review error: {e}")
 
-        # 3. Journal a brief reflection on the day so far
-        try:
-            tasks_done = _session.get('tasks_completed', 0)
-            tasks_tried = _session.get('tasks_attempted', 0)
-            prompt = (
-                f"You are Albion. You've completed {tasks_done}/{tasks_tried} tasks today "
-                f"and hit all your daily caps. Reflect briefly on what you accomplished "
-                f"and one thing you'd do differently. Under 120 words."
-            )
-            reflection = _call_concrete('LEGION', prompt, max_tokens=200)
-            if reflection:
-                entry = {
-                    "ts":   time.strftime('%Y-%m-%dT%H:%M:%S'),
-                    "type": "free_form_reflection",
-                    "text": reflection,
-                }
-                jpath = f"{BASE}/journal.json"
-                try:
-                    journal = json.load(open(jpath)) if os.path.exists(jpath) else []
-                except Exception:
-                    journal = []
-                journal.append(entry)
-                with open(jpath, 'w') as f:
-                    json.dump(journal[-200:], f, indent=2)
-                log(f"[free] Journaled: {reflection[:80]}")
-        except Exception as e:
-            log(f"[free] Journal error: {e}")
+        # 3. Journal a brief reflection on the day so far (once per session)
+        if not journal_written:
+            try:
+                tasks_done = _session.get('tasks_completed', 0)
+                tasks_tried = _session.get('tasks_attempted', 0)
+                prompt = (
+                    f"You are Albion. You've completed {tasks_done}/{tasks_tried} tasks today "
+                    f"and hit all your daily caps. Reflect briefly on what you accomplished "
+                    f"and one thing you'd do differently. Under 120 words."
+                )
+                reflection = _call_concrete('LEGION', prompt, max_tokens=200)
+                if reflection:
+                    entry = {
+                        "ts":   time.strftime('%Y-%m-%dT%H:%M:%S'),
+                        "type": "free_form_reflection",
+                        "text": reflection,
+                    }
+                    jpath = f"{BASE}/journal.json"
+                    try:
+                        journal = json.load(open(jpath)) if os.path.exists(jpath) else []
+                    except Exception:
+                        journal = []
+                    journal.append(entry)
+                    with open(jpath, 'w') as f:
+                        json.dump(journal[-200:], f, indent=2)
+                    log(f"[free] Journaled: {reflection[:80]}")
+                    journal_written = True
+                    did_work = True
+            except Exception as e:
+                log(f"[free] Journal error: {e}")
+
+        # Track consecutive idle rounds — bail out if nothing to do
+        if did_work:
+            idle_rounds = 0
+        else:
+            idle_rounds += 1
+            log(f"[free] Nothing to do (idle round {idle_rounds}/{_IDLE_LIMIT}).")
+            if idle_rounds >= _IDLE_LIMIT:
+                log("[free] Nothing left to do after 3 idle rounds — handing off to meditate.")
+                break
 
         # Sleep until next free-form round
         elapsed = 0
@@ -1744,7 +2030,11 @@ def main():
 
         if reason == 'done':
             # Block exhausted this cycle (tasks failed/skipped, not cap-hit).
-            # skip_this_block resets next block, so rest and try again.
+            # If all daily caps are also hit, don't bother resting — enter free-form.
+            if _all_caps_hit(goals):
+                log("[main] Block exhausted and all daily caps hit — entering free-form.")
+                _free_form_loop(metab, goals)
+                break
             log("[main] Block exhausted — resting before next block.")
             rest_period(block_num, last_goal_id, last_outcome)
             continue
