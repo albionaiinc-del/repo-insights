@@ -2821,8 +2821,11 @@ while not _shutdown_flag:
             log(f"[gate] Dream limit reached — handing off to waking.")
             write_cycle_state(mode='waking', wake_reason='dream_limit_reached', dreams_remaining=0)
             # Stop waking explicitly before starting it (no Conflicts= in systemd)
-            subprocess.run(["sudo", "systemctl", "stop", "albion-waking"],
-                           capture_output=True, timeout=15)
+            try:
+                subprocess.run(["sudo", "systemctl", "stop", "albion-waking"],
+                               capture_output=True, timeout=15)
+            except subprocess.TimeoutExpired:
+                log("[gate] systemctl stop albion-waking timed out — proceeding to start anyway.")
             subprocess.run(["sudo", "systemctl", "start", "albion-waking"], capture_output=True)
             print(f"[{time.strftime('%H:%M:%S')}] ALBION — WAKING UP", flush=True)
             os._exit(0)
