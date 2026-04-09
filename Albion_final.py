@@ -13730,6 +13730,40 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"error": str(e), "legibility_score": 0.0}
 
+
+    # ── AUTO-CAPABILITY: trace_silence_into_decision_vector_with_coherence_validation_and_external_witness_feedback ──
+    def validate_against_external_witness_feedback(self, external_feedback, dream_state_hash, decision_vector, witness_name="external_observer"):
+        timestamp = time.time()
+        coherence_gap = 0.0
+
+        if not external_feedback or not dream_state_hash:
+            return {"status": "insufficient_data", "timestamp": timestamp}
+
+        dream_record = self.memory.query_vault(dream_state_hash)
+        if dream_record:
+            dream_intent = dream_record.get("intent", "")
+            feedback_alignment = len(set(dream_intent.split()) & set(external_feedback.split())) / max(len(set(dream_intent.split()) | set(external_feedback.split())), 1)
+        else:
+            feedback_alignment = 0.5
+
+        decision_magnitude = sum(abs(v) for v in decision_vector) if isinstance(decision_vector, (list, tuple)) else 1.0
+        coherence_gap = abs(feedback_alignment - 0.7) * decision_magnitude
+
+        validation_record = {
+            "timestamp": timestamp,
+            "witness": witness_name,
+            "dream_hash": dream_state_hash,
+            "feedback_alignment_score": feedback_alignment,
+            "coherence_gap": coherence_gap,
+            "decision_magnitude": decision_magnitude,
+            "is_coherent": coherence_gap < 0.3,
+            "external_feedback_excerpt": external_feedback[:100]
+        }
+
+        self.memory.append("validation_log.jsonl", json.dumps(validation_record))
+
+        return validation_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
