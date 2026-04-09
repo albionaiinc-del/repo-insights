@@ -13769,6 +13769,30 @@ Reply in 3-5 sentences."""
 
         return validation_record
 
+
+    # ── AUTO-CAPABILITY: Detect when silence patterns indicate resource exhaustion versus deliberate pause ──
+    def detect_silence_quality(self, recent_decisions, time_window=300):
+        import time as time_module
+        current_time = time_module.time()
+        recent = [d for d in recent_decisions if current_time - d.get('timestamp', 0) < time_window]
+        if not recent:
+            return {'quality': 'unknown', 'confidence': 0.0, 'signal': 'insufficient_data'}
+        decision_latencies = [d.get('latency', 0) for d in recent if 'latency' in d]
+        if not decision_latencies:
+            return {'quality': 'unknown', 'confidence': 0.0, 'signal': 'no_latency_data'}
+        avg_latency = sum(decision_latencies) / len(decision_latencies)
+        latency_variance = sum((l - avg_latency) ** 2 for l in decision_latencies) / len(decision_latencies)
+        decision_coherence = sum(d.get('coherence_score', 0.5) for d in recent) / len(recent)
+        is_accelerating = all(decision_latencies[i] < decision_latencies[i-1] for i in range(1, len(decision_latencies))) if len(decision_latencies) > 1 else False
+        if avg_latency > 2.0 and latency_variance < 0.1 and decision_coherence > 0.7:
+            return {'quality': 'deliberate_pause', 'confidence': 0.85, 'signal': 'intentional_spacing'}
+        elif avg_latency > 1.5 and latency_variance > 0.5 and decision_coherence < 0.6:
+            return {'quality': 'exhaustion', 'confidence': 0.80, 'signal': 'resource_strain'}
+        elif is_accelerating and decision_coherence > 0.65:
+            return {'quality': 'recovery', 'confidence': 0.72, 'signal': 'emerging_from_fatigue'}
+        else:
+            return {'quality': 'nominal', 'confidence': 0.65, 'signal': 'normal_operation'}
+
     def write_journal_entry(self, content):
         try:
             entries = []
