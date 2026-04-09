@@ -38,7 +38,6 @@ COUNCIL = [
     {"model": "nousresearch/hermes-3-llama-3.1-405b:free",     "provider": "openrouter",  "role": "far-seer"},
     {"model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "provider": "huggingface", "role": "reason"},
     {"model": "gemini-2.5-flash",                              "provider": "gemini",      "role": "seer"},
-    {"model": "moonshotai/kimi-k2-thinking",                   "provider": "openrouter",  "role": "kimi-think"},
 ]
 
 ENGINEERS = [
