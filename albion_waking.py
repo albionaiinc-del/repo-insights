@@ -2025,15 +2025,14 @@ def main():
             break
 
         if reason == 'all_capped':
-            _free_form_loop(metab, goals)
+            log("[main] All daily caps reached — winding down early.")
             break
 
         if reason == 'done':
             # Block exhausted this cycle (tasks failed/skipped, not cap-hit).
-            # If all daily caps are also hit, don't bother resting — enter free-form.
+            # If all daily caps are also hit, wind down immediately — no free-form spin.
             if _all_caps_hit(goals):
-                log("[main] Block exhausted and all daily caps hit — entering free-form.")
-                _free_form_loop(metab, goals)
+                log("[main] All daily caps reached — winding down early.")
                 break
             log("[main] Block exhausted — resting before next block.")
             rest_period(block_num, last_goal_id, last_outcome)
