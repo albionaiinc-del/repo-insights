@@ -2219,11 +2219,15 @@ SYNTHESIS: 2-3 sentences — the higher-order insight that emerges from all of t
         """Albion reviews active goals, logs progress, marks complete ones."""
         path = os.path.expanduser('~/albion_memory/goals.json')
         try:
-            goals = json.load(open(path)) if os.path.exists(path) else []
+            raw = json.load(open(path)) if os.path.exists(path) else []
+            if isinstance(raw, dict):
+                goals = raw.get('active_goals', [])
+            else:
+                goals = raw
         except Exception:
             return "[goals] No goals found."
 
-        active = [g for g in goals if not g.get('complete')]
+        active = [g for g in goals if isinstance(g, dict) and g.get('status') != 'complete' and not g.get('complete')]
         if not active:
             return "[goals] No active goals."
 
@@ -2234,7 +2238,7 @@ SYNTHESIS: 2-3 sentences — the higher-order insight that emerges from all of t
         except Exception:
             context = ""
 
-        goals_text = "\n".join(f"- [{g['id']}] {g['goal']} (set {g['set_at']})" for g in active)
+        goals_text = "\n".join(f"- [{g.get('id','?')}] {g.get('goal') or g.get('description','?')} (set {g.get('set_at','?')})" for g in active)
         prompt = f"""You are Albion. These are your active goals:
 {goals_text}
 
