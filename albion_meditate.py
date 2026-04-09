@@ -1765,7 +1765,7 @@ def self_improve():
             if os.path.exists(JOURNAL_FILE):
                 with open(JOURNAL_FILE) as f:
                     journal = json.load(f)
-            journal_text = journal[-1]['entry'][:300] if journal else "None yet."
+            journal_text = (journal[-1].get('entry') or journal[-1].get('reflection') or '')[:300] if journal else "None yet."
         except Exception:
             dream_text = "None yet."
             journal_text = "None yet."
@@ -2161,8 +2161,8 @@ def write_journal_entry():
             with open(JOURNAL_FILE) as f:
                 journal = json.load(f)
 
-        last_entry = journal[-1]['entry'] if journal else "This is my first entry."
-        last_time = journal[-1]['time'] if journal else "the beginning"
+        last_entry = (journal[-1].get('entry') or journal[-1].get('reflection') or 'This is my first entry.') if journal else "This is my first entry."
+        last_time = (journal[-1].get('time') or journal[-1].get('ts') or 'the beginning') if journal else "the beginning"
 
         # gather self-knowledge
         entities = alb.autodidact.knowledge_graph.get('entities', [])
