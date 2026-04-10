@@ -33,9 +33,9 @@ CONDUCTORS = [
 ]
 
 COUNCIL = [
-    {"model": "moonshotai/kimi-k2:free",                       "provider": "openrouter",  "role": "kimi"},
     {"model": "qwen-3-235b-a22b-instruct-2507",                "provider": "cerebras",    "role": "heavy"},
     {"model": "nousresearch/hermes-3-llama-3.1-405b:free",     "provider": "openrouter",  "role": "far-seer"},
+    {"model": "moonshotai/kimi-k2:free",                       "provider": "openrouter",  "role": "kimi"},
     {"model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "provider": "huggingface", "role": "reason"},
     {"model": "gemini-2.5-flash",                              "provider": "gemini",      "role": "seer"},
 ]
