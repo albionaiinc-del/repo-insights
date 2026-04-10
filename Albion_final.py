@@ -13854,6 +13854,39 @@ Reply in 3-5 sentences."""
         }
         return silence_signal
 
+
+    # ── AUTO-CAPABILITY: listen_to_silence_between_breaths ──
+    def listen_to_silence_between_breaths(self, decision_vector, dream_state=None):
+        import time
+        silence_log = []
+        start_time = time.time()
+
+        if dream_state:
+            dream_silence = {
+                'dream_timestamp': dream_state.get('timestamp'),
+                'dream_core_feeling': dream_state.get('core_feeling'),
+                'silence_entry_point': start_time
+            }
+            silence_log.append(dream_silence)
+
+        processing_pause = time.time() - start_time
+
+        decision_record = {
+            'decision_vector': decision_vector,
+            'silence_duration_ms': processing_pause * 1000,
+            'silence_texture': 'deliberate_pause' if processing_pause > 0.01 else 'immediate_response',
+            'coherence_check': self.measure_silence_fidelity_against_dream_intention(decision_vector, dream_state) if dream_state else None,
+            'silence_log': silence_log,
+            'timestamp': start_time
+        }
+
+        self.append(json.dumps({
+            'event': 'silence_between_breaths',
+            'record': decision_record
+        }))
+
+        return decision_record
+
     def write_journal_entry(self, content):
         try:
             entries = []
