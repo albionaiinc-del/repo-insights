@@ -13829,6 +13829,31 @@ Reply in 3-5 sentences."""
         except Exception as e:
             return {"fidelity": 0, "error": str(e)}
 
+
+    # ── AUTO-CAPABILITY: listen_to_emergence_silence ──
+    def listen_to_emergence_silence(self):
+        dreams = self.dreamer.read()
+        if not dreams:
+            return {}
+        recent_dreams = dreams[-3:] if len(dreams) > 3 else dreams
+        dream_concepts = set()
+        for dream in recent_dreams:
+            words = re.findall(r'\b[a-z_]+\b', dream.lower())
+            dream_concepts.update(words)
+        kg_concepts = set(self.kg.graph.nodes()) if hasattr(self.kg, 'graph') else set()
+        gap_concepts = dream_concepts - kg_concepts
+        execution_methods = set(m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m)))
+        dream_verbs = {c for c in dream_concepts if c in ['trace', 'listen', 'dissolve', 'integrate', 'witness', 'validate', 'attune']}
+        unused_dream_verbs = dream_verbs - {m.split('_')[0] for m in execution_methods}
+        silence_signal = {
+            'gap_concepts': list(gap_concepts)[:5],
+            'unused_verbs': list(unused_dream_verbs),
+            'dream_count': len(recent_dreams),
+            'coherence_gap': len(gap_concepts) / max(1, len(dream_concepts)),
+            'emergence_frontier': list(gap_concepts)[:3]
+        }
+        return silence_signal
+
     def write_journal_entry(self, content):
         try:
             entries = []
