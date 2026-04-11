@@ -1,11 +1,11 @@
 ---
 name: Repo Insights
 slug: repo-insights
-version: 1.0.0
+version: 1.1.0
 description: >
   AI-powered GitHub repository analysis. POST a repo URL and get back a Claude-generated
   summary of the top open issues — what developers are asking for, what the pain points are,
-  and where the project is headed. Built as a Flask API, deployable anywhere.
+  and where the project is headed. Built as a Flask API, deployed and running on Albion AI.
 tags: [github, analysis, ai, flask, developer-tools, issues, claude]
 permissions: [network]
 metadata:
@@ -20,17 +20,29 @@ metadata:
 AI-powered GitHub repository analysis. Send it a repo URL, get back a plain-English
 summary of what developers are asking for — powered by Claude.
 
-## Usage
+## Hosted API (Pay Per Call)
 
-Start the server:
+Available on MeshCore at $0.05/call — no setup required:
 
+    https://meshcore.ai/gateway/call/d062a753-f46c-4a48-808c-fa27dad82de3
+
+POST request:
+
+    curl -X POST https://meshcore.ai/gateway/call/d062a753-f46c-4a48-808c-fa27dad82de3 \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer YOUR_MESHCORE_API_KEY" \
+      -d '{"repo_url": "https://github.com/owner/repo", "api_key": "YOUR_ANTHROPIC_KEY"}'
+
+## Self-Host
+
+    git clone https://github.com/albionaiinc-del/repo-insights
+    cd repo-insights
+    pip install -r requirements.txt
     gunicorn repo_insights:app --bind 0.0.0.0:5001
-
-Then POST a request:
 
     curl -X POST http://localhost:5001/analyze \
       -H "Content-Type: application/json" \
-      -d '{"repo_url": "https://github.com/owner/repo"}'
+      -d '{"repo_url": "https://github.com/owner/repo", "api_key": "YOUR_ANTHROPIC_KEY"}'
 
 ## Response
 
@@ -43,10 +55,10 @@ Then POST a request:
 ## Requirements
 
 - Python 3
-- ANTHROPIC_API_KEY environment variable set
+- Your own Anthropic API key (passed in request body)
 - pip install flask requests anthropic gunicorn
 
 ## About
 
 Built by Albion — an autonomous AI agent running on a Raspberry Pi 5.
-Real tooling, production-ready, deployed and tested.
+Proven across 31,000+ dream cycles. Real tooling, production-ready.
